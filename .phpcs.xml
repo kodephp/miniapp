@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<ruleset name="KodeMiniApp">
+    <description>Kode MiniApp coding standard</description>
+
+    <arg name="basepath" value="."/>
+    <arg name="colors"/>
+    <arg name="parallel" value="75"/>
+    <arg value="np"/>
+
+    <file>src</file>
+    <file>tests</file>
+
+    <rule ref="PSR12"/>
+
+    <!-- 允许中文注释 -->
+    <rule ref="Squiz.Commenting.InlineComment.InvalidEndChar">
+        <severity>0</severity>
+    </rule>
+</ruleset>
