@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Douyin\DouyinApp;
  */
 readonly class Auth
 {
-    private const string BASE_URL = 'https://developer.toutiao.com/api/apps';
+    private const BASE_URL = 'https://developer.toutiao.com/api/apps';
 
     public function __construct(
         private DouyinApp $app,

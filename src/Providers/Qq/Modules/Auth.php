@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Qq\QqApp;
  */
 readonly class Auth
 {
-    private const string BASE_URL = 'https://api.q.qq.com';
+    private const BASE_URL = 'https://api.q.qq.com';
 
     public function __construct(
         private QqApp $app,

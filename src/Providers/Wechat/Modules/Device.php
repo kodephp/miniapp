@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Wechat\WechatApp;
  */
 readonly class Device
 {
-    private const string BASE_URL = 'https://api.weixin.qq.com/device';
+    private const BASE_URL = 'https://api.weixin.qq.com/device';
 
     public function __construct(
         private WechatApp $app,

@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Qq\QqApp;
  */
 readonly class Pay
 {
-    private const string BASE_URL = 'https://api.unipay.qq.com/v1/r';
+    private const BASE_URL = 'https://api.unipay.qq.com/v1/r';
 
     public function __construct(
         private QqApp $app,

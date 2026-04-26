@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\WechatWork\WechatWorkApp;
  */
 readonly class Message
 {
-    private const string BASE_URL = 'https://qyapi.weixin.qq.com/cgi-bin';
+    private const BASE_URL = 'https://qyapi.weixin.qq.com/cgi-bin';
 
     public function __construct(
         private WechatWorkApp $app,

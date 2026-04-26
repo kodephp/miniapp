@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Wechat\WechatApp;
  */
 readonly class SubscribeMessage
 {
-    private const string BASE_URL = 'https://api.weixin.qq.com/cgi-bin/message/subscribe';
+    private const BASE_URL = 'https://api.weixin.qq.com/cgi-bin/message/subscribe';
 
     public function __construct(
         private WechatApp $app,

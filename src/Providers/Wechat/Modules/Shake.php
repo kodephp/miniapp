@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Wechat\WechatApp;
  */
 readonly class Shake
 {
-    private const string BASE_URL = 'https://api.weixin.qq.com/shakearound';
+    private const BASE_URL = 'https://api.weixin.qq.com/shakearound';
 
     public function __construct(
         private WechatApp $app,
@@ -21,7 +21,7 @@ readonly class Shake
     /**
      * 申请设备ID
      *
-     * @param array<int, array<string, mixed>> $devices
+     * @param array<string, mixed> $data
      * @return array<string, mixed>
      */
     public function applyDeviceId(int $quantity, array $data = []): array

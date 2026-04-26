@@ -12,7 +12,7 @@ use Kode\MiniApp\Providers\Wechat\WechatApp;
  */
 readonly class Security
 {
-    private const string BASE_URL = 'https://api.weixin.qq.com/wxa';
+    private const BASE_URL = 'https://api.weixin.qq.com/wxa';
 
     public function __construct(
         private WechatApp $app,

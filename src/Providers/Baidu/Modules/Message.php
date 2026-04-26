@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Baidu\BaiduApp;
  */
 readonly class Message
 {
-    private const string BASE_URL = 'https://openapi.baidu.com/rest/2.0/smartapp';
+    private const BASE_URL = 'https://openapi.baidu.com/rest/2.0/smartapp';
 
     public function __construct(
         private BaiduApp $app,

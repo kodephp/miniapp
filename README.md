@@ -184,6 +184,21 @@ Kernel（门面）
 ]
 ```
 
+### QQ
+
+```php
+$app = $kernel->qq()->app();
+
+// 登录
+$user = $app->auth()->user($code);
+
+// 支付
+$app->pay()->unifiedOrder(['body' => '商品描述', 'out_trade_no' => 'ORDER001', 'total_fee' => 100, 'spbill_create_ip' => '127.0.0.1', 'notify_url' => 'https://example.com/notify', 'trade_type' => 'MINIAPP']);
+$app->pay()->orderQuery('ORDER001');
+$app->pay()->closeOrder('ORDER001');
+$app->pay()->refund(['out_trade_no' => 'ORDER001', 'out_refund_no' => 'REFUND001', 'total_fee' => 100, 'refund_fee' => 50]);
+```
+
 ### 微信企业号
 
 ```php
@@ -449,6 +464,22 @@ $app->express()->cancelOrder(['shopid' => 'SHOP001', 'shop_order_id' => 'ORDER00
 $app->search()->submitPages(['pages/index/index', 'pages/detail/detail']);
 $app->search()->getData('2024-01-01', '2024-01-31');
 
+// 动态消息
+$app->dynamicMessage()->createActivityId();
+$app->dynamicMessage()->setUpdatableMsg(['activity_id' => $activityId, 'target_state' => 0, 'template_info' => ['parameter_list' => []]]);
+
+// 设备功能
+$app->device()->getQrcode([['id' => 'DEVICE001', 'mac' => '00:11:22:33:44:55', 'connect_protocol' => '3', 'auth_key' => '', 'close_strategy' => '1', 'conn_strategy' => '1', 'crypt_method' => '0', 'auth_ver' => '0', 'manu_mac_pos' => '-1', 'ser_mac_pos' => '-2', 'ble_simple_protocol' => '0']]);
+$app->device()->authorize([['id' => 'DEVICE001', 'mac' => '00:11:22:33:44:55', 'connect_protocol' => '3', 'auth_key' => '', 'close_strategy' => '1', 'conn_strategy' => '1', 'crypt_method' => '0', 'auth_ver' => '0', 'manu_mac_pos' => '-1', 'ser_mac_pos' => '-2', 'ble_simple_protocol' => '0']]);
+$app->device()->bind($ticket, $deviceId, $openid);
+$app->device()->getStat($deviceId);
+
+// 云开发
+$app->cloudbase()->invokeFunction('myFunction', ['key' => 'value']);
+$app->cloudbase()->databaseQuery(['env' => 'prod-env', 'query' => 'db.collection("users").get()']);
+$app->cloudbase()->databaseAdd(['env' => 'prod-env', 'query' => 'db.collection("users").add({data:{name:"张三"}})']);
+$app->cloudbase()->uploadFile('/path/to/file.jpg');
+
 // 企业级支付（需安装 kode/pays）
 $pay = $app->payBridge();
 if ($pay !== null) {
@@ -628,6 +659,16 @@ $app->drive()->spaceInfo($spaceId);
 $app->drive()->fileList($spaceId);
 $app->drive()->fileDownload($spaceId, $fileId);
 
+// 上下游/互联企业
+$app->corpGroup()->getAppShareInfo();
+$app->corpGroup()->unionidToExternalUserid($unionid, $openid);
+
+// 会话内容存档
+$app->msghub()->getPermitUserList();
+$app->msghub()->getSingleAgreeStatus(['zhangsan', 'lisi']);
+$app->msghub()->getRoomAgreeStatus(['ROOM001']);
+$app->msghub()->getRoomInfo('ROOM001');
+
 // 服务端消息处理
 $server = $app->server();
 $server->on('text', fn($payload) => 'success');
@@ -699,6 +740,13 @@ $app->project()->get($projectId);
 $app->project()->list();
 $app->project()->addTask($projectId, ['content' => '完成需求分析', 'executor_uid' => 'lisi']);
 $app->project()->taskList($projectId);
+
+// 智能工作流
+$app->workflow()->createInstance(['process_code' => 'PROC-XXX', 'originator_user_id' => 'zhangsan', 'dept_id' => 1, 'form_component_values' => [['name' => '标题', 'value' => '请假申请']]]);
+$app->workflow()->getInstance($processInstanceId);
+$app->workflow()->templateList();
+$app->workflow()->instanceList(['process_code' => 'PROC-XXX', 'start_time' => strtotime('-7 days') * 1000]);
+$app->workflow()->terminateInstance($processInstanceId);
 ```
 
 ### 飞书
@@ -778,6 +826,13 @@ $app->approvalDef()->createInstance(['approval_code' => $approvalCode, 'user_id'
 $app->approvalDef()->instanceList($approvalCode);
 $app->approvalDef()->approve(['instance_code' => $instanceCode, 'user_id' => 'ou_xxx', 'comment' => '同意']);
 $app->approvalDef()->reject(['instance_code' => $instanceCode, 'user_id' => 'ou_xxx', 'comment' => '驳回']);
+
+// 邮件
+$app->mail()->send(['subject' => '会议通知', 'body' => ['content' => '明天上午10点开会', 'content_type' => 'text/plain'], 'to' => [['mail_address' => 'user@example.com']]]);
+$app->mail()->mailGroupList();
+$app->mail()->createMailGroup(['mail_group_name' => '技术部', 'email' => 'tech@company.com']);
+$app->mail()->getMailGroup($mailGroupId);
+$app->mail()->deleteMailGroup($mailGroupId);
 ```
 
 ### 支付宝

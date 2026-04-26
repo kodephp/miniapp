@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Baidu\BaiduApp;
  */
 readonly class Pay
 {
-    private const string BASE_URL = 'https://openapi.baidu.com';
+    private const BASE_URL = 'https://openapi.baidu.com';
 
     public function __construct(
         private BaiduApp $app,

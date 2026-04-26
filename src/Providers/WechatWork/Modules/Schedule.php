@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\WechatWork\WechatWorkApp;
  */
 readonly class Schedule
 {
-    private const string BASE_URL = 'https://qyapi.weixin.qq.com/cgi-bin/oa/schedule';
+    private const BASE_URL = 'https://qyapi.weixin.qq.com/cgi-bin/oa/schedule';
 
     public function __construct(
         private WechatWorkApp $app,

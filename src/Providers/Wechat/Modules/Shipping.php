@@ -12,7 +12,7 @@ use Kode\MiniApp\Providers\Wechat\WechatApp;
  */
 readonly class Shipping
 {
-    private const string BASE_URL = 'https://api.weixin.qq.com/wxa/sec/order';
+    private const BASE_URL = 'https://api.weixin.qq.com/wxa/sec/order';
 
     public function __construct(
         private WechatApp $app,

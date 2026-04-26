@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Wechat\WechatApp;
  */
 readonly class Goods
 {
-    private const string BASE_URL = 'https://api.weixin.qq.com/channels/ec';
+    private const BASE_URL = 'https://api.weixin.qq.com/channels/ec';
 
     public function __construct(
         private WechatApp $app,

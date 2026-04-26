@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Wechat\WechatApp;
  */
 readonly class DynamicMessage
 {
-    private const string BASE_URL = 'https://api.weixin.qq.com/cgi-bin/message/wxopen';
+    private const BASE_URL = 'https://api.weixin.qq.com/cgi-bin/message/wxopen';
 
     public function __construct(
         private WechatApp $app,

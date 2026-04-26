@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Lark\LarkApp;
  */
 readonly class Mail
 {
-    private const string BASE_URL = 'https://open.feishu.cn/open-apis/mail/v1';
+    private const BASE_URL = 'https://open.feishu.cn/open-apis/mail/v1';
 
     public function __construct(
         private LarkApp $app,

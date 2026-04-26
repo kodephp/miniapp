@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Alipay\AlipayApp;
  */
 readonly class Member
 {
-    private const string BASE_URL = 'https://openapi.alipay.com/gateway.do';
+    private const BASE_URL = 'https://openapi.alipay.com/gateway.do';
 
     public function __construct(
         private AlipayApp $app,

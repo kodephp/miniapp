@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\WechatWork\WechatWorkApp;
  */
 readonly class Collect
 {
-    private const string BASE_URL = 'https://qyapi.weixin.qq.com/cgi-bin/wedoc';
+    private const BASE_URL = 'https://qyapi.weixin.qq.com/cgi-bin/wedoc';
 
     public function __construct(
         private WechatWorkApp $app,

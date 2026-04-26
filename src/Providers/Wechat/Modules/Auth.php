@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Wechat\WechatApp;
  */
 readonly class Auth
 {
-    private const string SESSION_URL = 'https://api.weixin.qq.com/sns/jscode2session';
+    private const SESSION_URL = 'https://api.weixin.qq.com/sns/jscode2session';
 
     public function __construct(
         private WechatApp $app,

@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Wechat\WechatApp;
  */
 readonly class User
 {
-    private const string BASE_URL = 'https://api.weixin.qq.com/cgi-bin';
+    private const BASE_URL = 'https://api.weixin.qq.com/cgi-bin';
 
     public function __construct(
         private WechatApp $app,

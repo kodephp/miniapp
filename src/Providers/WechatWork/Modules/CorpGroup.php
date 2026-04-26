@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\WechatWork\WechatWorkApp;
  */
 readonly class CorpGroup
 {
-    private const string BASE_URL = 'https://qyapi.weixin.qq.com/cgi-bin/corpgroup';
+    private const BASE_URL = 'https://qyapi.weixin.qq.com/cgi-bin/corpgroup';
 
     public function __construct(
         private WechatWorkApp $app,

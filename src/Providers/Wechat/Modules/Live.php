@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Wechat\WechatApp;
  */
 readonly class Live
 {
-    private const string BASE_URL = 'https://api.weixin.qq.com/wxa/business';
+    private const BASE_URL = 'https://api.weixin.qq.com/wxa/business';
 
     public function __construct(
         private WechatApp $app,

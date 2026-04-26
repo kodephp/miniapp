@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Douyin\DouyinApp;
  */
 readonly class Video
 {
-    private const string BASE_URL = 'https://open.douyin.com';
+    private const BASE_URL = 'https://open.douyin.com';
 
     public function __construct(
         private DouyinApp $app,

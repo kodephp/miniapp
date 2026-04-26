@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Lark\LarkApp;
  */
 readonly class ApprovalDef
 {
-    private const string BASE_URL = 'https://open.feishu.cn/open-apis/approval/openapi/v2';
+    private const BASE_URL = 'https://open.feishu.cn/open-apis/approval/openapi/v2';
 
     public function __construct(
         private LarkApp $app,

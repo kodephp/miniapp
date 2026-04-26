@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\WechatWork\WechatWorkApp;
  */
 readonly class Drive
 {
-    private const string BASE_URL = 'https://qyapi.weixin.qq.com/cgi-bin/wedrive';
+    private const BASE_URL = 'https://qyapi.weixin.qq.com/cgi-bin/wedrive';
 
     public function __construct(
         private WechatWorkApp $app,

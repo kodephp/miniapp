@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Dingtalk\DingtalkApp;
  */
 readonly class Workflow
 {
-    private const string BASE_URL = 'https://oapi.dingtalk.com/topapi';
+    private const BASE_URL = 'https://oapi.dingtalk.com/topapi';
 
     public function __construct(
         private DingtalkApp $app,

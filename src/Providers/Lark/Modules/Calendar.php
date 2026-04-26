@@ -11,7 +11,7 @@ use Kode\MiniApp\Providers\Lark\LarkApp;
  */
 readonly class Calendar
 {
-    private const string BASE_URL = 'https://open.feishu.cn/open-apis';
+    private const BASE_URL = 'https://open.feishu.cn/open-apis';
 
     public function __construct(
         private LarkApp $app,
