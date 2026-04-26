@@ -5,7 +5,7 @@
     "keywords": ["小程序", "公众号", "企业微信", "钉钉", "飞书", "微信支付", "支付宝", "抖音", "wechat", "miniprogram", "mp"],
     "homepage": "https://github.com/kode-lab/miniapp",
     "license": "Apache-2.0",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "authors": [
         {
             "name": "Kode Lab",

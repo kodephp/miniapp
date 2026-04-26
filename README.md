@@ -44,14 +44,14 @@ composer require kode/event     # 事件
 
 | 平台 | 标识 | 类型 | 能力 |
 |------|------|------|------|
-| 微信 | `wechat` | C端 | 登录、JS-SDK、用户、素材、菜单、客服、消息、订阅消息、小程序码、数据分析、支付、订单物流同步、内容安全、URL Scheme/Link、插件管理、直播、附近小程序、门店、卡券、摇一摇、发票、连Wi-Fi、微信小店、红包、广告、即时配送、搜一搜、服务端、回调通知 |
+| 微信 | `wechat` | C端 | 登录、JS-SDK、用户、素材、菜单、客服、消息、订阅消息、小程序码、数据分析、支付、订单物流同步、内容安全、URL Scheme/Link、插件管理、直播、附近小程序、门店、卡券、摇一摇、发票、连Wi-Fi、微信小店、红包、广告、即时配送、搜一搜、动态消息、设备功能、云开发、服务端、回调通知 |
 | 支付宝 | `alipay` | C端 | 登录、支付、转账、账单、营销、会员、回调通知 |
 | 抖音 | `douyin` | C端 | 登录、支付、视频、评论 |
 | 百度 | `baidu` | C端 | 登录、支付、模板消息 |
-| QQ | `qq` | C端 | 登录 |
-| 微信企业号 | `wechat_work` | B端 | 认证、通讯录、部门管理、客户联系、外部联系人、标签、消息、审批、素材管理、应用管理、OA打卡汇报、会议室、公费电话、日程、收集表、微盘、服务端、回调通知 |
-| 钉钉 | `dingtalk` | B端 | 认证、通讯录、消息、审批、群机器人、考勤、智能人事、日志、项目 |
-| 飞书 | `lark` | B端 | 认证、通讯录、消息、审批、审批定义、多维表格、文档、日历、任务、知识库 |
+| QQ | `qq` | C端 | 登录、支付 |
+| 微信企业号 | `wechat_work` | B端 | 认证、通讯录、部门管理、客户联系、外部联系人、标签、消息、审批、素材管理、应用管理、OA打卡汇报、会议室、公费电话、日程、收集表、微盘、上下游、会话存档、服务端、回调通知 |
+| 钉钉 | `dingtalk` | B端 | 认证、通讯录、消息、审批、群机器人、考勤、智能人事、日志、项目、智能工作流 |
+| 飞书 | `lark` | B端 | 认证、通讯录、消息、审批、审批定义、多维表格、文档、日历、任务、知识库、邮件 |
 
 ## 安装
 
@@ -435,6 +435,20 @@ $app->goods()->orderList();
 $app->redpack()->send(['send_name' => '商家名称', 're_openid' => $openid, 'total_amount' => 100, 'total_num' => 1, 'wishing' => '恭喜发财', 'act_name' => '活动名称', 'remark' => '备注']);
 $app->redpack()->query('MCHBILLNO001');
 
+// 广告
+$app->ad()->createAdUnit(['ad_unit_name' => '广告单元1', 'ad_unit_type' => 1]);
+$app->ad()->adUnitList();
+$app->ad()->getData($adUnitId, '2024-01-01', '2024-01-31');
+
+// 即时配送
+$app->express()->deliveryList();
+$app->express()->addOrder(['shopid' => 'SHOP001', 'shop_order_id' => 'ORDER001', 'shop_no' => '001', 'delivery_id' => 1, 'openid' => $openid, 'sender' => [], 'receiver' => [], 'cargo' => [], 'order_info' => []]);
+$app->express()->cancelOrder(['shopid' => 'SHOP001', 'shop_order_id' => 'ORDER001', 'delivery_id' => 1, 'waybill_id' => 'WB001']);
+
+// 搜一搜
+$app->search()->submitPages(['pages/index/index', 'pages/detail/detail']);
+$app->search()->getData('2024-01-01', '2024-01-31');
+
 // 企业级支付（需安装 kode/pays）
 $pay = $app->payBridge();
 if ($pay !== null) {
@@ -607,6 +621,12 @@ $app->schedule()->delete($scheduleId);
 $app->collect()->create(['form_title' => '入职信息收集', 'form_desc' => '请填写个人信息', 'form_question' => [['question_id' => 1, 'title' => '姓名', 'question_type' => 'text']]]);
 $app->collect()->get($formid);
 $app->collect()->getAnswer($formid);
+
+// 微盘
+$app->drive()->spaceCreate(['space_name' => '项目资料', 'auth_list' => ['userid' => 'zhangsan', 'auth' => 1]]);
+$app->drive()->spaceInfo($spaceId);
+$app->drive()->fileList($spaceId);
+$app->drive()->fileDownload($spaceId, $fileId);
 
 // 服务端消息处理
 $server = $app->server();
@@ -794,6 +814,19 @@ $app->transfer()->create([
 // 账单
 $app->bill()->download('trade', '2024-01-01');
 
+// 营销
+$app->marketing()->createCashActivity(['coupon_name' => '现金红包活动', 'prize_type' => 'FIX', 'total_money' => 10000, 'total_num' => 100]);
+$app->marketing()->triggerCash(['user_id' => $userId, 'out_biz_no' => 'BIZ001', 'amount' => 100]);
+$app->marketing()->createVoucherTemplate(['voucher_name' => '优惠券模板', 'brand_name' => '商家名称']);
+$app->marketing()->sendVoucher(['voucher_template_id' => $templateId, 'user_id' => $userId]);
+$app->marketing()->precreate(['out_trade_no' => 'ORDER001', 'total_amount' => '100.00', 'subject' => '商品标题']);
+$app->marketing()->refund(['out_trade_no' => 'ORDER001', 'refund_amount' => '50.00']);
+
+// 会员
+$app->member()->info($accessToken);
+$app->member()->authInfo($authToken);
+$app->member()->pointBalance($userId);
+
 // 回调通知
 $result = $app->notify()
     ->onPaid(function ($payload) {
@@ -803,6 +836,42 @@ $result = $app->notify()
     ->handle();
 
 echo 'success'; // 返回给支付宝
+```
+
+### 抖音
+
+```php
+$app = $kernel->douyin()->app();
+
+// 登录
+$user = $app->auth()->user($code);
+
+// 视频管理
+$app->video()->upload($accessToken, ['open_id' => $openId, 'video' => $videoData]);
+$app->video()->create($accessToken, ['open_id' => $openId, 'item_id' => $itemId, 'title' => '视频标题', 'cover' => $coverUrl]);
+$app->video()->list($accessToken, $openId);
+$app->video()->data($accessToken, $openId, [$itemId]);
+$app->video()->commentList($accessToken, $openId, $itemId);
+$app->video()->commentReply($accessToken, ['open_id' => $openId, 'item_id' => $itemId, 'comment_id' => $commentId, 'content' => '回复内容']);
+```
+
+### 百度
+
+```php
+$app = $kernel->baidu()->app();
+
+// 登录
+$app->auth()->session($code);
+$app->auth()->userInfo($accessToken);
+
+// 支付
+$app->pay()->order(['dealId' => 'DEAL001', 'appKey' => 'APP001', 'totalAmount' => '100', 'tpOrderId' => 'ORDER001']);
+
+// 模板消息
+$app->message()->send(['touser' => $openId, 'template_id' => $templateId, 'data' => ['keyword1' => '值1', 'keyword2' => '值2']]);
+$app->message()->templateList();
+$app->message()->templateDetail($templateId);
+$app->message()->deleteTemplate($templateId);
 ```
 
 ## Kode 生态桥接使用

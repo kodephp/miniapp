@@ -9,6 +9,7 @@ use Kode\MiniApp\Contracts\ConfigInterface;
 use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Providers\Qq\Modules\Auth;
+use Kode\MiniApp\Providers\Qq\Modules\Pay;
 
 /**
  * QQ 应用实例
@@ -16,6 +17,7 @@ use Kode\MiniApp\Providers\Qq\Modules\Auth;
 final readonly class QqApp implements AppInterface
 {
     private Auth $auth;
+    private Pay $pay;
 
     public function __construct(
         private string $name,
@@ -24,6 +26,7 @@ final readonly class QqApp implements AppInterface
         private HttpClientInterface $http,
     ) {
         $this->auth = new Auth($this);
+        $this->pay  = new Pay($this);
     }
 
     public function name(): string
@@ -49,5 +52,10 @@ final readonly class QqApp implements AppInterface
     public function auth(): Auth
     {
         return $this->auth;
+    }
+
+    public function pay(): Pay
+    {
+        return $this->pay;
     }
 }

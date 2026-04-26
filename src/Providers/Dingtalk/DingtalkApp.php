@@ -17,6 +17,7 @@ use Kode\MiniApp\Providers\Dingtalk\Modules\Approval;
 use Kode\MiniApp\Providers\Dingtalk\Modules\Project;
 use Kode\MiniApp\Providers\Dingtalk\Modules\Report;
 use Kode\MiniApp\Providers\Dingtalk\Modules\Robot;
+use Kode\MiniApp\Providers\Dingtalk\Modules\Workflow;
 
 /**
  * 钉钉应用实例
@@ -32,6 +33,7 @@ final readonly class DingtalkApp implements AppInterface
     private Hrm $hrm;
     private Report $report;
     private Project $project;
+    private Workflow $workflow;
 
     public function __construct(
         private string $name,
@@ -48,6 +50,7 @@ final readonly class DingtalkApp implements AppInterface
         $this->hrm      = new Hrm($this);
         $this->report   = new Report($this);
         $this->project  = new Project($this);
+        $this->workflow = new Workflow($this);
     }
 
     public function name(): string
@@ -113,5 +116,10 @@ final readonly class DingtalkApp implements AppInterface
     public function project(): Project
     {
         return $this->project;
+    }
+
+    public function workflow(): Workflow
+    {
+        return $this->workflow;
     }
 }

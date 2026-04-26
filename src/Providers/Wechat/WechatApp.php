@@ -13,8 +13,11 @@ use Kode\MiniApp\Notify\Notify;
 use Kode\MiniApp\Providers\Wechat\Modules\Ad;
 use Kode\MiniApp\Providers\Wechat\Modules\Auth;
 use Kode\MiniApp\Providers\Wechat\Modules\Card;
+use Kode\MiniApp\Providers\Wechat\Modules\Cloudbase;
 use Kode\MiniApp\Providers\Wechat\Modules\CustomerService;
 use Kode\MiniApp\Providers\Wechat\Modules\DataAnalysis;
+use Kode\MiniApp\Providers\Wechat\Modules\Device;
+use Kode\MiniApp\Providers\Wechat\Modules\DynamicMessage;
 use Kode\MiniApp\Providers\Wechat\Modules\Express;
 use Kode\MiniApp\Providers\Wechat\Modules\Goods;
 use Kode\MiniApp\Providers\Wechat\Modules\Invoice;
@@ -71,6 +74,9 @@ final readonly class WechatApp implements AppInterface
     private Ad $ad;
     private Express $express;
     private Search $search;
+    private DynamicMessage $dynamicMessage;
+    private Device $device;
+    private Cloudbase $cloudbase;
 
     public function __construct(
         private string $name,
@@ -104,6 +110,9 @@ final readonly class WechatApp implements AppInterface
         $this->ad              = new Ad($this);
         $this->express         = new Express($this);
         $this->search          = new Search($this);
+        $this->dynamicMessage  = new DynamicMessage($this);
+        $this->device          = new Device($this);
+        $this->cloudbase       = new Cloudbase($this);
     }
 
     public function name(): string
@@ -266,6 +275,21 @@ final readonly class WechatApp implements AppInterface
     public function search(): Search
     {
         return $this->search;
+    }
+
+    public function dynamicMessage(): DynamicMessage
+    {
+        return $this->dynamicMessage;
+    }
+
+    public function device(): Device
+    {
+        return $this->device;
+    }
+
+    public function cloudbase(): Cloudbase
+    {
+        return $this->cloudbase;
     }
 
     public function server(): Server

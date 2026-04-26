@@ -13,6 +13,7 @@ use Kode\MiniApp\Providers\WechatWork\Modules\Agent;
 use Kode\MiniApp\Providers\WechatWork\Modules\Auth;
 use Kode\MiniApp\Providers\WechatWork\Modules\Collect;
 use Kode\MiniApp\Providers\WechatWork\Modules\Contact;
+use Kode\MiniApp\Providers\WechatWork\Modules\CorpGroup;
 use Kode\MiniApp\Providers\WechatWork\Modules\Customer;
 use Kode\MiniApp\Providers\WechatWork\Modules\Department;
 use Kode\MiniApp\Providers\WechatWork\Modules\Dial;
@@ -21,6 +22,7 @@ use Kode\MiniApp\Providers\WechatWork\Modules\ExternalContact;
 use Kode\MiniApp\Providers\WechatWork\Modules\Media;
 use Kode\MiniApp\Providers\WechatWork\Modules\Meeting;
 use Kode\MiniApp\Providers\WechatWork\Modules\Message;
+use Kode\MiniApp\Providers\WechatWork\Modules\Msghub;
 use Kode\MiniApp\Providers\WechatWork\Modules\Oa;
 use Kode\MiniApp\Providers\WechatWork\Modules\Approval;
 use Kode\MiniApp\Providers\WechatWork\Modules\Schedule;
@@ -49,6 +51,8 @@ final readonly class WechatWorkApp implements AppInterface
     private Schedule $schedule;
     private Collect $collect;
     private Drive $drive;
+    private CorpGroup $corpGroup;
+    private Msghub $msghub;
 
     public function __construct(
         private string $name,
@@ -72,6 +76,8 @@ final readonly class WechatWorkApp implements AppInterface
         $this->schedule      = new Schedule($this);
         $this->collect       = new Collect($this);
         $this->drive         = new Drive($this);
+        $this->corpGroup     = new CorpGroup($this);
+        $this->msghub        = new Msghub($this);
     }
 
     public function name(): string
@@ -172,6 +178,16 @@ final readonly class WechatWorkApp implements AppInterface
     public function drive(): Drive
     {
         return $this->drive;
+    }
+
+    public function corpGroup(): CorpGroup
+    {
+        return $this->corpGroup;
+    }
+
+    public function msghub(): Msghub
+    {
+        return $this->msghub;
     }
 
     public function server(): Server

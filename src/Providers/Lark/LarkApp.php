@@ -15,6 +15,7 @@ use Kode\MiniApp\Providers\Lark\Modules\Bitable;
 use Kode\MiniApp\Providers\Lark\Modules\Calendar;
 use Kode\MiniApp\Providers\Lark\Modules\Contact;
 use Kode\MiniApp\Providers\Lark\Modules\Doc;
+use Kode\MiniApp\Providers\Lark\Modules\Mail;
 use Kode\MiniApp\Providers\Lark\Modules\Message;
 use Kode\MiniApp\Providers\Lark\Modules\Task;
 use Kode\MiniApp\Providers\Lark\Modules\Wiki;
@@ -34,6 +35,7 @@ final readonly class LarkApp implements AppInterface
     private Task $task;
     private Wiki $wiki;
     private ApprovalDef $approvalDef;
+    private Mail $mail;
 
     public function __construct(
         private string $name,
@@ -51,6 +53,7 @@ final readonly class LarkApp implements AppInterface
         $this->task     = new Task($this);
         $this->wiki     = new Wiki($this);
         $this->approvalDef = new ApprovalDef($this);
+        $this->mail     = new Mail($this);
     }
 
     public function name(): string
@@ -121,5 +124,10 @@ final readonly class LarkApp implements AppInterface
     public function approvalDef(): ApprovalDef
     {
         return $this->approvalDef;
+    }
+
+    public function mail(): Mail
+    {
+        return $this->mail;
     }
 }
