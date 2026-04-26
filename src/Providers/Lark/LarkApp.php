@@ -16,20 +16,22 @@ use Kode\MiniApp\Providers\Lark\Modules\Doc;
 use Kode\MiniApp\Providers\Lark\Modules\Message;
 use Kode\MiniApp\Providers\Lark\Modules\Approval;
 use Kode\MiniApp\Providers\Lark\Modules\Task;
+use Kode\MiniApp\Providers\Lark\Modules\Wiki;
 
 /**
  * 飞书应用实例
  */
 final readonly class LarkApp implements AppInterface
 {
-    private Auth     $auth;
-    private Contact  $contact;
-    private Message  $message;
+    private Auth $auth;
+    private Contact $contact;
+    private Message $message;
     private Approval $approval;
-    private Bitable  $bitable;
-    private Doc      $doc;
+    private Bitable $bitable;
+    private Doc $doc;
     private Calendar $calendar;
-    private Task     $task;
+    private Task $task;
+    private Wiki $wiki;
 
     public function __construct(
         private string $name,
@@ -45,6 +47,7 @@ final readonly class LarkApp implements AppInterface
         $this->doc      = new Doc($this);
         $this->calendar = new Calendar($this);
         $this->task     = new Task($this);
+        $this->wiki     = new Wiki($this);
     }
 
     public function name(): string
@@ -105,5 +108,10 @@ final readonly class LarkApp implements AppInterface
     public function task(): Task
     {
         return $this->task;
+    }
+
+    public function wiki(): Wiki
+    {
+        return $this->wiki;
     }
 }

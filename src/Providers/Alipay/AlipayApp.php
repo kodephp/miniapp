@@ -22,10 +22,10 @@ use Kode\MiniApp\Providers\Alipay\Modules\Transfer;
  */
 final readonly class AlipayApp implements AppInterface
 {
-    private Auth     $auth;
-    private Pay      $pay;
+    private Auth $auth;
+    private Pay $pay;
     private Transfer $transfer;
-    private Bill     $bill;
+    private Bill $bill;
 
     public function __construct(
         private string $name,

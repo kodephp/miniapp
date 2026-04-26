@@ -14,6 +14,7 @@ use Kode\MiniApp\Providers\WechatWork\Modules\Auth;
 use Kode\MiniApp\Providers\WechatWork\Modules\Contact;
 use Kode\MiniApp\Providers\WechatWork\Modules\Customer;
 use Kode\MiniApp\Providers\WechatWork\Modules\Department;
+use Kode\MiniApp\Providers\WechatWork\Modules\Dial;
 use Kode\MiniApp\Providers\WechatWork\Modules\ExternalContact;
 use Kode\MiniApp\Providers\WechatWork\Modules\Media;
 use Kode\MiniApp\Providers\WechatWork\Modules\Meeting;
@@ -29,18 +30,19 @@ use Kode\MiniApp\Server\Server;
  */
 final readonly class WechatWorkApp implements AppInterface
 {
-    private Auth            $auth;
-    private Contact         $contact;
-    private Message         $message;
-    private Approval        $approval;
-    private Customer        $customer;
-    private Tag             $tag;
-    private Department      $department;
+    private Auth $auth;
+    private Contact $contact;
+    private Message $message;
+    private Approval $approval;
+    private Customer $customer;
+    private Tag $tag;
+    private Department $department;
     private ExternalContact $externalContact;
-    private Media           $media;
-    private Agent           $agent;
-    private Oa              $oa;
-    private Meeting         $meeting;
+    private Media $media;
+    private Agent $agent;
+    private Oa $oa;
+    private Meeting $meeting;
+    private Dial $dial;
 
     public function __construct(
         private string $name,
@@ -60,6 +62,7 @@ final readonly class WechatWorkApp implements AppInterface
         $this->agent         = new Agent($this);
         $this->oa            = new Oa($this);
         $this->meeting       = new Meeting($this);
+        $this->dial          = new Dial($this);
     }
 
     public function name(): string
@@ -140,6 +143,11 @@ final readonly class WechatWorkApp implements AppInterface
     public function meeting(): Meeting
     {
         return $this->meeting;
+    }
+
+    public function dial(): Dial
+    {
+        return $this->dial;
     }
 
     public function server(): Server

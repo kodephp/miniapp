@@ -49,9 +49,9 @@ composer require kode/event     # 事件
 | 抖音 | `douyin` | C端 | 登录、支付 |
 | 百度 | `baidu` | C端 | 登录、支付 |
 | QQ | `qq` | C端 | 登录 |
-| 微信企业号 | `wechat_work` | B端 | 认证、通讯录、部门管理、客户联系、外部联系人、标签、消息、审批、素材管理、应用管理、OA打卡汇报、服务端、回调通知 |
-| 钉钉 | `dingtalk` | B端 | 认证、通讯录、消息、审批、群机器人、考勤 |
-| 飞书 | `lark` | B端 | 认证、通讯录、消息、审批、多维表格、文档、日历 |
+| 微信企业号 | `wechat_work` | B端 | 认证、通讯录、部门管理、客户联系、外部联系人、标签、消息、审批、素材管理、应用管理、OA打卡汇报、会议室、公费电话、服务端、回调通知 |
+| 钉钉 | `dingtalk` | B端 | 认证、通讯录、消息、审批、群机器人、考勤、智能人事、日志 |
+| 飞书 | `lark` | B端 | 认证、通讯录、消息、审批、多维表格、文档、日历、任务、知识库 |
 
 ## 安装
 
@@ -390,6 +390,12 @@ $replay = $app->live()->getReplay($roomId);
 $app->live()->addGoods($goodsInfo);
 $app->live()->audit($goodsId);
 
+// 附近小程序
+$app->nearby()->addPoi(['related_name' => '门店名称', 'related_credential' => '营业执照号', 'related_address' => '地址', 'related_phone' => '电话']);
+$app->nearby()->listPoi();
+$app->nearby()->deletePoi($poiId);
+$app->nearby()->setStatus($poiId, 1);
+
 // 企业级支付（需安装 kode/pays）
 $pay = $app->payBridge();
 if ($pay !== null) {
@@ -541,6 +547,13 @@ $app->oa()->getCheckinMonthData(strtotime('-30 days'), time(), ['zhangsan']);
 $app->oa()->getJournalRecordList(strtotime('-7 days'), time());
 $app->oa()->getJournalStat(strtotime('-7 days'), time());
 
+// 会议室管理
+$app->meeting()->create(['name' => '会议室A', 'capacity' => 10, 'city' => '深圳']);
+$app->meeting()->list();
+$app->meeting()->getBookingInfo($meetingRoomId, '2024-01-01T09:00:00', '2024-01-01T18:00:00');
+$app->meeting()->book(['meetingroom_id' => $meetingRoomId, 'subject' => '周会', 'start_time' => time(), 'end_time' => time() + 3600, 'booker' => 'zhangsan']);
+$app->meeting()->cancelBook($meetingId);
+
 // 服务端消息处理
 $server = $app->server();
 $server->on('text', fn($payload) => 'success');
@@ -594,6 +607,12 @@ $app->attendance()->list('2024-01-01 00:00:00', '2024-01-31 23:59:59', ['zhangsa
 $app->attendance()->listSchedule(['zhangsan'], '2024-01-01');
 $app->attendance()->getGroup(1);
 $app->attendance()->getRecord('2024-01-01 00:00:00', '2024-01-31 23:59:59', ['zhangsan']);
+
+// 智能人事
+$app->hrm()->getEmpRosterDetail(['zhangsan']);
+$app->hrm()->queryOnJob();
+$app->hrm()->queryPreEntry();
+$app->hrm()->queryDimission();
 ```
 
 ### 飞书
@@ -651,6 +670,14 @@ $app->calendar()->createEvent($calendarId, [
 $app->calendar()->listEvents($calendarId);
 $app->calendar()->getEvent($calendarId, $eventId);
 $app->calendar()->deleteEvent($calendarId, $eventId);
+
+// 任务管理
+$task = $app->task()->create(['summary' => '完成需求文档', 'due' => ['date' => '2024-01-15']]);
+$app->task()->get($taskGuid);
+$app->task()->update($taskGuid, ['summary' => '更新后的任务标题']);
+$app->task()->complete($taskGuid);
+$app->task()->uncomplete($taskGuid);
+$app->task()->delete($taskGuid);
 ```
 
 ### 支付宝
@@ -836,7 +863,7 @@ try {
 版本号由 `composer.json` 统一管理：
 
 ```bash
-# 升级 patch 版本（1.0.0 -> 1.0.1）
+# 升级 patch 版本（1.1.0 -> 1.1.1）
 composer run version:bump
 
 # 升级 minor 版本

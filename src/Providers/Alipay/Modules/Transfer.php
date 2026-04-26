@@ -32,7 +32,7 @@ readonly class Transfer
             'order_title'     => $params['order_title'] ?? '转账',
             'payee_info'      => [
                 'identity'     => $params['payee_account'],
-                'identity_type'=> 'ALIPAY_LOGON_ID',
+                'identity_type' => 'ALIPAY_LOGON_ID',
                 'name'         => $params['payee_name'] ?? '',
             ],
         ], $params);

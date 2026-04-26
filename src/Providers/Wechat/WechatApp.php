@@ -23,6 +23,7 @@ use Kode\MiniApp\Providers\Wechat\Modules\Pay;
 use Kode\MiniApp\Providers\Wechat\Modules\Plugin;
 use Kode\MiniApp\Providers\Wechat\Modules\Security;
 use Kode\MiniApp\Providers\Wechat\Modules\Shipping;
+use Kode\MiniApp\Providers\Wechat\Modules\Store;
 use Kode\MiniApp\Providers\Wechat\Modules\SubscribeMessage;
 use Kode\MiniApp\Providers\Wechat\Modules\UrlLink;
 use Kode\MiniApp\Providers\Wechat\Modules\User;
@@ -35,22 +36,23 @@ use Kode\MiniApp\Server\Server;
  */
 final readonly class WechatApp implements AppInterface
 {
-    private Auth             $auth;
-    private Jssdk            $jssdk;
-    private Message          $message;
-    private Pay              $pay;
-    private User             $user;
-    private Media            $media;
-    private Menu             $menu;
-    private CustomerService  $customerService;
-    private MiniProgramCode  $miniProgramCode;
+    private Auth $auth;
+    private Jssdk $jssdk;
+    private Message $message;
+    private Pay $pay;
+    private User $user;
+    private Media $media;
+    private Menu $menu;
+    private CustomerService $customerService;
+    private MiniProgramCode $miniProgramCode;
     private SubscribeMessage $subscribeMessage;
-    private DataAnalysis     $dataAnalysis;
-    private Shipping         $shipping;
-    private Security         $security;
-    private UrlLink          $urlLink;
-    private Plugin           $plugin;
-    private Live             $live;
+    private DataAnalysis $dataAnalysis;
+    private Shipping $shipping;
+    private Security $security;
+    private UrlLink $urlLink;
+    private Plugin $plugin;
+    private Live $live;
+    private Store $store;
 
     public function __construct(
         private string $name,
@@ -74,6 +76,7 @@ final readonly class WechatApp implements AppInterface
         $this->urlLink         = new UrlLink($this);
         $this->plugin          = new Plugin($this);
         $this->live            = new Live($this);
+        $this->store           = new Store($this);
     }
 
     public function name(): string
@@ -186,6 +189,11 @@ final readonly class WechatApp implements AppInterface
     public function live(): Live
     {
         return $this->live;
+    }
+
+    public function store(): Store
+    {
+        return $this->store;
     }
 
     public function server(): Server

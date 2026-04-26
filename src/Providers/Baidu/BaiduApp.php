@@ -17,7 +17,7 @@ use Kode\MiniApp\Providers\Baidu\Modules\Pay;
 final readonly class BaiduApp implements AppInterface
 {
     private Auth $auth;
-    private Pay  $pay;
+    private Pay $pay;
 
     public function __construct(
         private string $name,

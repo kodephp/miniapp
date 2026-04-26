@@ -69,7 +69,7 @@ readonly class Auth
             'sign_type'  => 'RSA2',
             'timestamp'  => date('Y-m-d H:i:s'),
             'version'    => '1.0',
-            'biz_content'=> json_encode($biz),
+            'biz_content' => json_encode($biz),
         ];
 
         $params['sign'] = $this->sign($params, $config->get('private_key'));
