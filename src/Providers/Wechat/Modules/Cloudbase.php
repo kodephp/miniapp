@@ -30,7 +30,7 @@ readonly class Cloudbase
         $response = $this->app->http()->postJson(
             self::BASE_URL . "/invokefunction?access_token={$token}",
             [
-                'env'  => $this->app->config()->cloudEnv() ?? '',
+                'env'  => $this->app->config()->get('cloud_env', '') ?? '',
                 'name' => $name,
                 'data' => $data,
             ]
@@ -56,7 +56,7 @@ readonly class Cloudbase
         $response = $this->app->http()->postJson(
             self::BASE_URL . "/databasequery?access_token={$token}",
             [
-                'env'   => $this->app->config()->cloudEnv() ?? '',
+                'env'   => $this->app->config()->get('cloud_env', '') ?? '',
                 'query' => $query,
             ]
         );
@@ -81,7 +81,7 @@ readonly class Cloudbase
         $response = $this->app->http()->postJson(
             self::BASE_URL . "/databaseupdate?access_token={$token}",
             [
-                'env'   => $this->app->config()->cloudEnv() ?? '',
+                'env'   => $this->app->config()->get('cloud_env', '') ?? '',
                 'query' => $query,
             ]
         );
@@ -106,7 +106,7 @@ readonly class Cloudbase
         $response = $this->app->http()->postJson(
             self::BASE_URL . "/databaseadd?access_token={$token}",
             [
-                'env'   => $this->app->config()->cloudEnv() ?? '',
+                'env'   => $this->app->config()->get('cloud_env', '') ?? '',
                 'query' => $query,
             ]
         );
@@ -131,7 +131,7 @@ readonly class Cloudbase
         $response = $this->app->http()->postJson(
             self::BASE_URL . "/databasedelete?access_token={$token}",
             [
-                'env'   => $this->app->config()->cloudEnv() ?? '',
+                'env'   => $this->app->config()->get('cloud_env', '') ?? '',
                 'query' => $query,
             ]
         );
@@ -147,7 +147,6 @@ readonly class Cloudbase
     /**
      * 上传文件
      *
-     * @param array<string, mixed> $data
      * @return array<string, mixed>
      */
     public function uploadFile(string $path): array
@@ -156,7 +155,7 @@ readonly class Cloudbase
         $response = $this->app->http()->postJson(
             self::BASE_URL . "/uploadfile?access_token={$token}",
             [
-                'env'  => $this->app->config()->cloudEnv() ?? '',
+                'env'  => $this->app->config()->get('cloud_env', '') ?? '',
                 'path' => $path,
             ]
         );
@@ -181,7 +180,7 @@ readonly class Cloudbase
         $response = $this->app->http()->postJson(
             self::BASE_URL . "/batchdownloadfile?access_token={$token}",
             [
-                'env'       => $this->app->config()->cloudEnv() ?? '',
+                'env'       => $this->app->config()->get('cloud_env', '') ?? '',
                 'file_list' => $fileList,
             ]
         );

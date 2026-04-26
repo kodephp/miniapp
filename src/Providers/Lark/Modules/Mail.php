@@ -30,7 +30,7 @@ readonly class Mail
         $response = $this->app->http()->postJson(
             self::BASE_URL . '/mailgroups/0/messages',
             $data,
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -50,7 +50,7 @@ readonly class Mail
         }
         $response = $this->app->http()->get(
             $url,
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -65,10 +65,12 @@ readonly class Mail
     public function createMailGroup(array $data): array
     {
         $token    = $this->app->auth()->token();
-        $response = $this->app->http()->postJson(
+        $response = $this->app->http()->post(
             self::BASE_URL . '/mailgroups',
-            $data,
-            headers: ['Authorization' => "Bearer {$token}"]
+            [
+                'headers' => ['Authorization' => "Bearer {$token}", 'Content-Type' => 'application/json'],
+                'json'    => $data,
+            ]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -84,7 +86,7 @@ readonly class Mail
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->get(
             self::BASE_URL . "/mailgroups/{$mailGroupId}",
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -100,7 +102,7 @@ readonly class Mail
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->delete(
             self::BASE_URL . "/mailgroups/{$mailGroupId}",
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);

@@ -57,7 +57,7 @@ final readonly class WechatWorkApp implements AppInterface
     public function __construct(
         private string $name,
         private PlatformInterface $platform,
-        private ConfigInterface $config,
+        private WechatWorkConfig $config,
         private HttpClientInterface $http,
     ) {
         $this->auth          = new Auth($this);
@@ -90,7 +90,7 @@ final readonly class WechatWorkApp implements AppInterface
         return $this->platform;
     }
 
-    public function config(): ConfigInterface
+    public function config(): WechatWorkConfig
     {
         return $this->config;
     }

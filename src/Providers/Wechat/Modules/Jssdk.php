@@ -20,7 +20,7 @@ readonly class Jssdk
     /**
      * 获取 JS-SDK 配置
      *
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     public function config(string $url, array $apis = []): array
     {

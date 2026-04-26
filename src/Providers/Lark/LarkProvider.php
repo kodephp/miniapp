@@ -49,7 +49,7 @@ final class LarkProvider implements PlatformInterface
         return $this->http;
     }
 
-    public function config(): ConfigInterface
+    public function config(): LarkConfig
     {
         return $this->config;
     }

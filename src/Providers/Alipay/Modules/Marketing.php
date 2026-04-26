@@ -116,7 +116,7 @@ readonly class Marketing
             'biz_content' => json_encode($bizContent, JSON_UNESCAPED_UNICODE),
         ];
 
-        $params['sign'] = $this->sign($params, $config->privateKey());
+        $params['sign'] = $this->sign($params, $config->get('private_key', ''));
 
         $response = $this->app->http()->post(self::BASE_URL, $params);
 

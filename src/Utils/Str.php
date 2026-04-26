@@ -50,6 +50,8 @@ final class Str
      */
     public static function snake(string $str): string
     {
-        return strtolower(preg_replace('/([a-z])([A-Z])/', '$1_$2', $str));
+        $replaced = preg_replace('/([a-z])([A-Z])/', '$1_$2', $str);
+
+        return strtolower($replaced ?? $str);
     }
 }

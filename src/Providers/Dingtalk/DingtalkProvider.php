@@ -49,7 +49,7 @@ final class DingtalkProvider implements PlatformInterface
         return $this->http;
     }
 
-    public function config(): ConfigInterface
+    public function config(): DingtalkConfig
     {
         return $this->config;
     }

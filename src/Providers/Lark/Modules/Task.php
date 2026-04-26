@@ -27,10 +27,12 @@ readonly class Task
     public function create(array $params): array
     {
         $token    = $this->app->auth()->token();
-        $response = $this->app->http()->postJson(
+        $response = $this->app->http()->post(
             self::BASE_URL . '/task/v2/tasks',
-            $params,
-            headers: ['Authorization' => "Bearer {$token}"]
+            [
+                'headers' => ['Authorization' => "Bearer {$token}", 'Content-Type' => 'application/json'],
+                'json'    => $params,
+            ]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -46,7 +48,7 @@ readonly class Task
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->get(
             self::BASE_URL . "/task/v2/tasks/{$taskGuid}",
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -63,8 +65,10 @@ readonly class Task
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->patch(
             self::BASE_URL . "/task/v2/tasks/{$taskGuid}",
-            $params,
-            headers: ['Authorization' => "Bearer {$token}"]
+            [
+                'headers' => ['Authorization' => "Bearer {$token}", 'Content-Type' => 'application/json'],
+                'json'    => $params,
+            ]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -80,7 +84,7 @@ readonly class Task
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->delete(
             self::BASE_URL . "/task/v2/tasks/{$taskGuid}",
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -94,10 +98,12 @@ readonly class Task
     public function complete(string $taskGuid): array
     {
         $token    = $this->app->auth()->token();
-        $response = $this->app->http()->postJson(
+        $response = $this->app->http()->post(
             self::BASE_URL . "/task/v2/tasks/{$taskGuid}/complete",
-            [],
-            headers: ['Authorization' => "Bearer {$token}"]
+            [
+                'headers' => ['Authorization' => "Bearer {$token}", 'Content-Type' => 'application/json'],
+                'json'    => [],
+            ]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -111,10 +117,12 @@ readonly class Task
     public function uncomplete(string $taskGuid): array
     {
         $token    = $this->app->auth()->token();
-        $response = $this->app->http()->postJson(
+        $response = $this->app->http()->post(
             self::BASE_URL . "/task/v2/tasks/{$taskGuid}/uncomplete",
-            [],
-            headers: ['Authorization' => "Bearer {$token}"]
+            [
+                'headers' => ['Authorization' => "Bearer {$token}", 'Content-Type' => 'application/json'],
+                'json'    => [],
+            ]
         );
 
         return json_decode((string) $response->getBody(), true);

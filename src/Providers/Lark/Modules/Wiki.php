@@ -32,7 +32,7 @@ readonly class Wiki
         }
         $response = $this->app->http()->get(
             $url,
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -48,7 +48,7 @@ readonly class Wiki
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->get(
             self::BASE_URL . "/wiki/v2/spaces/{$spaceId}",
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -68,7 +68,7 @@ readonly class Wiki
         }
         $response = $this->app->http()->get(
             $url,
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -83,10 +83,12 @@ readonly class Wiki
     public function createNode(string $spaceId, array $params): array
     {
         $token    = $this->app->auth()->token();
-        $response = $this->app->http()->postJson(
+        $response = $this->app->http()->post(
             self::BASE_URL . "/wiki/v2/spaces/{$spaceId}/nodes",
-            $params,
-            headers: ['Authorization' => "Bearer {$token}"]
+            [
+                'headers' => ['Authorization' => "Bearer {$token}", 'Content-Type' => 'application/json'],
+                'json'    => $params,
+            ]
         );
 
         return json_decode((string) $response->getBody(), true);

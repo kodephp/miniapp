@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kode\MiniApp\Providers\Wechat\Modules;
 
 use Kode\MiniApp\Providers\Wechat\WechatApp;
+use Kode\MiniApp\Providers\Wechat\WechatConfig;
 
 /**
  * 微信红包模块
@@ -26,9 +27,9 @@ readonly class Redpack
      */
     public function send(array $data): array
     {
-        $config = $this->app->config();
-        $data['wxappid'] = $config->appId();
-        $data['mch_id']  = $config->mchId();
+        $config = $this->config();
+        $data['wxappid']   = $config->appId();
+        $data['mch_id']    = $config->mchId();
         $data['nonce_str'] = $this->generateNonce();
 
         $data['sign'] = $this->sign($data, $config->apiV3Key());
@@ -36,8 +37,10 @@ readonly class Redpack
         $xml = $this->toXml($data);
         $response = $this->app->http()->post(
             self::BASE_URL . '/sendredpack',
-            $xml,
-            headers: ['Content-Type' => 'text/xml']
+            [
+                'body'    => $xml,
+                'headers' => ['Content-Type' => 'text/xml'],
+            ]
         );
 
         return $this->fromXml((string) $response->getBody());
@@ -51,7 +54,7 @@ readonly class Redpack
      */
     public function sendGroup(array $data): array
     {
-        $config = $this->app->config();
+        $config = $this->config();
         $data['wxappid']   = $config->appId();
         $data['mch_id']    = $config->mchId();
         $data['nonce_str'] = $this->generateNonce();
@@ -62,8 +65,10 @@ readonly class Redpack
         $xml = $this->toXml($data);
         $response = $this->app->http()->post(
             self::BASE_URL . '/sendgroupredpack',
-            $xml,
-            headers: ['Content-Type' => 'text/xml']
+            [
+                'body'    => $xml,
+                'headers' => ['Content-Type' => 'text/xml'],
+            ]
         );
 
         return $this->fromXml((string) $response->getBody());
@@ -76,7 +81,7 @@ readonly class Redpack
      */
     public function query(string $mchBillNo, string $billType = 'MCHT'): array
     {
-        $config = $this->app->config();
+        $config = $this->config();
         $data = [
             'nonce_str'  => $this->generateNonce(),
             'mch_billno' => $mchBillNo,
@@ -89,8 +94,10 @@ readonly class Redpack
         $xml = $this->toXml($data);
         $response = $this->app->http()->post(
             self::BASE_URL . '/gethbinfo',
-            $xml,
-            headers: ['Content-Type' => 'text/xml']
+            [
+                'body'    => $xml,
+                'headers' => ['Content-Type' => 'text/xml'],
+            ]
         );
 
         return $this->fromXml((string) $response->getBody());
@@ -147,7 +154,21 @@ readonly class Redpack
     private function fromXml(string $xml): array
     {
         $data = simplexml_load_string($xml, 'SimpleXMLElement', LIBXML_NOCDATA);
+        if ($data === false) {
+            return [];
+        }
 
-        return json_decode(json_encode($data), true) ?: [];
+        $json = json_encode($data);
+        if ($json === false) {
+            return [];
+        }
+
+        return json_decode($json, true) ?: [];
+    }
+
+    private function config(): WechatConfig
+    {
+        /** @var WechatConfig $config */
+        return $this->app->config();
     }
 }

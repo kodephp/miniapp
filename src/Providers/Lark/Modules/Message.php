@@ -26,14 +26,16 @@ readonly class Message
     {
         $token    = $this->app->auth()->token();
         $baseUrl  = $this->app->config()->get('base_url');
-        $response = $this->app->http()->postJson(
+        $response = $this->app->http()->post(
             "{$baseUrl}/open-apis/im/v1/messages?receive_id_type={$receiveIdType}",
             [
-                'receive_id' => $receiveId,
-                'msg_type'   => $content['msg_type'],
-                'content'    => json_encode($content['content']),
-            ],
-            ['Authorization' => "Bearer {$token}"]
+                'headers' => ['Authorization' => "Bearer {$token}", 'Content-Type' => 'application/json'],
+                'json'    => [
+                    'receive_id' => $receiveId,
+                    'msg_type'   => $content['msg_type'],
+                    'content'    => json_encode($content['content']),
+                ],
+            ]
         );
         $data = json_decode((string) $response->getBody(), true);
 

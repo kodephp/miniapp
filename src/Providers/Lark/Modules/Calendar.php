@@ -27,10 +27,12 @@ readonly class Calendar
     public function create(array $params): array
     {
         $token    = $this->app->auth()->token();
-        $response = $this->app->http()->postJson(
+        $response = $this->app->http()->post(
             self::BASE_URL . '/calendar/v4/calendars',
-            $params,
-            headers: ['Authorization' => "Bearer {$token}"]
+            [
+                'headers' => ['Authorization' => "Bearer {$token}", 'Content-Type' => 'application/json'],
+                'json'    => $params,
+            ]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -50,7 +52,7 @@ readonly class Calendar
         }
         $response = $this->app->http()->get(
             $url,
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -66,7 +68,7 @@ readonly class Calendar
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->get(
             self::BASE_URL . "/calendar/v4/calendars/{$calendarId}",
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -82,7 +84,7 @@ readonly class Calendar
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->delete(
             self::BASE_URL . "/calendar/v4/calendars/{$calendarId}",
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -97,10 +99,12 @@ readonly class Calendar
     public function createEvent(string $calendarId, array $params): array
     {
         $token    = $this->app->auth()->token();
-        $response = $this->app->http()->postJson(
+        $response = $this->app->http()->post(
             self::BASE_URL . "/calendar/v4/calendars/{$calendarId}/events",
-            $params,
-            headers: ['Authorization' => "Bearer {$token}"]
+            [
+                'headers' => ['Authorization' => "Bearer {$token}", 'Content-Type' => 'application/json'],
+                'json'    => $params,
+            ]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -120,7 +124,7 @@ readonly class Calendar
         }
         $response = $this->app->http()->get(
             $url,
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -136,7 +140,7 @@ readonly class Calendar
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->get(
             self::BASE_URL . "/calendar/v4/calendars/{$calendarId}/events/{$eventId}",
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -152,7 +156,7 @@ readonly class Calendar
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->delete(
             self::BASE_URL . "/calendar/v4/calendars/{$calendarId}/events/{$eventId}",
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);

@@ -69,10 +69,12 @@ readonly class Bitable
     {
         $token    = $this->app->auth()->token();
         $baseUrl  = $this->app->config()->get('base_url') ?? 'https://open.feishu.cn';
-        $response = $this->app->http()->postJson(
+        $response = $this->app->http()->post(
             "{$baseUrl}/open-apis/bitable/v1/apps/{$appToken}/tables/{$tableId}/records",
-            ['fields' => $fields],
-            ['Authorization' => "Bearer {$token}"]
+            [
+                'headers' => ['Authorization' => "Bearer {$token}", 'Content-Type' => 'application/json'],
+                'json'    => ['fields' => $fields],
+            ]
         );
         $data = json_decode((string) $response->getBody(), true);
 

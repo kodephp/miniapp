@@ -29,17 +29,16 @@ readonly class Pay
         $config = $this->app->config();
         $params = array_merge([
             'appid'     => $config->appId(),
-            'mch_id'    => $config->mchId(),
+            'mch_id'    => $config->get('mch_id', ''),
             'nonce_str' => $this->generateNonce(),
         ], $data);
 
-        $params['sign'] = $this->sign($params, $config->apiKey());
+        $params['sign'] = $this->sign($params, $config->get('api_key', ''));
 
         $xml      = $this->toXml($params);
         $response = $this->app->http()->post(
             self::BASE_URL . '/145/minipay/unifiedorder',
-            $xml,
-            headers: ['Content-Type' => 'text/xml']
+            ['body' => $xml, 'headers' => ['Content-Type' => 'text/xml']]
         );
 
         return $this->fromXml((string) $response->getBody());
@@ -55,17 +54,16 @@ readonly class Pay
         $config = $this->app->config();
         $params = [
             'appid'        => $config->appId(),
-            'mch_id'       => $config->mchId(),
+            'mch_id'       => $config->get('mch_id', ''),
             'out_trade_no' => $outTradeNo,
             'nonce_str'    => $this->generateNonce(),
         ];
-        $params['sign'] = $this->sign($params, $config->apiKey());
+        $params['sign'] = $this->sign($params, $config->get('api_key', ''));
 
         $xml      = $this->toXml($params);
         $response = $this->app->http()->post(
             self::BASE_URL . '/145/minipay/orderquery',
-            $xml,
-            headers: ['Content-Type' => 'text/xml']
+            ['body' => $xml, 'headers' => ['Content-Type' => 'text/xml']]
         );
 
         return $this->fromXml((string) $response->getBody());
@@ -81,17 +79,16 @@ readonly class Pay
         $config = $this->app->config();
         $params = [
             'appid'        => $config->appId(),
-            'mch_id'       => $config->mchId(),
+            'mch_id'       => $config->get('mch_id', ''),
             'out_trade_no' => $outTradeNo,
             'nonce_str'    => $this->generateNonce(),
         ];
-        $params['sign'] = $this->sign($params, $config->apiKey());
+        $params['sign'] = $this->sign($params, $config->get('api_key', ''));
 
         $xml      = $this->toXml($params);
         $response = $this->app->http()->post(
             self::BASE_URL . '/145/minipay/closeorder',
-            $xml,
-            headers: ['Content-Type' => 'text/xml']
+            ['body' => $xml, 'headers' => ['Content-Type' => 'text/xml']]
         );
 
         return $this->fromXml((string) $response->getBody());
@@ -108,17 +105,16 @@ readonly class Pay
         $config = $this->app->config();
         $params = array_merge([
             'appid'     => $config->appId(),
-            'mch_id'    => $config->mchId(),
+            'mch_id'    => $config->get('mch_id', ''),
             'nonce_str' => $this->generateNonce(),
         ], $data);
 
-        $params['sign'] = $this->sign($params, $config->apiKey());
+        $params['sign'] = $this->sign($params, $config->get('api_key', ''));
 
         $xml      = $this->toXml($params);
         $response = $this->app->http()->post(
             self::BASE_URL . '/145/minipay/refund',
-            $xml,
-            headers: ['Content-Type' => 'text/xml']
+            ['body' => $xml, 'headers' => ['Content-Type' => 'text/xml']]
         );
 
         return $this->fromXml((string) $response->getBody());
@@ -175,7 +171,15 @@ readonly class Pay
     private function fromXml(string $xml): array
     {
         $data = simplexml_load_string($xml, 'SimpleXMLElement', LIBXML_NOCDATA);
+        if ($data === false) {
+            return [];
+        }
 
-        return json_decode(json_encode($data), true) ?: [];
+        $json = json_encode($data);
+        if ($json === false) {
+            return [];
+        }
+
+        return json_decode($json, true) ?: [];
     }
 }

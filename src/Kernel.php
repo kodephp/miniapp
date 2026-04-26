@@ -148,7 +148,6 @@ final class Kernel
             Platform::WechatWork => new WechatWorkProvider($config, $this->http),
             Platform::Dingtalk   => new DingtalkProvider($config, $this->http),
             Platform::Lark       => new LarkProvider($config, $this->http),
-            default              => throw new InvalidArgumentException("暂不支持平台 [{$platform->label()}]"),
         };
     }
 }

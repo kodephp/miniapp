@@ -89,14 +89,16 @@ final class Notify
         }
 
         $json = json_decode($content, true);
-        if (is_array($json)) {
+        if ($json !== null && is_array($json)) {
+            /** @var array<string, mixed> $json */
             return $json;
         }
 
         // 支付宝 form 数据
         parse_str($content, $data);
 
-        return is_array($data) ? $data : [];
+        /** @var array<string, mixed> $data */
+        return $data;
     }
 
     /**

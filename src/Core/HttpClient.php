@@ -43,6 +43,21 @@ final class HttpClient implements HttpClientInterface
         return $this->request('POST', $uri, $options);
     }
 
+    public function put(string $uri, array $options = []): ResponseInterface
+    {
+        return $this->request('PUT', $uri, $options);
+    }
+
+    public function patch(string $uri, array $options = []): ResponseInterface
+    {
+        return $this->request('PATCH', $uri, $options);
+    }
+
+    public function delete(string $uri, array $options = []): ResponseInterface
+    {
+        return $this->request('DELETE', $uri, $options);
+    }
+
     public function postJson(string $uri, array $data = [], array $headers = []): ResponseInterface
     {
         return $this->request('POST', $uri, [

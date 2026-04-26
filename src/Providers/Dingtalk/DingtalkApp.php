@@ -38,7 +38,7 @@ final readonly class DingtalkApp implements AppInterface
     public function __construct(
         private string $name,
         private PlatformInterface $platform,
-        private ConfigInterface $config,
+        private DingtalkConfig $config,
         private HttpClientInterface $http,
     ) {
         $this->auth     = new Auth($this);
@@ -63,7 +63,7 @@ final readonly class DingtalkApp implements AppInterface
         return $this->platform;
     }
 
-    public function config(): ConfigInterface
+    public function config(): DingtalkConfig
     {
         return $this->config;
     }

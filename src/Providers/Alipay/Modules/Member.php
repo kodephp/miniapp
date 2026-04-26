@@ -78,7 +78,7 @@ readonly class Member
             $params['auth_token'] = $authToken;
         }
 
-        $params['sign'] = $this->sign($params, $config->privateKey());
+        $params['sign'] = $this->sign($params, $config->get('private_key', ''));
 
         $response = $this->app->http()->post(self::BASE_URL, $params);
 

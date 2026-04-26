@@ -34,7 +34,7 @@ readonly class Doc
         $response = $this->app->http()->postJson(
             self::BASE_URL . '/docx/v1/documents',
             $data,
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -50,7 +50,7 @@ readonly class Doc
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->get(
             self::BASE_URL . "/docx/v1/documents/{$documentId}",
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -66,7 +66,7 @@ readonly class Doc
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->get(
             self::BASE_URL . "/docx/v1/documents/{$documentId}/raw_content",
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -82,7 +82,7 @@ readonly class Doc
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->get(
             self::BASE_URL . "/docx/v1/documents/{$documentId}/blocks/{$blockId}/children?page_size={$pageSize}",
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -97,13 +97,15 @@ readonly class Doc
     public function createBlock(string $documentId, string $blockId, array $children, int $index = 0): array
     {
         $token    = $this->app->auth()->token();
-        $response = $this->app->http()->postJson(
+        $response = $this->app->http()->post(
             self::BASE_URL . "/docx/v1/documents/{$documentId}/blocks/{$blockId}/children?document_revision_id=-1",
             [
-                'children' => $children,
-                'index'    => $index,
-            ],
-            headers: ['Authorization' => "Bearer {$token}"]
+                'headers' => ['Authorization' => "Bearer {$token}", 'Content-Type' => 'application/json'],
+                'json'    => [
+                    'children' => $children,
+                    'index'    => $index,
+                ],
+            ]
         );
 
         return json_decode((string) $response->getBody(), true);

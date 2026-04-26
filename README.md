@@ -124,6 +124,23 @@ Kernel（门面）
 - **ToolsBridge**：工具桥接器，自动检测并优先使用 `kode/tools` 工具类
 - **ExceptionBridge**：异常桥接器，自动检测并扩展 `kode/exception` 异常码体系
 
+## 各平台详细文档
+
+每个平台都有独立的详细使用文档，包含配置说明和各功能模块的完整使用示例：
+
+| 平台 | 文档路径 | 说明 |
+|------|----------|------|
+| 微信 | [docs/wechat.md](docs/wechat.md) | 公众号/小程序，30+ 功能模块 |
+| 支付宝 | [docs/alipay.md](docs/alipay.md) | 小程序/生活号，支付/转账/营销 |
+| 抖音 | [docs/douyin.md](docs/douyin.md) | 小程序，视频管理/支付 |
+| 百度 | [docs/baidu.md](docs/baidu.md) | 小程序，登录/支付/模板消息 |
+| QQ | [docs/qq.md](docs/qq.md) | 小程序，登录/支付 |
+| 微信企业号 | [docs/wechat-work.md](docs/wechat-work.md) | 企业微信，通讯录/审批/客户联系/会话存档 |
+| 钉钉 | [docs/dingtalk.md](docs/dingtalk.md) | 企业办公，通讯录/审批/考勤/智能人事 |
+| 飞书 | [docs/lark.md](docs/lark.md) | 企业办公，通讯录/审批/多维表格/文档/日历 |
+
+---
+
 ## 各平台详细配置
 
 ### 微信

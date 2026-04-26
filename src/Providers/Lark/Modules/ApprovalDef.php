@@ -32,7 +32,7 @@ readonly class ApprovalDef
         }
         $response = $this->app->http()->get(
             $url,
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -48,7 +48,7 @@ readonly class ApprovalDef
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->get(
             self::BASE_URL . "/approval/definitions/{$approvalCode}",
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -63,10 +63,12 @@ readonly class ApprovalDef
     public function createInstance(array $data): array
     {
         $token    = $this->app->auth()->token();
-        $response = $this->app->http()->postJson(
+        $response = $this->app->http()->post(
             self::BASE_URL . '/instance',
-            $data,
-            headers: ['Authorization' => "Bearer {$token}"]
+            [
+                'headers' => ['Authorization' => "Bearer {$token}", 'Content-Type' => 'application/json'],
+                'json'    => $data,
+            ]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -86,7 +88,7 @@ readonly class ApprovalDef
         }
         $response = $this->app->http()->get(
             $url,
-            headers: ['Authorization' => "Bearer {$token}"]
+            ['headers' => ['Authorization' => "Bearer {$token}"]]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -101,10 +103,12 @@ readonly class ApprovalDef
     public function approve(array $data): array
     {
         $token    = $this->app->auth()->token();
-        $response = $this->app->http()->postJson(
+        $response = $this->app->http()->post(
             self::BASE_URL . '/task/approve',
-            $data,
-            headers: ['Authorization' => "Bearer {$token}"]
+            [
+                'headers' => ['Authorization' => "Bearer {$token}", 'Content-Type' => 'application/json'],
+                'json'    => $data,
+            ]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -119,10 +123,12 @@ readonly class ApprovalDef
     public function reject(array $data): array
     {
         $token    = $this->app->auth()->token();
-        $response = $this->app->http()->postJson(
+        $response = $this->app->http()->post(
             self::BASE_URL . '/task/reject',
-            $data,
-            headers: ['Authorization' => "Bearer {$token}"]
+            [
+                'headers' => ['Authorization' => "Bearer {$token}", 'Content-Type' => 'application/json'],
+                'json'    => $data,
+            ]
         );
 
         return json_decode((string) $response->getBody(), true);
@@ -137,10 +143,12 @@ readonly class ApprovalDef
     public function transfer(array $data): array
     {
         $token    = $this->app->auth()->token();
-        $response = $this->app->http()->postJson(
+        $response = $this->app->http()->post(
             self::BASE_URL . '/task/transfer',
-            $data,
-            headers: ['Authorization' => "Bearer {$token}"]
+            [
+                'headers' => ['Authorization' => "Bearer {$token}", 'Content-Type' => 'application/json'],
+                'json'    => $data,
+            ]
         );
 
         return json_decode((string) $response->getBody(), true);

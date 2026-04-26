@@ -26,8 +26,9 @@ readonly class Message
      */
     public function send(array $data): array
     {
-        $token    = $this->app->auth()->token();
-        $response = $this->app->http()->postJson(
+        $tokenData = $this->app->auth()->token();
+        $token     = $tokenData['access_token'] ?? '';
+        $response  = $this->app->http()->postJson(
             self::BASE_URL . "/template/send?access_token={$token}",
             $data
         );
@@ -47,8 +48,9 @@ readonly class Message
      */
     public function templateList(int $offset = 0, int $count = 20): array
     {
-        $token    = $this->app->auth()->token();
-        $response = $this->app->http()->get(
+        $tokenData = $this->app->auth()->token();
+        $token     = $tokenData['access_token'] ?? '';
+        $response  = $this->app->http()->get(
             self::BASE_URL . "/template/librarylist?access_token={$token}&offset={$offset}&count={$count}"
         );
         $result = json_decode((string) $response->getBody(), true);
@@ -67,8 +69,9 @@ readonly class Message
      */
     public function templateDetail(string $id): array
     {
-        $token    = $this->app->auth()->token();
-        $response = $this->app->http()->get(
+        $tokenData = $this->app->auth()->token();
+        $token     = $tokenData['access_token'] ?? '';
+        $response  = $this->app->http()->get(
             self::BASE_URL . "/template/libraryget?access_token={$token}&id={$id}"
         );
         $result = json_decode((string) $response->getBody(), true);
@@ -87,8 +90,9 @@ readonly class Message
      */
     public function deleteTemplate(string $templateId): array
     {
-        $token    = $this->app->auth()->token();
-        $response = $this->app->http()->postJson(
+        $tokenData = $this->app->auth()->token();
+        $token     = $tokenData['access_token'] ?? '';
+        $response  = $this->app->http()->postJson(
             self::BASE_URL . "/template/del?access_token={$token}",
             ['template_id' => $templateId]
         );

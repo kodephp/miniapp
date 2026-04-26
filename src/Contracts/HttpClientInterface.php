@@ -26,6 +26,27 @@ interface HttpClientInterface
     public function post(string $uri, array $options = []): ResponseInterface;
 
     /**
+     * 发送 PUT 请求
+     *
+     * @param array<string, mixed> $options
+     */
+    public function put(string $uri, array $options = []): ResponseInterface;
+
+    /**
+     * 发送 PATCH 请求
+     *
+     * @param array<string, mixed> $options
+     */
+    public function patch(string $uri, array $options = []): ResponseInterface;
+
+    /**
+     * 发送 DELETE 请求
+     *
+     * @param array<string, mixed> $options
+     */
+    public function delete(string $uri, array $options = []): ResponseInterface;
+
+    /**
      * 发送 JSON POST 请求
      *
      * @param array<string, mixed> $data

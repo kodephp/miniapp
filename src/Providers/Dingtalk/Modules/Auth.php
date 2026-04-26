@@ -25,8 +25,8 @@ readonly class Auth
     {
         $config = $this->app->config();
         $params = [
-            'appkey'    => $config->appKey(),
-            'appsecret' => $config->appSecret(),
+            'appkey'    => $config->get('app_key', ''),
+            'appsecret' => $config->get('app_secret', ''),
         ];
 
         $response = $this->app->http()->get(self::BASE_URL . '/gettoken', ['query' => $params]);

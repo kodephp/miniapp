@@ -40,7 +40,7 @@ final readonly class LarkApp implements AppInterface
     public function __construct(
         private string $name,
         private PlatformInterface $platform,
-        private ConfigInterface $config,
+        private LarkConfig $config,
         private HttpClientInterface $http,
     ) {
         $this->auth     = new Auth($this);
@@ -66,7 +66,7 @@ final readonly class LarkApp implements AppInterface
         return $this->platform;
     }
 
-    public function config(): ConfigInterface
+    public function config(): LarkConfig
     {
         return $this->config;
     }

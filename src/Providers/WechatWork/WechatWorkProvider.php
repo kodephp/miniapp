@@ -49,7 +49,7 @@ final class WechatWorkProvider implements PlatformInterface
         return $this->http;
     }
 
-    public function config(): ConfigInterface
+    public function config(): WechatWorkConfig
     {
         return $this->config;
     }
