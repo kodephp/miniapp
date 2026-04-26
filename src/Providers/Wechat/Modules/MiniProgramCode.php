@@ -39,7 +39,9 @@ readonly class MiniProgramCode
         // 如果返回的是 JSON，说明出错了
         if (str_starts_with($content, '{')) {
             $data = json_decode($content, true);
-            throw new \RuntimeException("获取小程序码失败: [{$data['errcode']}] {$data['errmsg']}");
+            $errcode = $data['errcode'] ?? 'unknown';
+            $errmsg  = $data['errmsg'] ?? '未知错误';
+            throw new \RuntimeException("获取小程序码失败: [{$errcode}] {$errmsg}");
         }
 
         return $content;
@@ -65,7 +67,9 @@ readonly class MiniProgramCode
 
         if (str_starts_with($content, '{')) {
             $data = json_decode($content, true);
-            throw new \RuntimeException("获取小程序二维码失败: [{$data['errcode']}] {$data['errmsg']}");
+            $errcode = $data['errcode'] ?? 'unknown';
+            $errmsg  = $data['errmsg'] ?? '未知错误';
+            throw new \RuntimeException("获取小程序二维码失败: [{$errcode}] {$errmsg}");
         }
 
         return $content;
@@ -91,7 +95,9 @@ readonly class MiniProgramCode
 
         if (str_starts_with($content, '{')) {
             $data = json_decode($content, true);
-            throw new \RuntimeException("获取小程序码失败: [{$data['errcode']}] {$data['errmsg']}");
+            $errcode = $data['errcode'] ?? 'unknown';
+            $errmsg  = $data['errmsg'] ?? '未知错误';
+            throw new \RuntimeException("获取小程序码失败: [{$errcode}] {$errmsg}");
         }
 
         return $content;

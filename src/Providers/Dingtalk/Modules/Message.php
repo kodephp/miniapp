@@ -72,4 +72,106 @@ readonly class Message
             ],
         ]);
     }
+
+    /**
+     * 发送图片消息
+     *
+     * @param string|array<string> $userIds
+     * @return array<string, mixed>
+     */
+    public function image(string $mediaId, string|array $userIds): array
+    {
+        $users = is_array($userIds) ? implode(',', $userIds) : $userIds;
+
+        return $this->send([
+            'userid_list' => $users,
+            'msg'         => [
+                'msgtype' => 'image',
+                'image'   => ['media_id' => $mediaId],
+            ],
+        ]);
+    }
+
+    /**
+     * 发送文件消息
+     *
+     * @param string|array<string> $userIds
+     * @return array<string, mixed>
+     */
+    public function file(string $mediaId, string|array $userIds): array
+    {
+        $users = is_array($userIds) ? implode(',', $userIds) : $userIds;
+
+        return $this->send([
+            'userid_list' => $users,
+            'msg'         => [
+                'msgtype' => 'file',
+                'file'    => ['media_id' => $mediaId],
+            ],
+        ]);
+    }
+
+    /**
+     * 发送链接消息
+     *
+     * @param string|array<string> $userIds
+     * @return array<string, mixed>
+     */
+    public function link(string $title, string $text, string $messageUrl, string $picUrl, string|array $userIds): array
+    {
+        $users = is_array($userIds) ? implode(',', $userIds) : $userIds;
+
+        return $this->send([
+            'userid_list' => $users,
+            'msg'         => [
+                'msgtype' => 'link',
+                'link'    => [
+                    'title'      => $title,
+                    'text'       => $text,
+                    'messageUrl' => $messageUrl,
+                    'picUrl'     => $picUrl,
+                ],
+            ],
+        ]);
+    }
+
+    /**
+     * 发送 OA 卡片消息
+     *
+     * @param array<string, mixed> $oa
+     * @param string|array<string> $userIds
+     * @return array<string, mixed>
+     */
+    public function oa(array $oa, string|array $userIds): array
+    {
+        $users = is_array($userIds) ? implode(',', $userIds) : $userIds;
+
+        return $this->send([
+            'userid_list' => $users,
+            'msg'         => [
+                'msgtype' => 'oa',
+                'oa'      => $oa,
+            ],
+        ]);
+    }
+
+    /**
+     * 发送 ActionCard 消息
+     *
+     * @param array<string, mixed> $card
+     * @param string|array<string> $userIds
+     * @return array<string, mixed>
+     */
+    public function actionCard(array $card, string|array $userIds): array
+    {
+        $users = is_array($userIds) ? implode(',', $userIds) : $userIds;
+
+        return $this->send([
+            'userid_list' => $users,
+            'msg'         => [
+                'msgtype'    => 'action_card',
+                'action_card' => $card,
+            ],
+        ]);
+    }
 }

@@ -68,4 +68,134 @@ readonly class Message
             'markdown' => ['content' => $content],
         ]);
     }
+
+    /**
+     * 发送图文消息
+     *
+     * @param array<int, array<string, string>> $articles
+     * @param string|array<string> $toUser
+     * @return array<string, mixed>
+     */
+    public function news(array $articles, string|array $toUser = '@all'): array
+    {
+        $users = is_array($toUser) ? implode('|', $toUser) : $toUser;
+
+        return $this->send([
+            'touser'  => $users,
+            'msgtype' => 'news',
+            'news'    => ['articles' => $articles],
+        ]);
+    }
+
+    /**
+     * 发送文件消息
+     *
+     * @param string|array<string> $toUser
+     * @return array<string, mixed>
+     */
+    public function file(string $mediaId, string|array $toUser = '@all'): array
+    {
+        $users = is_array($toUser) ? implode('|', $toUser) : $toUser;
+
+        return $this->send([
+            'touser'  => $users,
+            'msgtype' => 'file',
+            'file'    => ['media_id' => $mediaId],
+        ]);
+    }
+
+    /**
+     * 发送图片消息
+     *
+     * @param string|array<string> $toUser
+     * @return array<string, mixed>
+     */
+    public function image(string $mediaId, string|array $toUser = '@all'): array
+    {
+        $users = is_array($toUser) ? implode('|', $toUser) : $toUser;
+
+        return $this->send([
+            'touser'  => $users,
+            'msgtype' => 'image',
+            'image'   => ['media_id' => $mediaId],
+        ]);
+    }
+
+    /**
+     * 发送语音消息
+     *
+     * @param string|array<string> $toUser
+     * @return array<string, mixed>
+     */
+    public function voice(string $mediaId, string|array $toUser = '@all'): array
+    {
+        $users = is_array($toUser) ? implode('|', $toUser) : $toUser;
+
+        return $this->send([
+            'touser'  => $users,
+            'msgtype' => 'voice',
+            'voice'   => ['media_id' => $mediaId],
+        ]);
+    }
+
+    /**
+     * 发送视频消息
+     *
+     * @param string|array<string> $toUser
+     * @return array<string, mixed>
+     */
+    public function video(string $mediaId, string $title = '', string $description = '', string|array $toUser = '@all'): array
+    {
+        $users = is_array($toUser) ? implode('|', $toUser) : $toUser;
+
+        return $this->send([
+            'touser'  => $users,
+            'msgtype' => 'video',
+            'video'   => [
+                'media_id'    => $mediaId,
+                'title'       => $title,
+                'description' => $description,
+            ],
+        ]);
+    }
+
+    /**
+     * 发送文本卡片消息
+     *
+     * @param string|array<string> $toUser
+     * @return array<string, mixed>
+     */
+    public function textCard(string $title, string $description, string $url, string|array $toUser = '@all', string $btntxt = '查看详情'): array
+    {
+        $users = is_array($toUser) ? implode('|', $toUser) : $toUser;
+
+        return $this->send([
+            'touser'   => $users,
+            'msgtype'  => 'textcard',
+            'textcard' => [
+                'title'       => $title,
+                'description' => $description,
+                'url'         => $url,
+                'btntxt'      => $btntxt,
+            ],
+        ]);
+    }
+
+    /**
+     * 发送小程序通知消息
+     *
+     * @param array<string, mixed> $content
+     * @param string|array<string> $toUser
+     * @return array<string, mixed>
+     */
+    public function miniProgramNotice(array $content, string|array $toUser = '@all'): array
+    {
+        $users = is_array($toUser) ? implode('|', $toUser) : $toUser;
+
+        return $this->send([
+            'touser'           => $users,
+            'msgtype'          => 'miniprogram_notice',
+            'miniprogram_notice' => $content,
+        ]);
+    }
 }

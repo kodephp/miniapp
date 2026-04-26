@@ -8,7 +8,6 @@
 ## 特性
 
 - **多平台统一接入**：一套代码对接微信、支付宝、抖音、百度、QQ、企业微信、钉钉、飞书
-- **参考 EasyWeChat 设计**：借鉴其 Application/Server/Message 架构，但扩展至全平台
 - **PHP 8.2+ 现代化**：使用 readonly、enum、match、构造函数属性提升等新特性
 - **企业级能力**：除 C端小程序外，完整支持企业微信、钉钉、飞书的通讯录、审批、消息推送
 - **服务端消息处理**：统一处理各平台的消息推送和事件回调
@@ -118,7 +117,7 @@ Kernel（门面）
 - **Kernel**：统一门面，通过 `$kernel->wechat()`、`$kernel->dingtalk()` 等快捷方法获取平台实例
 - **Provider**：平台入口，管理配置和 HTTP 客户端，支持多应用实例
 - **App**：应用实例，聚合该平台的所有能力模块
-- **Server**：服务端消息处理器，统一处理消息推送和事件回调（参考 EasyWeChat）
+- **Server**：服务端消息处理器，统一处理各平台的消息推送和事件回调
 - **Message**：消息构造器，构造被动回复消息
 - **Notify**：支付回调通知处理器，自动验签并触发业务逻辑
 - **PayBridge**：支付桥接器，自动检测并桥接到 `kode/pays` 企业级支付 SDK
@@ -257,9 +256,34 @@ $app->menu()->delete();
 // 客服消息
 $app->customerService()->text($openid, '您好！');
 $app->customerService()->image($openid, $mediaId);
+$app->customerService()->news($openid, [['title' => '标题', 'description' => '描述', 'url' => 'https://example.com', 'picurl' => 'https://example.com/pic.jpg']]);
+$app->customerService()->miniProgramPage($openid, '标题', $appid, 'pages/index/index', $thumbMediaId);
+$app->customerService()->menu($openid, '请选择', [['id' => '1', 'content' => '选项1']], '感谢使用');
 
-// 发送模板消息
-$app->message()->sendTemplate($openid, $templateId, ['thing1' => ['value' => '测试']]);
+// 客服管理
+$kfList = $app->customerService()->list();
+$records = $app->customerService()->msgRecord(strtotime('-1 day'), time());
+$app->customerService()->invite($openid, 'kf_account@gh_xxx');
+
+// 发送订阅消息（小程序）
+$app->message()->sendSubscribe($openid, $templateId, ['thing1' => ['value' => '测试']]);
+
+// 发送模板消息（公众号）
+$app->message()->sendTemplate($openid, $templateId, '', ['thing1' => ['value' => '测试']]);
+
+// 小程序码生成
+$qrCode = $app->miniProgramCode()->getUnlimited(['scene' => 'id=123', 'page' => 'pages/index/index']);
+file_put_contents('/tmp/qrcode.png', $qrCode);
+
+// 数据分析
+$retain = $app->dataAnalysis()->getDailyRetain('2024-01-01', '2024-01-07');
+$trend  = $app->dataAnalysis()->getDailyVisitTrend('2024-01-01', '2024-01-07');
+$portrait = $app->dataAnalysis()->getUserPortrait('2024-01-01', '2024-01-07');
+
+// 订阅消息管理（小程序）
+$app->subscribeMessage()->send($openid, $templateId, ['thing1' => ['value' => '测试']]);
+$templates = $app->subscribeMessage()->getTemplateList();
+$app->subscribeMessage()->deleteTemplate($priTmplId);
 
 // 基础支付
 $app->pay()->order([
@@ -269,6 +293,31 @@ $app->pay()->order([
     'payer'        => ['openid' => $openid],
 ]);
 
+// 查询订单
+$app->pay()->query('ORDER_001');
+
+// 关闭订单
+$app->pay()->close('ORDER_001');
+
+// 申请退款
+$app->pay()->refund([
+    'out_trade_no'  => 'ORDER_001',
+    'out_refund_no' => 'REFUND_001',
+    'reason'        => '用户申请退款',
+    'amount'        => [
+        'refund'   => 100,
+        'total'    => 100,
+        'currency' => 'CNY',
+    ],
+]);
+
+// 查询退款
+$app->pay()->queryRefund('REFUND_001');
+
+// 申请账单
+$app->pay()->tradeBill('2024-01-01');
+$app->pay()->fundBill('2024-01-01');
+
 // 企业级支付（需安装 kode/pays）
 $pay = $app->payBridge();
 if ($pay !== null) {
@@ -276,7 +325,7 @@ if ($pay !== null) {
 }
 ```
 
-### 微信服务端消息处理（参考 EasyWeChat）
+### 微信服务端消息处理
 
 ```php
 use Kode\MiniApp\Server\Message;
@@ -338,19 +387,64 @@ $app->tag()->create('新员工');
 $app->tag()->addUsers(1, ['zhangsan']);
 $tags = $app->tag()->list();
 
-// 客户联系
-$customers = $app->customer()->list('zhangsan');
-$detail = $app->customer()->detail($externalUserid);
-$app->customer()->addContactWay([
+// 部门管理
+$app->department()->create(['name' => '技术部', 'parentid' => 1]);
+$departments = $app->department()->list();
+$app->department()->update(['id' => 2, 'name' => '产品部']);
+$app->department()->delete(2);
+
+// 客户联系（外部联系人）
+$followUsers = $app->externalContact()->getFollowUserList();
+$customers = $app->externalContact()->list('zhangsan');
+$detail = $app->externalContact()->get($externalUserid);
+$app->externalContact()->addContactWay([
     'type' => 1,
     'scene' => 1,
     'style' => 1,
     'remark' => '渠道客户',
 ]);
+$app->externalContact()->remark([
+    'userid' => 'zhangsan',
+    'external_userid' => $externalUserid,
+    'remark' => 'VIP客户',
+]);
+
+// 客户群管理
+$groups = $app->externalContact()->groupChatList();
+$groupDetail = $app->externalContact()->groupChatGet('chat_id');
+
+// 离职继承
+$unassigned = $app->externalContact()->getUnassignedList();
+$app->externalContact()->transfer([
+    'external_userid' => $externalUserid,
+    'handover_userid' => 'zhangsan',
+    'takeover_userid' => 'lisi',
+]);
+
+// 客户标签
+$tags = $app->externalContact()->getCorpTagList();
+$app->externalContact()->addCorpTag([
+    'group_name' => '客户等级',
+    'tag' => [['name' => 'VIP']],
+]);
 
 // 消息推送
 $app->message()->text('Hello World', ['zhangsan']);
 $app->message()->markdown('# 标题\n内容', ['zhangsan']);
+$app->message()->news([['title' => '标题', 'description' => '描述', 'url' => 'https://example.com', 'picurl' => 'https://example.com/pic.jpg']], ['zhangsan']);
+$app->message()->file($mediaId, ['zhangsan']);
+$app->message()->image($mediaId, ['zhangsan']);
+$app->message()->voice($mediaId, ['zhangsan']);
+$app->message()->video($mediaId, '标题', '描述', ['zhangsan']);
+$app->message()->textCard('标题', '描述内容', 'https://example.com', ['zhangsan'], '查看详情');
+$app->message()->miniProgramNotice([
+    'appid'             => 'wx123',
+    'page'              => 'pages/index',
+    'title'             => '通知标题',
+    'description'       => '通知内容',
+    'emphasis_first_item' => true,
+    'content_item'      => [['key' => '订单号', 'value' => '123456']],
+], ['zhangsan']);
 
 // 审批
 $app->approval()->template($templateId);
@@ -379,10 +473,31 @@ $departments = $app->contact()->departments();
 // 消息
 $app->message()->text('Hello', ['zhangsan']);
 $app->message()->markdown('标题', '内容', ['zhangsan']);
+$app->message()->image($mediaId, ['zhangsan']);
+$app->message()->file($mediaId, ['zhangsan']);
+$app->message()->link('标题', '内容', 'https://example.com', 'https://example.com/pic.jpg', ['zhangsan']);
+$app->message()->oa($oaContent, ['zhangsan']);
+$app->message()->actionCard([
+    'title'          => '标题',
+    'markdown'       => '内容',
+    'single_title'   => '查看详情',
+    'single_url'     => 'https://example.com',
+], ['zhangsan']);
 
 // 审批
 $app->approval()->instance($processInstanceId);
 $app->approval()->create($data);
+
+// 群机器人消息
+$app->robot()->text($webhook, $secret, 'Hello 钉钉');
+$app->robot()->markdown($webhook, $secret, '标题', '**加粗内容**');
+$app->robot()->link($webhook, $secret, '标题', '内容', 'https://example.com');
+$app->robot()->actionCard($webhook, $secret, [
+    'title' => '标题',
+    'markdown' => '内容',
+    'singleTitle' => '查看详情',
+    'singleURL' => 'https://example.com',
+]);
 ```
 
 ### 飞书
@@ -400,10 +515,22 @@ $users = $app->contact()->departmentUsers('0');
 
 // 消息
 $app->message()->text('ou_xxx', 'Hello World');
+$app->message()->post('ou_xxx', ['zh_cn' => ['title' => '标题', 'content' => [['tag' => 'text', 'text' => '内容']]]]);
+$app->message()->image('ou_xxx', $imageKey);
+$app->message()->file('ou_xxx', $fileKey);
+$app->message()->interactive('ou_xxx', ['config' => ['wide_screen_mode' => true], 'elements' => []]);
 
 // 审批
 $app->approval()->create($data);
 $app->approval()->instance($instanceCode);
+
+// 多维表格
+$app->bitable()->meta($appToken);
+$app->bitable()->tables($appToken);
+$app->bitable()->createRecord($appToken, $tableId, ['字段名' => '值']);
+$app->bitable()->records($appToken, $tableId);
+$app->bitable()->updateRecord($appToken, $tableId, $recordId, ['字段名' => '新值']);
+$app->bitable()->deleteRecord($appToken, $tableId, $recordId);
 ```
 
 ### 支付宝
@@ -589,7 +716,7 @@ try {
 版本号由 `composer.json` 统一管理：
 
 ```bash
-# 升级 patch 版本（0.5.0 -> 0.5.1）
+# 升级 patch 版本（0.7.0 -> 0.7.1）
 composer run version:bump
 
 # 升级 minor 版本
@@ -620,17 +747,6 @@ composer run test
 2. `src/Providers/{Platform}/` 实现 Provider、App、Config、Modules
 3. `src/Kernel.php` 注册 Provider
 4. `tests/Providers/{Platform}/` 编写测试
-
-## 与 EasyWeChat 的区别
-
-| 特性 | EasyWeChat | Kode MiniApp |
-|------|-----------|-------------|
-| 平台支持 | 仅微信生态 | 微信、支付宝、抖音、百度、QQ、企业微信、钉钉、飞书 |
-| 架构 | Application/Server/Message | 统一 Kernel + 多平台 Provider，同样支持 Server/Message/Notify |
-| 定位 | 微信专用 SDK | 多平台统一接入 SDK |
-| 企业能力 | 企业微信部分支持 | 企业微信、钉钉、飞书完整支持 |
-| 支付回调 | 需自行处理 | 内置 Notify 处理器，自动验签 |
-| 生态扩展 | 独立生态 | 与 kode/pays、kode/tools、kode/exception 等生态包无缝协作 |
 
 ## 许可证
 

@@ -32,7 +32,7 @@ readonly class Approval
         );
         $data = json_decode((string) $response->getBody(), true);
 
-        if ($data['errcode'] !== 0) {
+        if (isset($data['errcode']) && $data['errcode'] !== 0) {
             throw new \RuntimeException("获取审批实例失败: [{$data['errcode']}] {$data['errmsg']}");
         }
 
