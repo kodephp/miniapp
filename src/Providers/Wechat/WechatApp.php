@@ -19,6 +19,7 @@ use Kode\MiniApp\Providers\Wechat\Modules\Menu;
 use Kode\MiniApp\Providers\Wechat\Modules\Message;
 use Kode\MiniApp\Providers\Wechat\Modules\MiniProgramCode;
 use Kode\MiniApp\Providers\Wechat\Modules\Pay;
+use Kode\MiniApp\Providers\Wechat\Modules\Shipping;
 use Kode\MiniApp\Providers\Wechat\Modules\SubscribeMessage;
 use Kode\MiniApp\Providers\Wechat\Modules\User;
 use Kode\MiniApp\Server\Server;
@@ -41,6 +42,7 @@ final readonly class WechatApp implements AppInterface
     private MiniProgramCode  $miniProgramCode;
     private SubscribeMessage $subscribeMessage;
     private DataAnalysis     $dataAnalysis;
+    private Shipping         $shipping;
 
     public function __construct(
         private string $name,
@@ -59,6 +61,7 @@ final readonly class WechatApp implements AppInterface
         $this->miniProgramCode = new MiniProgramCode($this);
         $this->subscribeMessage = new SubscribeMessage($this);
         $this->dataAnalysis    = new DataAnalysis($this);
+        $this->shipping        = new Shipping($this);
     }
 
     public function name(): string
@@ -146,6 +149,11 @@ final readonly class WechatApp implements AppInterface
     public function dataAnalysis(): DataAnalysis
     {
         return $this->dataAnalysis;
+    }
+
+    public function shipping(): Shipping
+    {
+        return $this->shipping;
     }
 
     public function server(): Server

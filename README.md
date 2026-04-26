@@ -318,6 +318,43 @@ $app->pay()->queryRefund('REFUND_001');
 $app->pay()->tradeBill('2024-01-01');
 $app->pay()->fundBill('2024-01-01');
 
+// 小程序订单物流同步（发货）
+// 标准快递发货
+$app->shipping()->express(
+    'ORDER_001',
+    '1',
+    [
+        [
+            'tracking_no'   => 'SF1234567890',
+            'express_company' => '顺丰速运',
+            'item_desc'     => '商品描述',
+        ],
+    ],
+    $payerOpenid
+);
+
+// 无需物流发货（虚拟商品/服务）
+$app->shipping()->noShipping('ORDER_001', '1', $payerOpenid);
+
+// 同城配送发货
+$app->shipping()->sameCity('ORDER_001', '1', [
+    ['tracking_no' => 'RIDER_001', 'express_company' => '同城配送', 'item_desc' => '商品描述'],
+], $payerOpenid);
+
+// 用户自提发货
+$app->shipping()->selfPickup('ORDER_001', '1', [
+    ['tracking_no' => 'PICKUP_001', 'express_company' => '用户自提', 'item_desc' => '商品描述'],
+], $payerOpenid);
+
+// 查询发货信息
+$app->shipping()->getOrder('', 'ORDER_001');
+
+// 确认收货提醒
+$app->shipping()->notifyConfirmReceive('', 'ORDER_001');
+
+// 设置消息跳转路径
+$app->shipping()->setMsgJumpPath('pages/order/detail');
+
 // 企业级支付（需安装 kode/pays）
 $pay = $app->payBridge();
 if ($pay !== null) {
