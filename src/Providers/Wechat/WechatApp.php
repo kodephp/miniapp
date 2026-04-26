@@ -11,8 +11,11 @@ use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Notify\Notify;
 use Kode\MiniApp\Providers\Wechat\Modules\Auth;
+use Kode\MiniApp\Providers\Wechat\Modules\Card;
 use Kode\MiniApp\Providers\Wechat\Modules\CustomerService;
 use Kode\MiniApp\Providers\Wechat\Modules\DataAnalysis;
+use Kode\MiniApp\Providers\Wechat\Modules\Goods;
+use Kode\MiniApp\Providers\Wechat\Modules\Invoice;
 use Kode\MiniApp\Providers\Wechat\Modules\Jssdk;
 use Kode\MiniApp\Providers\Wechat\Modules\Media;
 use Kode\MiniApp\Providers\Wechat\Modules\Menu;
@@ -21,12 +24,15 @@ use Kode\MiniApp\Providers\Wechat\Modules\MiniProgramCode;
 use Kode\MiniApp\Providers\Wechat\Modules\Live;
 use Kode\MiniApp\Providers\Wechat\Modules\Pay;
 use Kode\MiniApp\Providers\Wechat\Modules\Plugin;
+use Kode\MiniApp\Providers\Wechat\Modules\Redpack;
 use Kode\MiniApp\Providers\Wechat\Modules\Security;
+use Kode\MiniApp\Providers\Wechat\Modules\Shake;
 use Kode\MiniApp\Providers\Wechat\Modules\Shipping;
 use Kode\MiniApp\Providers\Wechat\Modules\Store;
 use Kode\MiniApp\Providers\Wechat\Modules\SubscribeMessage;
 use Kode\MiniApp\Providers\Wechat\Modules\UrlLink;
 use Kode\MiniApp\Providers\Wechat\Modules\User;
+use Kode\MiniApp\Providers\Wechat\Modules\Wifi;
 use Kode\MiniApp\Server\Server;
 
 /**
@@ -53,6 +59,12 @@ final readonly class WechatApp implements AppInterface
     private Plugin $plugin;
     private Live $live;
     private Store $store;
+    private Card $card;
+    private Shake $shake;
+    private Invoice $invoice;
+    private Wifi $wifi;
+    private Goods $goods;
+    private Redpack $redpack;
 
     public function __construct(
         private string $name,
@@ -77,6 +89,12 @@ final readonly class WechatApp implements AppInterface
         $this->plugin          = new Plugin($this);
         $this->live            = new Live($this);
         $this->store           = new Store($this);
+        $this->card            = new Card($this);
+        $this->shake           = new Shake($this);
+        $this->invoice         = new Invoice($this);
+        $this->wifi            = new Wifi($this);
+        $this->goods           = new Goods($this);
+        $this->redpack         = new Redpack($this);
     }
 
     public function name(): string
@@ -194,6 +212,36 @@ final readonly class WechatApp implements AppInterface
     public function store(): Store
     {
         return $this->store;
+    }
+
+    public function card(): Card
+    {
+        return $this->card;
+    }
+
+    public function shake(): Shake
+    {
+        return $this->shake;
+    }
+
+    public function invoice(): Invoice
+    {
+        return $this->invoice;
+    }
+
+    public function wifi(): Wifi
+    {
+        return $this->wifi;
+    }
+
+    public function goods(): Goods
+    {
+        return $this->goods;
+    }
+
+    public function redpack(): Redpack
+    {
+        return $this->redpack;
     }
 
     public function server(): Server

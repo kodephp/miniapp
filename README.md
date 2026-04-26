@@ -44,14 +44,14 @@ composer require kode/event     # 事件
 
 | 平台 | 标识 | 类型 | 能力 |
 |------|------|------|------|
-| 微信 | `wechat` | C端 | 登录、JS-SDK、用户、素材、菜单、客服、消息、订阅消息、小程序码、数据分析、支付、订单物流同步、内容安全、URL Scheme/Link、插件管理、直播、附近小程序、服务端、回调通知 |
+| 微信 | `wechat` | C端 | 登录、JS-SDK、用户、素材、菜单、客服、消息、订阅消息、小程序码、数据分析、支付、订单物流同步、内容安全、URL Scheme/Link、插件管理、直播、附近小程序、门店、卡券、摇一摇、发票、连Wi-Fi、微信小店、红包、服务端、回调通知 |
 | 支付宝 | `alipay` | C端 | 登录、支付、转账、账单、回调通知 |
 | 抖音 | `douyin` | C端 | 登录、支付 |
 | 百度 | `baidu` | C端 | 登录、支付 |
 | QQ | `qq` | C端 | 登录 |
-| 微信企业号 | `wechat_work` | B端 | 认证、通讯录、部门管理、客户联系、外部联系人、标签、消息、审批、素材管理、应用管理、OA打卡汇报、会议室、公费电话、服务端、回调通知 |
-| 钉钉 | `dingtalk` | B端 | 认证、通讯录、消息、审批、群机器人、考勤、智能人事、日志 |
-| 飞书 | `lark` | B端 | 认证、通讯录、消息、审批、多维表格、文档、日历、任务、知识库 |
+| 微信企业号 | `wechat_work` | B端 | 认证、通讯录、部门管理、客户联系、外部联系人、标签、消息、审批、素材管理、应用管理、OA打卡汇报、会议室、公费电话、日程、收集表、服务端、回调通知 |
+| 钉钉 | `dingtalk` | B端 | 认证、通讯录、消息、审批、群机器人、考勤、智能人事、日志、项目 |
+| 飞书 | `lark` | B端 | 认证、通讯录、消息、审批、审批定义、多维表格、文档、日历、任务、知识库 |
 
 ## 安装
 
@@ -396,6 +396,13 @@ $app->nearby()->listPoi();
 $app->nearby()->deletePoi($poiId);
 $app->nearby()->setStatus($poiId, 1);
 
+// 门店小程序
+$app->store()->create(['name' => '门店名称', 'longitude' => '113.2644', 'latitude' => '23.1291', 'address' => '广州市天河区', 'phone' => '020-12345678']);
+$app->store()->list();
+$app->store()->get($poiId);
+$app->store()->update(['poi_id' => $poiId, 'name' => '新门店名称']);
+$app->store()->delete($poiId);
+
 // 企业级支付（需安装 kode/pays）
 $pay = $app->payBridge();
 if ($pay !== null) {
@@ -554,6 +561,10 @@ $app->meeting()->getBookingInfo($meetingRoomId, '2024-01-01T09:00:00', '2024-01-
 $app->meeting()->book(['meetingroom_id' => $meetingRoomId, 'subject' => '周会', 'start_time' => time(), 'end_time' => time() + 3600, 'booker' => 'zhangsan']);
 $app->meeting()->cancelBook($meetingId);
 
+// 公费电话
+$app->dial()->call(['zhangsan'], 'lisi', '拨打原因');
+$app->dial()->records(strtotime('-7 days'), time());
+
 // 服务端消息处理
 $server = $app->server();
 $server->on('text', fn($payload) => 'success');
@@ -613,6 +624,11 @@ $app->hrm()->getEmpRosterDetail(['zhangsan']);
 $app->hrm()->queryOnJob();
 $app->hrm()->queryPreEntry();
 $app->hrm()->queryDimission();
+
+// 日志管理
+$app->report()->list('2024-01-01 00:00:00', '2024-01-31 23:59:59');
+$app->report()->get($reportId);
+$app->report()->templateList();
 ```
 
 ### 飞书
@@ -678,6 +694,12 @@ $app->task()->update($taskGuid, ['summary' => '更新后的任务标题']);
 $app->task()->complete($taskGuid);
 $app->task()->uncomplete($taskGuid);
 $app->task()->delete($taskGuid);
+
+// 知识库
+$app->wiki()->list();
+$app->wiki()->get($spaceId);
+$app->wiki()->nodes($spaceId);
+$app->wiki()->createNode($spaceId, ['obj_type' => 22, 'node_type' => 'origin', 'origin_node_token' => $docToken, 'parent_node_token' => $parentToken, 'title' => '新节点']);
 ```
 
 ### 支付宝

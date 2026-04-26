@@ -11,6 +11,7 @@ use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Notify\Notify;
 use Kode\MiniApp\Providers\WechatWork\Modules\Agent;
 use Kode\MiniApp\Providers\WechatWork\Modules\Auth;
+use Kode\MiniApp\Providers\WechatWork\Modules\Collect;
 use Kode\MiniApp\Providers\WechatWork\Modules\Contact;
 use Kode\MiniApp\Providers\WechatWork\Modules\Customer;
 use Kode\MiniApp\Providers\WechatWork\Modules\Department;
@@ -21,6 +22,7 @@ use Kode\MiniApp\Providers\WechatWork\Modules\Meeting;
 use Kode\MiniApp\Providers\WechatWork\Modules\Message;
 use Kode\MiniApp\Providers\WechatWork\Modules\Oa;
 use Kode\MiniApp\Providers\WechatWork\Modules\Approval;
+use Kode\MiniApp\Providers\WechatWork\Modules\Schedule;
 use Kode\MiniApp\Providers\WechatWork\Modules\Tag;
 use Kode\MiniApp\Server\Server;
 
@@ -43,6 +45,8 @@ final readonly class WechatWorkApp implements AppInterface
     private Oa $oa;
     private Meeting $meeting;
     private Dial $dial;
+    private Schedule $schedule;
+    private Collect $collect;
 
     public function __construct(
         private string $name,
@@ -63,6 +67,8 @@ final readonly class WechatWorkApp implements AppInterface
         $this->oa            = new Oa($this);
         $this->meeting       = new Meeting($this);
         $this->dial          = new Dial($this);
+        $this->schedule      = new Schedule($this);
+        $this->collect       = new Collect($this);
     }
 
     public function name(): string
@@ -148,6 +154,16 @@ final readonly class WechatWorkApp implements AppInterface
     public function dial(): Dial
     {
         return $this->dial;
+    }
+
+    public function schedule(): Schedule
+    {
+        return $this->schedule;
+    }
+
+    public function collect(): Collect
+    {
+        return $this->collect;
     }
 
     public function server(): Server

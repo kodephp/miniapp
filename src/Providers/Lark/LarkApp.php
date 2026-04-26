@@ -8,13 +8,14 @@ use Kode\MiniApp\Contracts\AppInterface;
 use Kode\MiniApp\Contracts\ConfigInterface;
 use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
+use Kode\MiniApp\Providers\Lark\Modules\Approval;
+use Kode\MiniApp\Providers\Lark\Modules\ApprovalDef;
 use Kode\MiniApp\Providers\Lark\Modules\Auth;
 use Kode\MiniApp\Providers\Lark\Modules\Bitable;
 use Kode\MiniApp\Providers\Lark\Modules\Calendar;
 use Kode\MiniApp\Providers\Lark\Modules\Contact;
 use Kode\MiniApp\Providers\Lark\Modules\Doc;
 use Kode\MiniApp\Providers\Lark\Modules\Message;
-use Kode\MiniApp\Providers\Lark\Modules\Approval;
 use Kode\MiniApp\Providers\Lark\Modules\Task;
 use Kode\MiniApp\Providers\Lark\Modules\Wiki;
 
@@ -32,6 +33,7 @@ final readonly class LarkApp implements AppInterface
     private Calendar $calendar;
     private Task $task;
     private Wiki $wiki;
+    private ApprovalDef $approvalDef;
 
     public function __construct(
         private string $name,
@@ -48,6 +50,7 @@ final readonly class LarkApp implements AppInterface
         $this->calendar = new Calendar($this);
         $this->task     = new Task($this);
         $this->wiki     = new Wiki($this);
+        $this->approvalDef = new ApprovalDef($this);
     }
 
     public function name(): string
@@ -113,5 +116,10 @@ final readonly class LarkApp implements AppInterface
     public function wiki(): Wiki
     {
         return $this->wiki;
+    }
+
+    public function approvalDef(): ApprovalDef
+    {
+        return $this->approvalDef;
     }
 }
