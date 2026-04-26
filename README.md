@@ -44,14 +44,14 @@ composer require kode/event     # 事件
 
 | 平台 | 标识 | 类型 | 能力 |
 |------|------|------|------|
-| 微信 | `wechat` | C端 | 登录、JS-SDK、用户、素材、菜单、客服、消息、订阅消息、小程序码、数据分析、支付、订单物流同步、内容安全、URL Scheme/Link、插件管理、直播、服务端、回调通知 |
+| 微信 | `wechat` | C端 | 登录、JS-SDK、用户、素材、菜单、客服、消息、订阅消息、小程序码、数据分析、支付、订单物流同步、内容安全、URL Scheme/Link、插件管理、直播、附近小程序、服务端、回调通知 |
 | 支付宝 | `alipay` | C端 | 登录、支付、转账、账单、回调通知 |
 | 抖音 | `douyin` | C端 | 登录、支付 |
 | 百度 | `baidu` | C端 | 登录、支付 |
 | QQ | `qq` | C端 | 登录 |
-| 微信企业号 | `wechat_work` | B端 | 认证、通讯录、部门管理、客户联系、外部联系人、标签、消息、审批、素材管理、应用管理、服务端、回调通知 |
-| 钉钉 | `dingtalk` | B端 | 认证、通讯录、消息、审批、群机器人 |
-| 飞书 | `lark` | B端 | 认证、通讯录、消息、审批、多维表格、文档 |
+| 微信企业号 | `wechat_work` | B端 | 认证、通讯录、部门管理、客户联系、外部联系人、标签、消息、审批、素材管理、应用管理、OA打卡汇报、服务端、回调通知 |
+| 钉钉 | `dingtalk` | B端 | 认证、通讯录、消息、审批、群机器人、考勤 |
+| 飞书 | `lark` | B端 | 认证、通讯录、消息、审批、多维表格、文档、日历 |
 
 ## 安装
 
@@ -370,6 +370,26 @@ $link = $app->urlLink()->generateUrlLink([
 ]);
 $shortLink = $app->urlLink()->generateShortLink('pages/index/index?id=123', '页面标题');
 
+// 插件管理
+$app->plugin()->applyPlugin('wx1234567890');
+$plugins = $app->plugin()->list();
+$app->plugin()->unbindPlugin('wx1234567890');
+
+// 小程序直播
+$app->live()->createRoom([
+    'name'         => '直播间名称',
+    'coverImg'     => 'https://example.com/cover.jpg',
+    'startTime'    => time(),
+    'endTime'      => time() + 7200,
+    'anchorName'   => '主播名称',
+    'anchorWechat' => 'anchor_wechat',
+    'type'         => 1,
+]);
+$liveRooms = $app->live()->getLiveInfo();
+$replay = $app->live()->getReplay($roomId);
+$app->live()->addGoods($goodsInfo);
+$app->live()->audit($goodsId);
+
 // 企业级支付（需安装 kode/pays）
 $pay = $app->payBridge();
 if ($pay !== null) {
@@ -513,6 +533,14 @@ $app->approval()->template($templateId);
 $app->approval()->apply($approvalData);
 $app->approval()->detail($spNo);
 
+// OA 打卡汇报
+$app->oa()->getCheckinOption(time(), ['zhangsan']);
+$app->oa()->getCheckinData(strtotime('-7 days'), time(), ['zhangsan']);
+$app->oa()->getCheckinDayData(strtotime('-7 days'), time(), ['zhangsan']);
+$app->oa()->getCheckinMonthData(strtotime('-30 days'), time(), ['zhangsan']);
+$app->oa()->getJournalRecordList(strtotime('-7 days'), time());
+$app->oa()->getJournalStat(strtotime('-7 days'), time());
+
 // 服务端消息处理
 $server = $app->server();
 $server->on('text', fn($payload) => 'success');
@@ -560,6 +588,12 @@ $app->robot()->actionCard($webhook, $secret, [
     'singleTitle' => '查看详情',
     'singleURL' => 'https://example.com',
 ]);
+
+// 考勤管理
+$app->attendance()->list('2024-01-01 00:00:00', '2024-01-31 23:59:59', ['zhangsan']);
+$app->attendance()->listSchedule(['zhangsan'], '2024-01-01');
+$app->attendance()->getGroup(1);
+$app->attendance()->getRecord('2024-01-01 00:00:00', '2024-01-31 23:59:59', ['zhangsan']);
 ```
 
 ### 飞书
@@ -602,6 +636,21 @@ $app->doc()->blocks($documentId, $blockId);
 $app->doc()->createBlock($documentId, $blockId, [
     ['block_type' => 2, 'text' => ['elements' => [['text_run' => ['content' => 'Hello World']]]]],
 ]);
+
+// 日历管理
+$app->calendar()->create(['summary' => '团队日历', 'description' => '用于团队协作']);
+$app->calendar()->list();
+$app->calendar()->get($calendarId);
+$app->calendar()->delete($calendarId);
+$app->calendar()->createEvent($calendarId, [
+    'summary'     => '周会',
+    'start'       => ['date_time' => '2024-01-01T10:00:00+08:00'],
+    'end'         => ['date_time' => '2024-01-01T11:00:00+08:00'],
+    'attendees'   => [['user_id' => 'ou_xxx']],
+]);
+$app->calendar()->listEvents($calendarId);
+$app->calendar()->getEvent($calendarId, $eventId);
+$app->calendar()->deleteEvent($calendarId, $eventId);
 ```
 
 ### 支付宝
@@ -787,7 +836,7 @@ try {
 版本号由 `composer.json` 统一管理：
 
 ```bash
-# 升级 patch 版本（0.9.0 -> 0.9.1）
+# 升级 patch 版本（1.0.0 -> 1.0.1）
 composer run version:bump
 
 # 升级 minor 版本

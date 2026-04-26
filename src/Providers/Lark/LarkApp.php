@@ -15,6 +15,7 @@ use Kode\MiniApp\Providers\Lark\Modules\Contact;
 use Kode\MiniApp\Providers\Lark\Modules\Doc;
 use Kode\MiniApp\Providers\Lark\Modules\Message;
 use Kode\MiniApp\Providers\Lark\Modules\Approval;
+use Kode\MiniApp\Providers\Lark\Modules\Task;
 
 /**
  * 飞书应用实例
@@ -28,6 +29,7 @@ final readonly class LarkApp implements AppInterface
     private Bitable  $bitable;
     private Doc      $doc;
     private Calendar $calendar;
+    private Task     $task;
 
     public function __construct(
         private string $name,
@@ -42,6 +44,7 @@ final readonly class LarkApp implements AppInterface
         $this->bitable  = new Bitable($this);
         $this->doc      = new Doc($this);
         $this->calendar = new Calendar($this);
+        $this->task     = new Task($this);
     }
 
     public function name(): string
@@ -97,5 +100,10 @@ final readonly class LarkApp implements AppInterface
     public function calendar(): Calendar
     {
         return $this->calendar;
+    }
+
+    public function task(): Task
+    {
+        return $this->task;
     }
 }

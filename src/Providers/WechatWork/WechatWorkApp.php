@@ -16,6 +16,7 @@ use Kode\MiniApp\Providers\WechatWork\Modules\Customer;
 use Kode\MiniApp\Providers\WechatWork\Modules\Department;
 use Kode\MiniApp\Providers\WechatWork\Modules\ExternalContact;
 use Kode\MiniApp\Providers\WechatWork\Modules\Media;
+use Kode\MiniApp\Providers\WechatWork\Modules\Meeting;
 use Kode\MiniApp\Providers\WechatWork\Modules\Message;
 use Kode\MiniApp\Providers\WechatWork\Modules\Oa;
 use Kode\MiniApp\Providers\WechatWork\Modules\Approval;
@@ -39,6 +40,7 @@ final readonly class WechatWorkApp implements AppInterface
     private Media           $media;
     private Agent           $agent;
     private Oa              $oa;
+    private Meeting         $meeting;
 
     public function __construct(
         private string $name,
@@ -57,6 +59,7 @@ final readonly class WechatWorkApp implements AppInterface
         $this->media         = new Media($this);
         $this->agent         = new Agent($this);
         $this->oa            = new Oa($this);
+        $this->meeting       = new Meeting($this);
     }
 
     public function name(): string
@@ -132,6 +135,11 @@ final readonly class WechatWorkApp implements AppInterface
     public function oa(): Oa
     {
         return $this->oa;
+    }
+
+    public function meeting(): Meeting
+    {
+        return $this->meeting;
     }
 
     public function server(): Server
