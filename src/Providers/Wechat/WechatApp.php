@@ -10,10 +10,12 @@ use Kode\MiniApp\Contracts\ConfigInterface;
 use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Notify\Notify;
+use Kode\MiniApp\Providers\Wechat\Modules\Ad;
 use Kode\MiniApp\Providers\Wechat\Modules\Auth;
 use Kode\MiniApp\Providers\Wechat\Modules\Card;
 use Kode\MiniApp\Providers\Wechat\Modules\CustomerService;
 use Kode\MiniApp\Providers\Wechat\Modules\DataAnalysis;
+use Kode\MiniApp\Providers\Wechat\Modules\Express;
 use Kode\MiniApp\Providers\Wechat\Modules\Goods;
 use Kode\MiniApp\Providers\Wechat\Modules\Invoice;
 use Kode\MiniApp\Providers\Wechat\Modules\Jssdk;
@@ -25,6 +27,7 @@ use Kode\MiniApp\Providers\Wechat\Modules\Live;
 use Kode\MiniApp\Providers\Wechat\Modules\Pay;
 use Kode\MiniApp\Providers\Wechat\Modules\Plugin;
 use Kode\MiniApp\Providers\Wechat\Modules\Redpack;
+use Kode\MiniApp\Providers\Wechat\Modules\Search;
 use Kode\MiniApp\Providers\Wechat\Modules\Security;
 use Kode\MiniApp\Providers\Wechat\Modules\Shake;
 use Kode\MiniApp\Providers\Wechat\Modules\Shipping;
@@ -65,6 +68,9 @@ final readonly class WechatApp implements AppInterface
     private Wifi $wifi;
     private Goods $goods;
     private Redpack $redpack;
+    private Ad $ad;
+    private Express $express;
+    private Search $search;
 
     public function __construct(
         private string $name,
@@ -95,6 +101,9 @@ final readonly class WechatApp implements AppInterface
         $this->wifi            = new Wifi($this);
         $this->goods           = new Goods($this);
         $this->redpack         = new Redpack($this);
+        $this->ad              = new Ad($this);
+        $this->express         = new Express($this);
+        $this->search          = new Search($this);
     }
 
     public function name(): string
@@ -242,6 +251,21 @@ final readonly class WechatApp implements AppInterface
     public function redpack(): Redpack
     {
         return $this->redpack;
+    }
+
+    public function ad(): Ad
+    {
+        return $this->ad;
+    }
+
+    public function express(): Express
+    {
+        return $this->express;
+    }
+
+    public function search(): Search
+    {
+        return $this->search;
     }
 
     public function server(): Server

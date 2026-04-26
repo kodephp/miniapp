@@ -12,6 +12,8 @@ use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Notify\Notify;
 use Kode\MiniApp\Providers\Alipay\Modules\Auth;
 use Kode\MiniApp\Providers\Alipay\Modules\Bill;
+use Kode\MiniApp\Providers\Alipay\Modules\Marketing;
+use Kode\MiniApp\Providers\Alipay\Modules\Member;
 use Kode\MiniApp\Providers\Alipay\Modules\Pay;
 use Kode\MiniApp\Providers\Alipay\Modules\Transfer;
 
@@ -26,6 +28,8 @@ final readonly class AlipayApp implements AppInterface
     private Pay $pay;
     private Transfer $transfer;
     private Bill $bill;
+    private Marketing $marketing;
+    private Member $member;
 
     public function __construct(
         private string $name,
@@ -37,6 +41,8 @@ final readonly class AlipayApp implements AppInterface
         $this->pay      = new Pay($this);
         $this->transfer = new Transfer($this);
         $this->bill     = new Bill($this);
+        $this->marketing = new Marketing($this);
+        $this->member   = new Member($this);
     }
 
     public function name(): string
@@ -89,6 +95,16 @@ final readonly class AlipayApp implements AppInterface
     public function bill(): Bill
     {
         return $this->bill;
+    }
+
+    public function marketing(): Marketing
+    {
+        return $this->marketing;
+    }
+
+    public function member(): Member
+    {
+        return $this->member;
     }
 
     public function notify(): Notify

@@ -44,12 +44,12 @@ composer require kode/event     # 事件
 
 | 平台 | 标识 | 类型 | 能力 |
 |------|------|------|------|
-| 微信 | `wechat` | C端 | 登录、JS-SDK、用户、素材、菜单、客服、消息、订阅消息、小程序码、数据分析、支付、订单物流同步、内容安全、URL Scheme/Link、插件管理、直播、附近小程序、门店、卡券、摇一摇、发票、连Wi-Fi、微信小店、红包、服务端、回调通知 |
-| 支付宝 | `alipay` | C端 | 登录、支付、转账、账单、回调通知 |
-| 抖音 | `douyin` | C端 | 登录、支付 |
-| 百度 | `baidu` | C端 | 登录、支付 |
+| 微信 | `wechat` | C端 | 登录、JS-SDK、用户、素材、菜单、客服、消息、订阅消息、小程序码、数据分析、支付、订单物流同步、内容安全、URL Scheme/Link、插件管理、直播、附近小程序、门店、卡券、摇一摇、发票、连Wi-Fi、微信小店、红包、广告、即时配送、搜一搜、服务端、回调通知 |
+| 支付宝 | `alipay` | C端 | 登录、支付、转账、账单、营销、会员、回调通知 |
+| 抖音 | `douyin` | C端 | 登录、支付、视频、评论 |
+| 百度 | `baidu` | C端 | 登录、支付、模板消息 |
 | QQ | `qq` | C端 | 登录 |
-| 微信企业号 | `wechat_work` | B端 | 认证、通讯录、部门管理、客户联系、外部联系人、标签、消息、审批、素材管理、应用管理、OA打卡汇报、会议室、公费电话、日程、收集表、服务端、回调通知 |
+| 微信企业号 | `wechat_work` | B端 | 认证、通讯录、部门管理、客户联系、外部联系人、标签、消息、审批、素材管理、应用管理、OA打卡汇报、会议室、公费电话、日程、收集表、微盘、服务端、回调通知 |
 | 钉钉 | `dingtalk` | B端 | 认证、通讯录、消息、审批、群机器人、考勤、智能人事、日志、项目 |
 | 飞书 | `lark` | B端 | 认证、通讯录、消息、审批、审批定义、多维表格、文档、日历、任务、知识库 |
 
@@ -403,6 +403,38 @@ $app->store()->get($poiId);
 $app->store()->update(['poi_id' => $poiId, 'name' => '新门店名称']);
 $app->store()->delete($poiId);
 
+// 卡券
+$app->card()->create(['card_type' => 'GROUPON', 'groupon' => ['base_info' => ['brand_name' => '商家名称'], 'deal_detail' => '优惠详情']]);
+$app->card()->get($cardId);
+$app->card()->consume('CODE123', $cardId);
+$app->card()->list();
+
+// 摇一摇
+$app->shake()->applyDeviceId(10);
+$app->shake()->addPage(['title' => '页面标题', 'description' => '描述', 'page_url' => 'https://example.com', 'comment' => '备注']);
+$app->shake()->getShakeInfo($ticket);
+
+// 发票
+$app->invoice()->getAuthUrl(['s_pappid' => 'wx123', 'order_id' => 'ORDER001', 'money' => 100, 'timestamp' => time(), 'source' => 'web']);
+$app->invoice()->makeOutInvoice(['wxopenid' => $openid, 'order_id' => 'ORDER001', 'card_id' => $cardId, 'card_ext' => '{}']);
+$app->invoice()->queryInvoiceInfo($cardId, $encryptCode);
+
+// 连Wi-Fi
+$app->wifi()->addDevice(['shop_id' => 123, 'ssid' => 'MyWiFi', 'password' => 'password123']);
+$app->wifi()->deviceList();
+$app->wifi()->getQrcode(123);
+
+// 微信小店（视频号电商）
+$app->goods()->add(['title' => '商品标题', 'head_imgs' => ['https://example.com/img.jpg'], 'category_id' => 100]);
+$app->goods()->list();
+$app->goods()->get($productId);
+$app->goods()->listing($productId);
+$app->goods()->orderList();
+
+// 红包
+$app->redpack()->send(['send_name' => '商家名称', 're_openid' => $openid, 'total_amount' => 100, 'total_num' => 1, 'wishing' => '恭喜发财', 'act_name' => '活动名称', 'remark' => '备注']);
+$app->redpack()->query('MCHBILLNO001');
+
 // 企业级支付（需安装 kode/pays）
 $pay = $app->payBridge();
 if ($pay !== null) {
@@ -565,6 +597,17 @@ $app->meeting()->cancelBook($meetingId);
 $app->dial()->call(['zhangsan'], 'lisi', '拨打原因');
 $app->dial()->records(strtotime('-7 days'), time());
 
+// 日程管理
+$app->schedule()->add(['organizer' => 'zhangsan', 'start_time' => time(), 'end_time' => time() + 3600, 'attendees' => [['userid' => 'lisi']], 'summary' => '周会', 'description' => '讨论下周计划']);
+$app->schedule()->get($scheduleId);
+$app->schedule()->update(['schedule_id' => $scheduleId, 'summary' => '更新后的标题']);
+$app->schedule()->delete($scheduleId);
+
+// 收集表
+$app->collect()->create(['form_title' => '入职信息收集', 'form_desc' => '请填写个人信息', 'form_question' => [['question_id' => 1, 'title' => '姓名', 'question_type' => 'text']]]);
+$app->collect()->get($formid);
+$app->collect()->getAnswer($formid);
+
 // 服务端消息处理
 $server = $app->server();
 $server->on('text', fn($payload) => 'success');
@@ -629,6 +672,13 @@ $app->hrm()->queryDimission();
 $app->report()->list('2024-01-01 00:00:00', '2024-01-31 23:59:59');
 $app->report()->get($reportId);
 $app->report()->templateList();
+
+// 项目管理
+$app->project()->create(['name' => '新项目', 'manager_uid' => 'zhangsan', 'description' => '项目描述']);
+$app->project()->get($projectId);
+$app->project()->list();
+$app->project()->addTask($projectId, ['content' => '完成需求分析', 'executor_uid' => 'lisi']);
+$app->project()->taskList($projectId);
 ```
 
 ### 飞书
@@ -700,6 +750,14 @@ $app->wiki()->list();
 $app->wiki()->get($spaceId);
 $app->wiki()->nodes($spaceId);
 $app->wiki()->createNode($spaceId, ['obj_type' => 22, 'node_type' => 'origin', 'origin_node_token' => $docToken, 'parent_node_token' => $parentToken, 'title' => '新节点']);
+
+// 审批定义（流程配置）
+$app->approvalDef()->list();
+$app->approvalDef()->get($approvalCode);
+$app->approvalDef()->createInstance(['approval_code' => $approvalCode, 'user_id' => 'ou_xxx', 'form' => ['控件ID' => ['value' => '值']]]);
+$app->approvalDef()->instanceList($approvalCode);
+$app->approvalDef()->approve(['instance_code' => $instanceCode, 'user_id' => 'ou_xxx', 'comment' => '同意']);
+$app->approvalDef()->reject(['instance_code' => $instanceCode, 'user_id' => 'ou_xxx', 'comment' => '驳回']);
 ```
 
 ### 支付宝

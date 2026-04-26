@@ -10,6 +10,7 @@ use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Providers\Douyin\Modules\Auth;
 use Kode\MiniApp\Providers\Douyin\Modules\Pay;
+use Kode\MiniApp\Providers\Douyin\Modules\Video;
 
 /**
  * 抖音应用实例
@@ -18,6 +19,7 @@ final readonly class DouyinApp implements AppInterface
 {
     private Auth $auth;
     private Pay $pay;
+    private Video $video;
 
     public function __construct(
         private string $name,
@@ -27,6 +29,7 @@ final readonly class DouyinApp implements AppInterface
     ) {
         $this->auth = new Auth($this);
         $this->pay  = new Pay($this);
+        $this->video = new Video($this);
     }
 
     public function name(): string
@@ -57,5 +60,10 @@ final readonly class DouyinApp implements AppInterface
     public function pay(): Pay
     {
         return $this->pay;
+    }
+
+    public function video(): Video
+    {
+        return $this->video;
     }
 }

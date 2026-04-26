@@ -9,6 +9,7 @@ use Kode\MiniApp\Contracts\ConfigInterface;
 use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Providers\Baidu\Modules\Auth;
+use Kode\MiniApp\Providers\Baidu\Modules\Message;
 use Kode\MiniApp\Providers\Baidu\Modules\Pay;
 
 /**
@@ -18,6 +19,7 @@ final readonly class BaiduApp implements AppInterface
 {
     private Auth $auth;
     private Pay $pay;
+    private Message $message;
 
     public function __construct(
         private string $name,
@@ -27,6 +29,7 @@ final readonly class BaiduApp implements AppInterface
     ) {
         $this->auth = new Auth($this);
         $this->pay  = new Pay($this);
+        $this->message = new Message($this);
     }
 
     public function name(): string
@@ -57,5 +60,10 @@ final readonly class BaiduApp implements AppInterface
     public function pay(): Pay
     {
         return $this->pay;
+    }
+
+    public function message(): Message
+    {
+        return $this->message;
     }
 }

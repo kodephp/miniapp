@@ -16,6 +16,7 @@ use Kode\MiniApp\Providers\WechatWork\Modules\Contact;
 use Kode\MiniApp\Providers\WechatWork\Modules\Customer;
 use Kode\MiniApp\Providers\WechatWork\Modules\Department;
 use Kode\MiniApp\Providers\WechatWork\Modules\Dial;
+use Kode\MiniApp\Providers\WechatWork\Modules\Drive;
 use Kode\MiniApp\Providers\WechatWork\Modules\ExternalContact;
 use Kode\MiniApp\Providers\WechatWork\Modules\Media;
 use Kode\MiniApp\Providers\WechatWork\Modules\Meeting;
@@ -47,6 +48,7 @@ final readonly class WechatWorkApp implements AppInterface
     private Dial $dial;
     private Schedule $schedule;
     private Collect $collect;
+    private Drive $drive;
 
     public function __construct(
         private string $name,
@@ -69,6 +71,7 @@ final readonly class WechatWorkApp implements AppInterface
         $this->dial          = new Dial($this);
         $this->schedule      = new Schedule($this);
         $this->collect       = new Collect($this);
+        $this->drive         = new Drive($this);
     }
 
     public function name(): string
@@ -164,6 +167,11 @@ final readonly class WechatWorkApp implements AppInterface
     public function collect(): Collect
     {
         return $this->collect;
+    }
+
+    public function drive(): Drive
+    {
+        return $this->drive;
     }
 
     public function server(): Server
