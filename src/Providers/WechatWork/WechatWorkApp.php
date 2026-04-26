@@ -9,12 +9,15 @@ use Kode\MiniApp\Contracts\ConfigInterface;
 use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Notify\Notify;
+use Kode\MiniApp\Providers\WechatWork\Modules\Agent;
 use Kode\MiniApp\Providers\WechatWork\Modules\Auth;
 use Kode\MiniApp\Providers\WechatWork\Modules\Contact;
 use Kode\MiniApp\Providers\WechatWork\Modules\Customer;
 use Kode\MiniApp\Providers\WechatWork\Modules\Department;
 use Kode\MiniApp\Providers\WechatWork\Modules\ExternalContact;
+use Kode\MiniApp\Providers\WechatWork\Modules\Media;
 use Kode\MiniApp\Providers\WechatWork\Modules\Message;
+use Kode\MiniApp\Providers\WechatWork\Modules\Oa;
 use Kode\MiniApp\Providers\WechatWork\Modules\Approval;
 use Kode\MiniApp\Providers\WechatWork\Modules\Tag;
 use Kode\MiniApp\Server\Server;
@@ -33,6 +36,9 @@ final readonly class WechatWorkApp implements AppInterface
     private Tag             $tag;
     private Department      $department;
     private ExternalContact $externalContact;
+    private Media           $media;
+    private Agent           $agent;
+    private Oa              $oa;
 
     public function __construct(
         private string $name,
@@ -48,6 +54,9 @@ final readonly class WechatWorkApp implements AppInterface
         $this->tag           = new Tag($this);
         $this->department    = new Department($this);
         $this->externalContact = new ExternalContact($this);
+        $this->media         = new Media($this);
+        $this->agent         = new Agent($this);
+        $this->oa            = new Oa($this);
     }
 
     public function name(): string
@@ -108,6 +117,21 @@ final readonly class WechatWorkApp implements AppInterface
     public function externalContact(): ExternalContact
     {
         return $this->externalContact;
+    }
+
+    public function media(): Media
+    {
+        return $this->media;
+    }
+
+    public function agent(): Agent
+    {
+        return $this->agent;
+    }
+
+    public function oa(): Oa
+    {
+        return $this->oa;
     }
 
     public function server(): Server

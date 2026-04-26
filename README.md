@@ -44,14 +44,14 @@ composer require kode/event     # 事件
 
 | 平台 | 标识 | 类型 | 能力 |
 |------|------|------|------|
-| 微信 | `wechat` | C端 | 登录、JS-SDK、用户、素材、菜单、客服、消息、订阅消息、小程序码、数据分析、支付、服务端、回调通知 |
+| 微信 | `wechat` | C端 | 登录、JS-SDK、用户、素材、菜单、客服、消息、订阅消息、小程序码、数据分析、支付、订单物流同步、内容安全、URL Scheme/Link、插件管理、直播、服务端、回调通知 |
 | 支付宝 | `alipay` | C端 | 登录、支付、转账、账单、回调通知 |
 | 抖音 | `douyin` | C端 | 登录、支付 |
 | 百度 | `baidu` | C端 | 登录、支付 |
 | QQ | `qq` | C端 | 登录 |
-| 微信企业号 | `wechat_work` | B端 | 认证、通讯录、部门管理、客户联系、外部联系人、标签、消息、审批、服务端、回调通知 |
+| 微信企业号 | `wechat_work` | B端 | 认证、通讯录、部门管理、客户联系、外部联系人、标签、消息、审批、素材管理、应用管理、服务端、回调通知 |
 | 钉钉 | `dingtalk` | B端 | 认证、通讯录、消息、审批、群机器人 |
-| 飞书 | `lark` | B端 | 认证、通讯录、消息、审批、多维表格 |
+| 飞书 | `lark` | B端 | 认证、通讯录、消息、审批、多维表格、文档 |
 
 ## 安装
 
@@ -355,6 +355,21 @@ $app->shipping()->notifyConfirmReceive('', 'ORDER_001');
 // 设置消息跳转路径
 $app->shipping()->setMsgJumpPath('pages/order/detail');
 
+// 内容安全检测
+$result = $app->security()->msgSecCheck('待检测文本内容');
+$result = $app->security()->imgSecCheck('https://example.com/image.jpg');
+$result = $app->security()->mediaCheckAsync('https://example.com/audio.mp3', 1);
+
+// URL Scheme / URL Link（短信、邮件、微信外打开小程序）
+$scheme = $app->urlLink()->generateScheme([
+    'jump_wxa' => ['path' => '/pages/index/index', 'query' => 'id=123'],
+]);
+$link = $app->urlLink()->generateUrlLink([
+    'path'  => '/pages/index/index',
+    'query' => 'id=123',
+]);
+$shortLink = $app->urlLink()->generateShortLink('pages/index/index?id=123', '页面标题');
+
 // 企业级支付（需安装 kode/pays）
 $pay = $app->payBridge();
 if ($pay !== null) {
@@ -465,6 +480,16 @@ $app->externalContact()->addCorpTag([
     'tag' => [['name' => 'VIP']],
 ]);
 
+// 素材管理
+$media = $app->media()->upload('image', '/path/to/image.jpg');
+$app->media()->uploadImg('/path/to/image.jpg');
+$app->media()->uploadAttachment('image', '/path/to/image.jpg', 'image');
+
+// 应用管理
+$app->agent()->get(1000002);
+$app->agent()->list();
+$app->agent()->set(['agentid' => 1000002, 'report_location_flag' => 0]);
+
 // 消息推送
 $app->message()->text('Hello World', ['zhangsan']);
 $app->message()->markdown('# 标题\n内容', ['zhangsan']);
@@ -568,6 +593,15 @@ $app->bitable()->createRecord($appToken, $tableId, ['字段名' => '值']);
 $app->bitable()->records($appToken, $tableId);
 $app->bitable()->updateRecord($appToken, $tableId, $recordId, ['字段名' => '新值']);
 $app->bitable()->deleteRecord($appToken, $tableId, $recordId);
+
+// 文档管理
+$doc = $app->doc()->create('新文档标题', $folderToken);
+$app->doc()->meta($documentId);
+$app->doc()->rawContent($documentId);
+$app->doc()->blocks($documentId, $blockId);
+$app->doc()->createBlock($documentId, $blockId, [
+    ['block_type' => 2, 'text' => ['elements' => [['text_run' => ['content' => 'Hello World']]]]],
+]);
 ```
 
 ### 支付宝
@@ -753,7 +787,7 @@ try {
 版本号由 `composer.json` 统一管理：
 
 ```bash
-# 升级 patch 版本（0.7.0 -> 0.7.1）
+# 升级 patch 版本（0.9.0 -> 0.9.1）
 composer run version:bump
 
 # 升级 minor 版本

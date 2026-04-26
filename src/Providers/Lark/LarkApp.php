@@ -10,7 +10,9 @@ use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Providers\Lark\Modules\Auth;
 use Kode\MiniApp\Providers\Lark\Modules\Bitable;
+use Kode\MiniApp\Providers\Lark\Modules\Calendar;
 use Kode\MiniApp\Providers\Lark\Modules\Contact;
+use Kode\MiniApp\Providers\Lark\Modules\Doc;
 use Kode\MiniApp\Providers\Lark\Modules\Message;
 use Kode\MiniApp\Providers\Lark\Modules\Approval;
 
@@ -24,6 +26,8 @@ final readonly class LarkApp implements AppInterface
     private Message  $message;
     private Approval $approval;
     private Bitable  $bitable;
+    private Doc      $doc;
+    private Calendar $calendar;
 
     public function __construct(
         private string $name,
@@ -36,6 +40,8 @@ final readonly class LarkApp implements AppInterface
         $this->message  = new Message($this);
         $this->approval = new Approval($this);
         $this->bitable  = new Bitable($this);
+        $this->doc      = new Doc($this);
+        $this->calendar = new Calendar($this);
     }
 
     public function name(): string
@@ -81,5 +87,15 @@ final readonly class LarkApp implements AppInterface
     public function bitable(): Bitable
     {
         return $this->bitable;
+    }
+
+    public function doc(): Doc
+    {
+        return $this->doc;
+    }
+
+    public function calendar(): Calendar
+    {
+        return $this->calendar;
     }
 }

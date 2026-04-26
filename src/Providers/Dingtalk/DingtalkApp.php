@@ -8,6 +8,7 @@ use Kode\MiniApp\Contracts\AppInterface;
 use Kode\MiniApp\Contracts\ConfigInterface;
 use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
+use Kode\MiniApp\Providers\Dingtalk\Modules\Attendance;
 use Kode\MiniApp\Providers\Dingtalk\Modules\Auth;
 use Kode\MiniApp\Providers\Dingtalk\Modules\Contact;
 use Kode\MiniApp\Providers\Dingtalk\Modules\Message;
@@ -24,6 +25,7 @@ final readonly class DingtalkApp implements AppInterface
     private Message  $message;
     private Approval $approval;
     private Robot    $robot;
+    private Attendance $attendance;
 
     public function __construct(
         private string $name,
@@ -36,6 +38,7 @@ final readonly class DingtalkApp implements AppInterface
         $this->message  = new Message($this);
         $this->approval = new Approval($this);
         $this->robot    = new Robot($this);
+        $this->attendance = new Attendance($this);
     }
 
     public function name(): string
@@ -81,5 +84,10 @@ final readonly class DingtalkApp implements AppInterface
     public function robot(): Robot
     {
         return $this->robot;
+    }
+
+    public function attendance(): Attendance
+    {
+        return $this->attendance;
     }
 }

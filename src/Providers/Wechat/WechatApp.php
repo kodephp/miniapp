@@ -18,9 +18,13 @@ use Kode\MiniApp\Providers\Wechat\Modules\Media;
 use Kode\MiniApp\Providers\Wechat\Modules\Menu;
 use Kode\MiniApp\Providers\Wechat\Modules\Message;
 use Kode\MiniApp\Providers\Wechat\Modules\MiniProgramCode;
+use Kode\MiniApp\Providers\Wechat\Modules\Live;
 use Kode\MiniApp\Providers\Wechat\Modules\Pay;
+use Kode\MiniApp\Providers\Wechat\Modules\Plugin;
+use Kode\MiniApp\Providers\Wechat\Modules\Security;
 use Kode\MiniApp\Providers\Wechat\Modules\Shipping;
 use Kode\MiniApp\Providers\Wechat\Modules\SubscribeMessage;
+use Kode\MiniApp\Providers\Wechat\Modules\UrlLink;
 use Kode\MiniApp\Providers\Wechat\Modules\User;
 use Kode\MiniApp\Server\Server;
 
@@ -43,6 +47,10 @@ final readonly class WechatApp implements AppInterface
     private SubscribeMessage $subscribeMessage;
     private DataAnalysis     $dataAnalysis;
     private Shipping         $shipping;
+    private Security         $security;
+    private UrlLink          $urlLink;
+    private Plugin           $plugin;
+    private Live             $live;
 
     public function __construct(
         private string $name,
@@ -62,6 +70,10 @@ final readonly class WechatApp implements AppInterface
         $this->subscribeMessage = new SubscribeMessage($this);
         $this->dataAnalysis    = new DataAnalysis($this);
         $this->shipping        = new Shipping($this);
+        $this->security        = new Security($this);
+        $this->urlLink         = new UrlLink($this);
+        $this->plugin          = new Plugin($this);
+        $this->live            = new Live($this);
     }
 
     public function name(): string
@@ -154,6 +166,26 @@ final readonly class WechatApp implements AppInterface
     public function shipping(): Shipping
     {
         return $this->shipping;
+    }
+
+    public function security(): Security
+    {
+        return $this->security;
+    }
+
+    public function urlLink(): UrlLink
+    {
+        return $this->urlLink;
+    }
+
+    public function plugin(): Plugin
+    {
+        return $this->plugin;
+    }
+
+    public function live(): Live
+    {
+        return $this->live;
     }
 
     public function server(): Server
