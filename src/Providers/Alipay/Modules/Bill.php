@@ -28,7 +28,7 @@ readonly class Bill
             'bill_date' => $billDate,
         ]);
         $response = $this->app->http()->post(
-            $this->app->config()->get('gateway'),
+            $this->app->config()->get('gateway', 'https://openapi.alipay.com/gateway.do'),
             ['form_params' => $payload]
         );
 
@@ -55,7 +55,7 @@ readonly class Bill
             'biz_content' => json_encode($biz),
         ];
 
-        $params['sign'] = $this->sign($params, $config->get('private_key'));
+        $params['sign'] = $this->sign($params, $config->get('private_key', ''));
 
         return $params;
     }

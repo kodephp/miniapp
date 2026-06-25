@@ -22,7 +22,7 @@ readonly class Auth
     public function token(): string
     {
         $config   = $this->app->config();
-        $baseUrl  = $config->get('base_url') ?? 'https://open.feishu.cn';
+        $baseUrl  = $config->get('base_url', 'https://open.feishu.cn');
         $response = $this->app->http()->postJson(
             "{$baseUrl}/open-apis/auth/v3/tenant_access_token/internal",
             [
@@ -47,7 +47,7 @@ readonly class Auth
     public function user(string $code): array
     {
         $token    = $this->token();
-        $baseUrl  = $this->app->config()->get('base_url') ?? 'https://open.feishu.cn';
+        $baseUrl  = $this->app->config()->get('base_url', 'https://open.feishu.cn');
         $response = $this->app->http()->postJson(
             "{$baseUrl}/open-apis/authen/v1/access_token",
             ['grant_type' => 'authorization_code', 'code' => $code],
@@ -70,7 +70,7 @@ readonly class Auth
     public function userDetail(string $userId): array
     {
         $token    = $this->token();
-        $baseUrl  = $this->app->config()->get('base_url') ?? 'https://open.feishu.cn';
+        $baseUrl  = $this->app->config()->get('base_url', 'https://open.feishu.cn');
         $response = $this->app->http()->get(
             "{$baseUrl}/open-apis/contact/v3/users/{$userId}",
             ['headers' => ['Authorization' => "Bearer {$token}"]]

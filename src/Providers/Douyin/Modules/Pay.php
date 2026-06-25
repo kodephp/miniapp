@@ -61,12 +61,12 @@ readonly class Pay
             'subject'      => $params['subject'] ?? '',
             'body'         => $params['body'] ?? '',
             'valid_time'   => $params['valid_time'] ?? 300,
-            'notify_url'   => $config->get('notify_url'),
+            'notify_url'   => $config->get('notify_url', ''),
             'sign'         => '',
-            'salt'         => $config->get('salt'),
+            'salt'         => $config->get('salt', ''),
         ], $params);
 
-        $data['sign'] = $this->sign($data, $config->get('token'));
+        $data['sign'] = $this->sign($data, $config->get('token', ''));
 
         return $data;
     }

@@ -33,6 +33,10 @@ interface ConfigInterface
 
     /**
      * 获取单个配置项
+     *
+     * @template T
+     * @param T $default
+     * @return T
      */
     public function get(string $key, mixed $default = null): mixed;
 }

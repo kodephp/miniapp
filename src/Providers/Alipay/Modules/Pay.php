@@ -33,7 +33,7 @@ readonly class Pay
 
         $payload = $this->buildParams('alipay.trade.create', $biz);
         $response = $this->app->http()->post(
-            $this->app->config()->get('gateway'),
+            $this->app->config()->get('gateway', 'https://openapi.alipay.com/gateway.do'),
             ['form_params' => $payload]
         );
 
@@ -57,11 +57,11 @@ readonly class Pay
             'sign_type'   => 'RSA2',
             'timestamp'   => date('Y-m-d H:i:s'),
             'version'     => '1.0',
-            'notify_url'  => $config->get('notify_url'),
+            'notify_url'  => $config->get('notify_url', ''),
             'biz_content' => json_encode($biz),
         ];
 
-        $params['sign'] = $this->sign($params, $config->get('private_key'));
+        $params['sign'] = $this->sign($params, $config->get('private_key', ''));
 
         return $params;
     }

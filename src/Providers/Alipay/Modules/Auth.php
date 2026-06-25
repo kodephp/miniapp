@@ -29,7 +29,10 @@ readonly class Auth
             'code'       => $code,
         ]);
 
-        $response = $this->app->http()->post($this->app->config()->get('gateway'), ['form_params' => $params]);
+        $response = $this->app->http()->post(
+            $this->app->config()->get('gateway', 'https://openapi.alipay.com/gateway.do'),
+            ['form_params' => $params]
+        );
         $data     = json_decode((string) $response->getBody(), true);
 
         return $data['alipay_system_oauth_token_response'] ?? [];
@@ -46,7 +49,10 @@ readonly class Auth
             'auth_token' => $accessToken,
         ]);
 
-        $response = $this->app->http()->post($this->app->config()->get('gateway'), ['form_params' => $params]);
+        $response = $this->app->http()->post(
+            $this->app->config()->get('gateway', 'https://openapi.alipay.com/gateway.do'),
+            ['form_params' => $params]
+        );
         $data     = json_decode((string) $response->getBody(), true);
 
         return $data['alipay_user_info_share_response'] ?? [];
@@ -72,7 +78,7 @@ readonly class Auth
             'biz_content' => json_encode($biz),
         ];
 
-        $params['sign'] = $this->sign($params, $config->get('private_key'));
+        $params['sign'] = $this->sign($params, $config->get('private_key', ''));
 
         return $params;
     }

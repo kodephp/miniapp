@@ -24,7 +24,7 @@ readonly class Bitable
     public function meta(string $appToken): array
     {
         $token    = $this->app->auth()->token();
-        $baseUrl  = $this->app->config()->get('base_url') ?? 'https://open.feishu.cn';
+        $baseUrl  = $this->app->config()->get('base_url', 'https://open.feishu.cn');
         $response = $this->app->http()->get(
             "{$baseUrl}/open-apis/bitable/v1/apps/{$appToken}",
             ['headers' => ['Authorization' => "Bearer {$token}"]]
@@ -42,7 +42,7 @@ readonly class Bitable
     public function tables(string $appToken, string $pageToken = '', int $pageSize = 20): array
     {
         $token    = $this->app->auth()->token();
-        $baseUrl  = $this->app->config()->get('base_url') ?? 'https://open.feishu.cn';
+        $baseUrl  = $this->app->config()->get('base_url', 'https://open.feishu.cn');
         $params   = ['page_size' => $pageSize];
         if (!empty($pageToken)) {
             $params['page_token'] = $pageToken;
@@ -68,7 +68,7 @@ readonly class Bitable
     public function createRecord(string $appToken, string $tableId, array $fields): array
     {
         $token    = $this->app->auth()->token();
-        $baseUrl  = $this->app->config()->get('base_url') ?? 'https://open.feishu.cn';
+        $baseUrl  = $this->app->config()->get('base_url', 'https://open.feishu.cn');
         $response = $this->app->http()->post(
             "{$baseUrl}/open-apis/bitable/v1/apps/{$appToken}/tables/{$tableId}/records",
             [
@@ -95,7 +95,7 @@ readonly class Bitable
         int $pageSize = 500
     ): array {
         $token    = $this->app->auth()->token();
-        $baseUrl  = $this->app->config()->get('base_url') ?? 'https://open.feishu.cn';
+        $baseUrl  = $this->app->config()->get('base_url', 'https://open.feishu.cn');
         $params   = ['page_size' => $pageSize];
         if (!empty($pageToken)) {
             $params['page_token'] = $pageToken;
@@ -124,7 +124,7 @@ readonly class Bitable
     public function updateRecord(string $appToken, string $tableId, string $recordId, array $fields): array
     {
         $token    = $this->app->auth()->token();
-        $baseUrl  = $this->app->config()->get('base_url') ?? 'https://open.feishu.cn';
+        $baseUrl  = $this->app->config()->get('base_url', 'https://open.feishu.cn');
         $response = $this->app->http()->put(
             "{$baseUrl}/open-apis/bitable/v1/apps/{$appToken}/tables/{$tableId}/records/{$recordId}",
             [
@@ -145,7 +145,7 @@ readonly class Bitable
     public function deleteRecord(string $appToken, string $tableId, string $recordId): array
     {
         $token    = $this->app->auth()->token();
-        $baseUrl  = $this->app->config()->get('base_url') ?? 'https://open.feishu.cn';
+        $baseUrl  = $this->app->config()->get('base_url', 'https://open.feishu.cn');
         $response = $this->app->http()->delete(
             "{$baseUrl}/open-apis/bitable/v1/apps/{$appToken}/tables/{$tableId}/records/{$recordId}",
             ['headers' => ['Authorization' => "Bearer {$token}"]]

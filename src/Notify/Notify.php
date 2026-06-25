@@ -120,7 +120,7 @@ final class Notify
         unset($payload['sign']);
 
         $key = $this->app->config()->get('api_v3_key', '');
-        if (empty($key)) {
+        if ($key === '') {
             return true; // 未配置密钥，跳过验证
         }
 
@@ -139,7 +139,7 @@ final class Notify
         unset($payload['sign'], $payload['sign_type']);
 
         $publicKey = $this->app->config()->get('public_key', '');
-        if (empty($publicKey)) {
+        if ($publicKey === '') {
             return true;
         }
 

@@ -42,6 +42,13 @@ readonly class BaseConfig implements ConfigInterface
         return $this->data;
     }
 
+    /**
+     * 获取单个配置项
+     *
+     * @template T
+     * @param T $default
+     * @return T
+     */
     public function get(string $key, mixed $default = null): mixed
     {
         return $this->data[$key] ?? $default;
