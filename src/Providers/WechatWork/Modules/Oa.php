@@ -21,6 +21,7 @@ readonly class Oa
     /**
      * 获取打卡规则
      *
+     * @param array<int, string> $userList
      * @return array<string, mixed>
      */
     public function getCheckinOption(int $datetime, array $userList): array
@@ -37,6 +38,7 @@ readonly class Oa
     /**
      * 获取打卡数据
      *
+     * @param array<int, string> $userList
      * @return array<string, mixed>
      */
     public function getCheckinData(int $startTime, int $endTime, array $userList, int $opencheckindatatype = 3): array
@@ -58,6 +60,7 @@ readonly class Oa
     /**
      * 获取打卡日报数据
      *
+     * @param array<int, string> $userList
      * @return array<string, mixed>
      */
     public function getCheckinDayData(int $startTime, int $endTime, array $userList): array
@@ -78,6 +81,7 @@ readonly class Oa
     /**
      * 获取打卡月报数据
      *
+     * @param array<int, string> $userList
      * @return array<string, mixed>
      */
     public function getCheckinMonthData(int $startTime, int $endTime, array $userList): array
@@ -98,10 +102,16 @@ readonly class Oa
     /**
      * 获取汇报记录
      *
+     * @param array<int, array<string, mixed>> $filters
      * @return array<string, mixed>
      */
-    public function getJournalRecordList(int $startTime, int $endTime, array $filters = [], int $limit = 100, string $cursor = ''): array
-    {
+    public function getJournalRecordList(
+        int $startTime,
+        int $endTime,
+        array $filters = [],
+        int $limit = 100,
+        string $cursor = ''
+    ): array {
         $token = $this->app->auth()->token();
         $data  = [
             'starttime' => $startTime,

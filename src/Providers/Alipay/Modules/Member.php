@@ -101,7 +101,9 @@ readonly class Member
         }
         $string = rtrim($string, '&');
 
-        $key = "-----BEGIN RSA PRIVATE KEY-----\n" . wordwrap($privateKey, 64, "\n", true) . "\n-----END RSA PRIVATE KEY-----";
+        $key = "-----BEGIN RSA PRIVATE KEY-----\n"
+            . wordwrap($privateKey, 64, "\n", true)
+            . "\n-----END RSA PRIVATE KEY-----";
         openssl_sign($string, $sign, $key, OPENSSL_ALGO_SHA256);
 
         return base64_encode($sign);

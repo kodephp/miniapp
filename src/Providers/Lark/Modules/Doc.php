@@ -34,7 +34,7 @@ readonly class Doc
         $response = $this->app->http()->postJson(
             self::BASE_URL . '/docx/v1/documents',
             $data,
-            ['headers' => ['Authorization' => "Bearer {$token}"]]
+            ['Authorization' => "Bearer {$token}"]
         );
 
         return json_decode((string) $response->getBody(), true);

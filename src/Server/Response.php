@@ -9,6 +9,9 @@ namespace Kode\MiniApp\Server;
  */
 readonly class Response
 {
+    /**
+     * @param array<string, string> $headers
+     */
     public function __construct(
         private string $content,
         private int $statusCode = 200,

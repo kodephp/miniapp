@@ -6,6 +6,9 @@ namespace Kode\MiniApp\Tests\Providers\Dingtalk;
 
 use Kode\MiniApp\Contracts\Platform;
 use Kode\MiniApp\Kernel;
+use Kode\MiniApp\Providers\Dingtalk\DingtalkApp;
+use Kode\MiniApp\Providers\Dingtalk\DingtalkConfig;
+use Kode\MiniApp\Providers\Dingtalk\DingtalkProvider;
 use Kode\MiniApp\Tests\TestCase;
 
 /**
@@ -25,10 +28,13 @@ class DingtalkProviderTest extends TestCase
         ]);
 
         $provider = $kernel->dingtalk();
+        $config   = $provider->config();
 
+        self::assertInstanceOf(DingtalkProvider::class, $provider);
+        self::assertInstanceOf(DingtalkConfig::class, $config);
         self::assertSame(Platform::Dingtalk, $provider->name());
-        self::assertSame('key123', $provider->config()->appKey());
-        self::assertSame('secret', $provider->config()->appSecret());
+        self::assertSame('key123', $config->appKey());
+        self::assertSame('secret', $config->appSecret());
     }
 
     public function testAppModules(): void
@@ -44,6 +50,7 @@ class DingtalkProviderTest extends TestCase
 
         $app = $kernel->dingtalk()->app();
 
+        self::assertInstanceOf(DingtalkApp::class, $app);
         self::assertSame('default', $app->name());
         self::assertInstanceOf(\Kode\MiniApp\Providers\Dingtalk\Modules\Auth::class, $app->auth());
         self::assertInstanceOf(\Kode\MiniApp\Providers\Dingtalk\Modules\Contact::class, $app->contact());

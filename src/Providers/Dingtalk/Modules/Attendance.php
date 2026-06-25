@@ -21,10 +21,16 @@ readonly class Attendance
     /**
      * 获取用户考勤数据
      *
+     * @param array<int, string> $userIdList
      * @return array<string, mixed>
      */
-    public function list(string $workDateFrom, string $workDateTo, array $userIdList, int $offset = 0, int $limit = 50): array
-    {
+    public function list(
+        string $workDateFrom,
+        string $workDateTo,
+        array $userIdList,
+        int $offset = 0,
+        int $limit = 50
+    ): array {
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->postJson(
             self::BASE_URL . "/attendance/list?access_token={$token}",
@@ -48,6 +54,7 @@ readonly class Attendance
     /**
      * 获取用户考勤班次
      *
+     * @param array<int, string> $userIdList
      * @return array<string, mixed>
      */
     public function listSchedule(array $userIdList, string $workDate): array
@@ -93,6 +100,7 @@ readonly class Attendance
     /**
      * 获取考勤打卡记录
      *
+     * @param array<int, string> $userIds
      * @return array<string, mixed>
      */
     public function getRecord(string $checkDateFrom, string $checkDateTo, array $userIds): array

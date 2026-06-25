@@ -58,6 +58,7 @@ readonly class Message
     /**
      * 发送富文本消息
      *
+     * @param array<string, mixed> $content
      * @return array<string, mixed>
      */
     public function post(string $receiveId, array $content, string $receiveIdType = 'open_id'): array
@@ -97,6 +98,7 @@ readonly class Message
     /**
      * 发送卡片消息
      *
+     * @param array<string, mixed> $card
      * @return array<string, mixed>
      */
     public function interactive(string $receiveId, array $card, string $receiveIdType = 'open_id'): array
@@ -110,6 +112,7 @@ readonly class Message
     /**
      * 发送消息卡片（JSON 字符串）
      *
+     * @param array<string, mixed> $content
      * @return array<string, mixed>
      */
     public function sendCard(string $receiveId, string $receiveIdType, string $msgType, array $content): array

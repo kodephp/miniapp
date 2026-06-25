@@ -56,8 +56,13 @@ readonly class Message
      * @param array<string, mixed> $data
      * @return array<string, mixed>
      */
-    public function sendTemplate(string $openid, string $templateId, string $url = '', array $data = [], string $miniProgram = ''): array
-    {
+    public function sendTemplate(
+        string $openid,
+        string $templateId,
+        string $url = '',
+        array $data = [],
+        string $miniProgram = ''
+    ): array {
         $token    = $this->app->auth()->token();
         $apiUrl   = "https://api.weixin.qq.com/cgi-bin/message/template/send?access_token={$token}";
         $payload  = [

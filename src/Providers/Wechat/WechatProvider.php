@@ -23,6 +23,9 @@ final class WechatProvider implements PlatformInterface
     /** @var array<string, WechatApp> */
     private array $apps = [];
 
+    /**
+     * @param array<string, mixed> $config
+     */
     public function __construct(
         array $config,
         ?HttpClientInterface $http = null,

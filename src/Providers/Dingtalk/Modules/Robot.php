@@ -36,6 +36,7 @@ readonly class Robot
     /**
      * 发送文本消息
      *
+     * @param array<string, mixed> $at
      * @return array<string, mixed>
      */
     public function text(string $webhook, string $secret, string $content, array $at = []): array
@@ -50,6 +51,7 @@ readonly class Robot
     /**
      * 发送 Markdown 消息
      *
+     * @param array<string, mixed> $at
      * @return array<string, mixed>
      */
     public function markdown(string $webhook, string $secret, string $title, string $text, array $at = []): array
@@ -66,8 +68,14 @@ readonly class Robot
      *
      * @return array<string, mixed>
      */
-    public function link(string $webhook, string $secret, string $title, string $text, string $messageUrl, string $picUrl = ''): array
-    {
+    public function link(
+        string $webhook,
+        string $secret,
+        string $title,
+        string $text,
+        string $messageUrl,
+        string $picUrl = ''
+    ): array {
         return $this->send($webhook, $secret, [
             'msgtype' => 'link',
             'link'    => [
@@ -82,6 +90,7 @@ readonly class Robot
     /**
      * 发送 ActionCard 消息
      *
+     * @param array<string, mixed> $card
      * @return array<string, mixed>
      */
     public function actionCard(string $webhook, string $secret, array $card): array

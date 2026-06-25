@@ -22,6 +22,9 @@ final class QqProvider implements PlatformInterface
     /** @var array<string, QqApp> */
     private array $apps = [];
 
+    /**
+     * @param array<string, mixed> $config
+     */
     public function __construct(
         array $config,
         ?HttpClientInterface $http = null,

@@ -22,6 +22,9 @@ final class AlipayProvider implements PlatformInterface
     /** @var array<string, AlipayApp> */
     private array $apps = [];
 
+    /**
+     * @param array<string, mixed> $config
+     */
     public function __construct(
         array $config,
         ?HttpClientInterface $http = null,

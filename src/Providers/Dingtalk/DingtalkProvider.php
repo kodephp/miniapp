@@ -22,6 +22,9 @@ final class DingtalkProvider implements PlatformInterface
     /** @var array<string, DingtalkApp> */
     private array $apps = [];
 
+    /**
+     * @param array<string, mixed> $config
+     */
     public function __construct(
         array $config,
         ?HttpClientInterface $http = null,

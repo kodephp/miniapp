@@ -38,6 +38,8 @@ final class Sign
     /**
      * RSA2 签名
      *
+     * 支持传入完整 PEM 格式或纯 Base64 字符串
+     *
      * @param array<string, mixed> $params
      */
     public static function rsa(array $params, string $privateKey, string $algo = 'sha256'): string
@@ -45,9 +47,7 @@ final class Sign
         ksort($params);
         $string = urldecode(http_build_query($params));
 
-        $key = "-----BEGIN RSA PRIVATE KEY-----\n" .
-               wordwrap($privateKey, 64, "\n", true) .
-               "\n-----END RSA PRIVATE KEY-----";
+        $key = self::normalizePrivateKey($privateKey);
 
         $algoConstant = match ($algo) {
             'sha256' => OPENSSL_ALGO_SHA256,
@@ -63,6 +63,8 @@ final class Sign
     /**
      * 验证 RSA2 签名
      *
+     * 支持传入完整 PEM 格式或纯 Base64 字符串
+     *
      * @param array<string, mixed> $params
      */
     public static function verifyRsa(array $params, string $publicKey, string $sign, string $algo = 'sha256'): bool
@@ -70,9 +72,7 @@ final class Sign
         ksort($params);
         $string = urldecode(http_build_query($params));
 
-        $key = "-----BEGIN PUBLIC KEY-----\n" .
-               wordwrap($publicKey, 64, "\n", true) .
-               "\n-----END PUBLIC KEY-----";
+        $key = self::normalizePublicKey($publicKey);
 
         $algoConstant = match ($algo) {
             'sha256' => OPENSSL_ALGO_SHA256,
@@ -81,5 +81,33 @@ final class Sign
         };
 
         return openssl_verify($string, base64_decode($sign), $key, $algoConstant) === 1;
+    }
+
+    /**
+     * 标准化私钥格式（支持完整 PEM 或纯 Base64）
+     */
+    private static function normalizePrivateKey(string $key): string
+    {
+        if (str_contains($key, '-----BEGIN')) {
+            return $key;
+        }
+
+        return "-----BEGIN RSA PRIVATE KEY-----\n" .
+               wordwrap($key, 64, "\n", true) .
+               "\n-----END RSA PRIVATE KEY-----";
+    }
+
+    /**
+     * 标准化公钥格式（支持完整 PEM 或纯 Base64）
+     */
+    private static function normalizePublicKey(string $key): string
+    {
+        if (str_contains($key, '-----BEGIN')) {
+            return $key;
+        }
+
+        return "-----BEGIN PUBLIC KEY-----\n" .
+               wordwrap($key, 64, "\n", true) .
+               "\n-----END PUBLIC KEY-----";
     }
 }

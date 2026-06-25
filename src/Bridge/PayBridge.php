@@ -41,7 +41,7 @@ final class PayBridge
         $platform = $app->platform()->name()->value;
 
         // 桥接到 kode/pays 的支付工厂
-        return \Kode\Pays\Pay::factory($platform, $config);
+        return self::callPayFactory('factory', $platform, $config);
     }
 
     /**
@@ -56,6 +56,19 @@ final class PayBridge
         $config = $app->config()->all();
         $platform = $app->platform()->name()->value;
 
-        return \Kode\Pays\Pay::notify($platform, $config);
+        return self::callPayFactory('notify', $platform, $config);
+    }
+
+    /**
+     * 调用 kode/pays 的工厂方法
+     *
+     * @param array<string, mixed> $config
+     */
+    private static function callPayFactory(string $method, string $platform, array $config): ?object
+    {
+        $payClass = 'Kode\\Pays\\Pay';
+        $callable = [$payClass, $method];
+
+        return is_callable($callable) ? $callable($platform, $config) : null;
     }
 }

@@ -23,8 +23,13 @@ readonly class Report
      *
      * @return array<string, mixed>
      */
-    public function list(string $startTime, string $endTime, string $templateName = '', int $cursor = 0, int $size = 20): array
-    {
+    public function list(
+        string $startTime,
+        string $endTime,
+        string $templateName = '',
+        int $cursor = 0,
+        int $size = 20
+    ): array {
         $token    = $this->app->auth()->token();
         $data     = [
             'start_time' => $startTime,

@@ -168,7 +168,6 @@ readonly class Redpack
 
     private function config(): WechatConfig
     {
-        /** @var WechatConfig $config */
         return $this->app->config();
     }
 }

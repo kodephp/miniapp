@@ -6,6 +6,9 @@ namespace Kode\MiniApp\Tests\Providers\Lark;
 
 use Kode\MiniApp\Contracts\Platform;
 use Kode\MiniApp\Kernel;
+use Kode\MiniApp\Providers\Lark\LarkApp;
+use Kode\MiniApp\Providers\Lark\LarkConfig;
+use Kode\MiniApp\Providers\Lark\LarkProvider;
 use Kode\MiniApp\Tests\TestCase;
 
 /**
@@ -24,11 +27,14 @@ class LarkProviderTest extends TestCase
         ]);
 
         $provider = $kernel->lark();
+        $config   = $provider->config();
 
+        self::assertInstanceOf(LarkProvider::class, $provider);
+        self::assertInstanceOf(LarkConfig::class, $config);
         self::assertSame(Platform::Lark, $provider->name());
-        self::assertSame('cli_123', $provider->config()->appId());
-        self::assertTrue($provider->config()->isFeishu());
-        self::assertSame('https://open.feishu.cn', $provider->config()->baseUrl());
+        self::assertSame('cli_123', $config->appId());
+        self::assertTrue($config->isFeishu());
+        self::assertSame('https://open.feishu.cn', $config->baseUrl());
     }
 
     public function testLarkOversea(): void
@@ -42,9 +48,11 @@ class LarkProviderTest extends TestCase
         ]);
 
         $provider = $kernel->lark();
+        $config   = $provider->config();
 
-        self::assertFalse($provider->config()->isFeishu());
-        self::assertSame('https://open.larksuite.com', $provider->config()->baseUrl());
+        self::assertInstanceOf(LarkConfig::class, $config);
+        self::assertFalse($config->isFeishu());
+        self::assertSame('https://open.larksuite.com', $config->baseUrl());
     }
 
     public function testAppModules(): void
@@ -59,6 +67,7 @@ class LarkProviderTest extends TestCase
 
         $app = $kernel->lark()->app();
 
+        self::assertInstanceOf(LarkApp::class, $app);
         self::assertSame('default', $app->name());
         self::assertInstanceOf(\Kode\MiniApp\Providers\Lark\Modules\Auth::class, $app->auth());
         self::assertInstanceOf(\Kode\MiniApp\Providers\Lark\Modules\Contact::class, $app->contact());

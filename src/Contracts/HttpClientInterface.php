@@ -50,6 +50,7 @@ interface HttpClientInterface
      * 发送 JSON POST 请求
      *
      * @param array<string, mixed> $data
+     * @param array<string, string> $headers
      */
     public function postJson(string $uri, array $data = [], array $headers = []): ResponseInterface;
 

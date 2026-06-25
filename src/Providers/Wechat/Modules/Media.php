@@ -51,6 +51,7 @@ readonly class Media
     /**
      * 上传永久素材
      *
+     * @param array<int, array<string, mixed>> $articles
      * @return array<string, mixed>
      */
     public function uploadNews(array $articles): array

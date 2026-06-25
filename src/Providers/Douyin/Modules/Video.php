@@ -67,9 +67,9 @@ readonly class Video
      */
     public function list(string $accessToken, string $openId, int $cursor = 0, int $count = 10): array
     {
-        $response = $this->app->http()->get(
-            self::BASE_URL . "/video/list/?access_token={$accessToken}&open_id={$openId}&cursor={$cursor}&count={$count}"
-        );
+        $url = self::BASE_URL . "/video/list/?access_token={$accessToken}"
+            . "&open_id={$openId}&cursor={$cursor}&count={$count}";
+        $response = $this->app->http()->get($url);
         $result = json_decode((string) $response->getBody(), true);
 
         if (isset($result['data']['error_code']) && $result['data']['error_code'] !== 0) {
@@ -105,11 +105,16 @@ readonly class Video
      *
      * @return array<string, mixed>
      */
-    public function commentList(string $accessToken, string $openId, string $itemId, int $cursor = 0, int $count = 10): array
-    {
-        $response = $this->app->http()->get(
-            self::BASE_URL . "/item/comment/list/?access_token={$accessToken}&open_id={$openId}&item_id={$itemId}&cursor={$cursor}&count={$count}"
-        );
+    public function commentList(
+        string $accessToken,
+        string $openId,
+        string $itemId,
+        int $cursor = 0,
+        int $count = 10
+    ): array {
+        $url = self::BASE_URL . "/item/comment/list/?access_token={$accessToken}"
+            . "&open_id={$openId}&item_id={$itemId}&cursor={$cursor}&count={$count}";
+        $response = $this->app->http()->get($url);
         $result = json_decode((string) $response->getBody(), true);
 
         if (isset($result['data']['error_code']) && $result['data']['error_code'] !== 0) {

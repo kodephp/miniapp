@@ -144,8 +144,12 @@ readonly class Message
      * @param string|array<string> $toUser
      * @return array<string, mixed>
      */
-    public function video(string $mediaId, string $title = '', string $description = '', string|array $toUser = '@all'): array
-    {
+    public function video(
+        string $mediaId,
+        string $title = '',
+        string $description = '',
+        string|array $toUser = '@all'
+    ): array {
         $users = is_array($toUser) ? implode('|', $toUser) : $toUser;
 
         return $this->send([
@@ -165,8 +169,13 @@ readonly class Message
      * @param string|array<string> $toUser
      * @return array<string, mixed>
      */
-    public function textCard(string $title, string $description, string $url, string|array $toUser = '@all', string $btntxt = '查看详情'): array
-    {
+    public function textCard(
+        string $title,
+        string $description,
+        string $url,
+        string|array $toUser = '@all',
+        string $btntxt = '查看详情'
+    ): array {
         $users = is_array($toUser) ? implode('|', $toUser) : $toUser;
 
         return $this->send([

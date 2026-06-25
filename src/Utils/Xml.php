@@ -42,6 +42,8 @@ final class Xml
 
     /**
      * 递归将数组写入 XML
+     *
+     * @param array<string, mixed> $data
      */
     private static function arrayToXml(array $data, SimpleXMLElement $xml): void
     {
@@ -57,6 +59,8 @@ final class Xml
 
     /**
      * 递归将 XML 转为数组
+     *
+     * @return array<string, mixed>
      */
     private static function xmlToArray(SimpleXMLElement $xml): array
     {

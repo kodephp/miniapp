@@ -30,7 +30,7 @@ readonly class Mail
         $response = $this->app->http()->postJson(
             self::BASE_URL . '/mailgroups/0/messages',
             $data,
-            ['headers' => ['Authorization' => "Bearer {$token}"]]
+            ['Authorization' => "Bearer {$token}"]
         );
 
         return json_decode((string) $response->getBody(), true);

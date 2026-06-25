@@ -21,7 +21,8 @@ readonly class Hrm
     /**
      * 获取员工花名册字段信息
      *
-     * @param array<string> $fieldFilterList
+     * @param array<int, string> $userIds
+     * @param array<int, string> $fieldFilterList
      * @return array<string, mixed>
      */
     public function getEmpRosterDetail(array $userIds, array $fieldFilterList = []): array
@@ -49,6 +50,7 @@ readonly class Hrm
     /**
      * 获取在职员工列表
      *
+     * @param array<int, int> $statusList
      * @return array<string, mixed>
      */
     public function queryOnJob(array $statusList = [2, 3, 5], int $offset = 0, int $size = 50): array

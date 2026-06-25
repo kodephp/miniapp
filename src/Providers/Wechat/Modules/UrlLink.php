@@ -56,7 +56,6 @@ readonly class UrlLink
     /**
      * 生成 Short Link（适用于微信内拉起小程序）
      *
-     * @param array<string, mixed> $params
      * @return array<string, mixed>
      */
     public function generateShortLink(string $pageUrl, string $pageTitle = '', bool $isPermanent = false): array

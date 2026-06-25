@@ -22,6 +22,9 @@ final class BaiduProvider implements PlatformInterface
     /** @var array<string, BaiduApp> */
     private array $apps = [];
 
+    /**
+     * @param array<string, mixed> $config
+     */
     public function __construct(
         array $config,
         ?HttpClientInterface $http = null,

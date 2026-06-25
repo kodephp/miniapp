@@ -95,10 +95,18 @@ final class Notify
         }
 
         // 支付宝 form 数据
+        $data = [];
         parse_str($content, $data);
 
-        /** @var array<string, mixed> $data */
-        return $data;
+        /** @var array<string, mixed> $result */
+        $result = [];
+        foreach ($data as $key => $value) {
+            if (is_string($key)) {
+                $result[$key] = $value;
+            }
+        }
+
+        return $result;
     }
 
     /**

@@ -87,8 +87,13 @@ readonly class Bitable
      * @param array<string, mixed> $filter
      * @return array<string, mixed>
      */
-    public function records(string $appToken, string $tableId, array $filter = [], string $pageToken = '', int $pageSize = 500): array
-    {
+    public function records(
+        string $appToken,
+        string $tableId,
+        array $filter = [],
+        string $pageToken = '',
+        int $pageSize = 500
+    ): array {
         $token    = $this->app->auth()->token();
         $baseUrl  = $this->app->config()->get('base_url') ?? 'https://open.feishu.cn';
         $params   = ['page_size' => $pageSize];

@@ -180,6 +180,7 @@ readonly class Card
     /**
      * 批量查询卡券列表
      *
+     * @param array<int, string> $statusList
      * @return array<string, mixed>
      */
     public function list(int $offset = 0, int $count = 50, array $statusList = []): array

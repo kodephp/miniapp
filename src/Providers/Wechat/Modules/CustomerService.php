@@ -80,8 +80,13 @@ readonly class CustomerService
      *
      * @return array<string, mixed>
      */
-    public function miniProgramPage(string $openid, string $title, string $appid, string $pagePath, string $thumbMediaId): array
-    {
+    public function miniProgramPage(
+        string $openid,
+        string $title,
+        string $appid,
+        string $pagePath,
+        string $thumbMediaId
+    ): array {
         return $this->send($openid, [
             'msgtype' => 'miniprogrampage',
             'miniprogrampage' => [

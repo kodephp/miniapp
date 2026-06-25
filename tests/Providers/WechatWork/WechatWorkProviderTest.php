@@ -6,6 +6,9 @@ namespace Kode\MiniApp\Tests\Providers\WechatWork;
 
 use Kode\MiniApp\Contracts\Platform;
 use Kode\MiniApp\Kernel;
+use Kode\MiniApp\Providers\WechatWork\WechatWorkApp;
+use Kode\MiniApp\Providers\WechatWork\WechatWorkConfig;
+use Kode\MiniApp\Providers\WechatWork\WechatWorkProvider;
 use Kode\MiniApp\Tests\TestCase;
 
 /**
@@ -24,10 +27,13 @@ class WechatWorkProviderTest extends TestCase
         ]);
 
         $provider = $kernel->wechatWork();
+        $config   = $provider->config();
 
+        self::assertInstanceOf(WechatWorkProvider::class, $provider);
+        self::assertInstanceOf(WechatWorkConfig::class, $config);
         self::assertSame(Platform::WechatWork, $provider->name());
-        self::assertSame('corp123', $provider->config()->corpId());
-        self::assertSame('1000002', $provider->config()->agentId());
+        self::assertSame('corp123', $config->corpId());
+        self::assertSame('1000002', $config->agentId());
     }
 
     public function testAppModules(): void
@@ -42,6 +48,7 @@ class WechatWorkProviderTest extends TestCase
 
         $app = $kernel->wechatWork()->app();
 
+        self::assertInstanceOf(WechatWorkApp::class, $app);
         self::assertSame('default', $app->name());
         self::assertInstanceOf(\Kode\MiniApp\Providers\WechatWork\Modules\Auth::class, $app->auth());
         self::assertInstanceOf(\Kode\MiniApp\Providers\WechatWork\Modules\Contact::class, $app->contact());

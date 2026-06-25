@@ -58,6 +58,10 @@ final class HttpClient implements HttpClientInterface
         return $this->request('DELETE', $uri, $options);
     }
 
+    /**
+     * @param array<string, mixed> $data
+     * @param array<string, string> $headers
+     */
     public function postJson(string $uri, array $data = [], array $headers = []): ResponseInterface
     {
         return $this->request('POST', $uri, [
@@ -113,14 +117,21 @@ final class HttpClient implements HttpClientInterface
         ));
 
         // 重试中间件（最多 3 次）
-        $stack->push(Middleware::retry(
-            function (int $retries, ?RequestInterface $request, ?ResponseInterface $response = null, ?\Throwable $exception = null): bool {
-                return $retries < 3 && ($exception instanceof RequestException || ($response && $response->getStatusCode() >= 500));
-            },
-            function (int $retries): int {
-                return 1000 * (2 ** $retries); // 指数退避
-            }
-        ));
+        $retryDecider = function (
+            int $retries,
+            ?RequestInterface $request,
+            ?ResponseInterface $response = null,
+            ?\Throwable $exception = null
+        ): bool {
+            return $retries < 3 && (
+                $exception instanceof RequestException
+                || ($response !== null && $response->getStatusCode() >= 500)
+            );
+        };
+        $retryDelay = function (int $retries): int {
+            return 1000 * (2 ** $retries); // 指数退避
+        };
+        $stack->push(Middleware::retry($retryDecider, $retryDelay));
 
         $defaultConfig = [
             'timeout'         => 30,

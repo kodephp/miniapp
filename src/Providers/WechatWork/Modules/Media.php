@@ -73,8 +73,11 @@ readonly class Media
     public function uploadAttachment(string $mediaType, string $filePath, string $attachmentType = 'file'): array
     {
         $token    = $this->app->auth()->token();
+        $url      = self::BASE_URL
+            . "/media/upload_attachment?access_token={$token}"
+            . "&media_type={$mediaType}&attachment_type={$attachmentType}";
         $response = $this->app->http()->upload(
-            self::BASE_URL . "/media/upload_attachment?access_token={$token}&media_type={$mediaType}&attachment_type={$attachmentType}",
+            $url,
             'media',
             $filePath
         );

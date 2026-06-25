@@ -21,6 +21,7 @@ readonly class Dial
     /**
      * 拨打公费电话
      *
+     * @param array<int, string> $calleeList
      * @return array<string, mixed>
      */
     public function call(string $caller, array $calleeList): array

@@ -118,6 +118,7 @@ readonly class ExternalContact
     /**
      * 获取企业标签库
      *
+     * @param array<int, string>|null $tagIds
      * @return array<string, mixed>
      */
     public function getCorpTagList(?array $tagIds = null): array
@@ -173,6 +174,7 @@ readonly class ExternalContact
      * 删除企业客户标签
      *
      * @param array<int, string> $tagIds
+     * @param array<int, string> $groupIds
      * @return array<string, mixed>
      */
     public function delCorpTag(array $tagIds, array $groupIds = []): array
@@ -325,6 +327,7 @@ readonly class ExternalContact
     /**
      * 获取客户群列表
      *
+     * @param array<string, string> $ownerFilter
      * @return array<string, mixed>
      */
     public function groupChatList(int $limit = 100, string $cursor = '', array $ownerFilter = []): array

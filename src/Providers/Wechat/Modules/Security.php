@@ -24,8 +24,15 @@ readonly class Security
      *
      * @return array<string, mixed>
      */
-    public function msgSecCheck(string $content, int $scene = 1, string $openid = '', string $title = '', string $nickname = '', string $signature = '', string $version = '2'): array
-    {
+    public function msgSecCheck(
+        string $content,
+        int $scene = 1,
+        string $openid = '',
+        string $title = '',
+        string $nickname = '',
+        string $signature = '',
+        string $version = '2'
+    ): array {
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->postJson(
             self::BASE_URL . "/msg_sec_check?access_token={$token}",
@@ -70,8 +77,13 @@ readonly class Security
      *
      * @return array<string, mixed>
      */
-    public function mediaCheckAsync(string $mediaUrl, int $mediaType, int $scene = 1, string $openid = '', string $version = '2'): array
-    {
+    public function mediaCheckAsync(
+        string $mediaUrl,
+        int $mediaType,
+        int $scene = 1,
+        string $openid = '',
+        string $version = '2'
+    ): array {
         $token    = $this->app->auth()->token();
         $response = $this->app->http()->postJson(
             self::BASE_URL . "/media_check_async?access_token={$token}",
