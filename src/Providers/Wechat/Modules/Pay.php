@@ -39,7 +39,7 @@ readonly class Pay
      */
     public function query(string $outTradeNo): array
     {
-        $mchId    = $this->app->config()->get('mch_id');
+        $mchId    = $this->app->config()->mchId();
         $url      = self::BASE_URL . "/pay/transactions/out-trade-no/{$outTradeNo}?mchid={$mchId}";
         $response = $this->app->http()->get($url);
 
@@ -53,7 +53,7 @@ readonly class Pay
      */
     public function close(string $outTradeNo): array
     {
-        $mchId    = $this->app->config()->get('mch_id');
+        $mchId    = $this->app->config()->mchId();
         $url      = self::BASE_URL . "/pay/transactions/out-trade-no/{$outTradeNo}/close";
         $response = $this->app->http()->postJson($url, ['mchid' => $mchId]);
 
@@ -123,8 +123,8 @@ readonly class Pay
     {
         return array_merge([
             'appid'        => $this->app->config()->appId(),
-            'mchid'        => $this->app->config()->get('mch_id'),
-            'notify_url'   => $this->app->config()->get('notify_url'),
+            'mchid'        => $this->app->config()->mchId(),
+            'notify_url'   => $this->app->config()->get('notify_url', ''),
         ], $params);
     }
 }

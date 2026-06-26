@@ -139,7 +139,7 @@ readonly class Shipping
         return $this->uploadShippingInfo([
             'order_key'       => [
                 'order_number_type' => $orderKeyMode,
-                'mchid'             => $this->app->config()->get('mch_id'),
+                'mchid'             => $this->app->config()->mchId(),
                 'transaction_id'    => $orderKeyMode === '2' ? $orderKey : '',
                 'merchant_trade_no' => $orderKeyMode === '1' ? $orderKey : '',
             ],
@@ -164,7 +164,7 @@ readonly class Shipping
         return $this->uploadShippingInfo([
             'order_key'      => [
                 'order_number_type' => $orderKeyMode,
-                'mchid'             => $this->app->config()->get('mch_id'),
+                'mchid'             => $this->app->config()->mchId(),
                 'transaction_id'    => $orderKeyMode === '2' ? $orderKey : '',
                 'merchant_trade_no' => $orderKeyMode === '1' ? $orderKey : '',
             ],
@@ -190,7 +190,7 @@ readonly class Shipping
         return $this->uploadShippingInfo([
             'order_key'      => [
                 'order_number_type' => $orderKeyMode,
-                'mchid'             => $this->app->config()->get('mch_id'),
+                'mchid'             => $this->app->config()->mchId(),
                 'transaction_id'    => $orderKeyMode === '2' ? $orderKey : '',
                 'merchant_trade_no' => $orderKeyMode === '1' ? $orderKey : '',
             ],
@@ -216,7 +216,7 @@ readonly class Shipping
         return $this->uploadShippingInfo([
             'order_key'      => [
                 'order_number_type' => $orderKeyMode,
-                'mchid'             => $this->app->config()->get('mch_id'),
+                'mchid'             => $this->app->config()->mchId(),
                 'transaction_id'    => $orderKeyMode === '2' ? $orderKey : '',
                 'merchant_trade_no' => $orderKeyMode === '1' ? $orderKey : '',
             ],

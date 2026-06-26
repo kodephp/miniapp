@@ -40,7 +40,7 @@ final class ToolsBridge
      */
     public static function sign(): string
     {
-        return self::hasToolsPackage()
+        return self::hasToolsPackage() && class_exists('Kode\Tools\Sign')
             ? 'Kode\Tools\Sign'
             : 'Kode\MiniApp\Utils\Sign';
     }
@@ -50,7 +50,7 @@ final class ToolsBridge
      */
     public static function xml(): string
     {
-        return self::hasToolsPackage()
+        return self::hasToolsPackage() && class_exists('Kode\Tools\Xml')
             ? 'Kode\Tools\Xml'
             : 'Kode\MiniApp\Utils\Xml';
     }
@@ -60,7 +60,7 @@ final class ToolsBridge
      */
     public static function crypto(): ?string
     {
-        return self::hasToolsPackage()
+        return self::hasToolsPackage() && class_exists('Kode\Tools\Crypto')
             ? 'Kode\Tools\Crypto'
             : null;
     }
@@ -70,7 +70,7 @@ final class ToolsBridge
      */
     public static function qrcode(): ?string
     {
-        return self::hasToolsPackage()
+        return self::hasToolsPackage() && class_exists('Kode\Tools\QrCode')
             ? 'Kode\Tools\QrCode'
             : null;
     }

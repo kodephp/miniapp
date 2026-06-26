@@ -201,21 +201,6 @@ Kernel（门面）
 ]
 ```
 
-### QQ
-
-```php
-$app = $kernel->qq()->app();
-
-// 登录
-$user = $app->auth()->user($code);
-
-// 支付
-$app->pay()->unifiedOrder(['body' => '商品描述', 'out_trade_no' => 'ORDER001', 'total_fee' => 100, 'spbill_create_ip' => '127.0.0.1', 'notify_url' => 'https://example.com/notify', 'trade_type' => 'MINIAPP']);
-$app->pay()->orderQuery('ORDER001');
-$app->pay()->closeOrder('ORDER001');
-$app->pay()->refund(['out_trade_no' => 'ORDER001', 'out_refund_no' => 'REFUND001', 'total_fee' => 100, 'refund_fee' => 50]);
-```
-
 ### 微信企业号
 
 ```php
@@ -944,6 +929,21 @@ $app->message()->send(['touser' => $openId, 'template_id' => $templateId, 'data'
 $app->message()->templateList();
 $app->message()->templateDetail($templateId);
 $app->message()->deleteTemplate($templateId);
+```
+
+### QQ
+
+```php
+$app = $kernel->qq()->app();
+
+// 登录
+$user = $app->auth()->user($code);
+
+// 支付
+$app->pay()->unifiedOrder(['body' => '商品描述', 'out_trade_no' => 'ORDER001', 'total_fee' => 100, 'spbill_create_ip' => '127.0.0.1', 'notify_url' => 'https://example.com/notify', 'trade_type' => 'MINIAPP']);
+$app->pay()->orderQuery('ORDER001');
+$app->pay()->closeOrder('ORDER001');
+$app->pay()->refund(['out_trade_no' => 'ORDER001', 'out_refund_no' => 'REFUND001', 'total_fee' => 100, 'refund_fee' => 50]);
 ```
 
 ## Kode 生态桥接使用
