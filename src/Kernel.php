@@ -20,6 +20,7 @@ use Kode\MiniApp\Providers\Qq\QqProvider;
 use Kode\MiniApp\Providers\Wechat\WechatProvider;
 use Kode\MiniApp\Providers\WechatOpen\WechatOpenProvider;
 use Kode\MiniApp\Providers\WechatWork\WechatWorkProvider;
+use Kode\MiniApp\Union\Union;
 
 /**
  * 门面类，统一入口
@@ -35,6 +36,8 @@ final class Kernel implements KernelInterface
     private array $providers = [];
 
     private readonly HttpClientInterface $http;
+
+    private ?Union $unionInstance = null;
 
     /**
      * @param array<string, array<string, mixed>> $config 全局配置，按平台分组
@@ -116,6 +119,20 @@ final class Kernel implements KernelInterface
     public function lark(): PlatformInterface
     {
         return $this->get(Platform::Lark);
+    }
+
+    /**
+     * 统一登录 / 鉴权 / 支付 / 回调 入口
+     *
+     * 推荐业务侧使用此入口，统一处理跨平台场景。
+     *
+     * 用法：
+     *   $user = $kernel->union()->authenticate(Channel::WechatMini, ['code' => 'xxx']);
+     *   $order = $kernel->union()->pay(Channel::WechatMini)->unifiedOrder([...]);
+     */
+    public function union(): Union
+    {
+        return $this->unionInstance ??= new Union($this);
     }
 
     /**

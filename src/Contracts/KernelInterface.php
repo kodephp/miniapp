@@ -61,4 +61,11 @@ interface KernelInterface
      * 快捷获取飞书 Provider
      */
     public function lark(): PlatformInterface;
+
+    /**
+     * 统一登录 / 鉴权 / 支付 / 回调 入口
+     *
+     * 推荐业务侧使用此入口处理跨平台场景。
+     */
+    public function union(): \Kode\MiniApp\Union\Union;
 }

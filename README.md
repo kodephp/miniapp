@@ -2,14 +2,17 @@
 
 多平台小程序、公众号、企业号统一接入 SDK。
 
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![PHP Version](https://img.shields.io/badge/php-%3E%3D8.2-8892BF.svg)](https://php.net/)
+![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+![PHP Version](https://img.shields.io/badge/php-%3E%3D8.3-8892BF.svg)](https://php.net/)
+![Union](https://img.shields.io/badge/union-统一入口-success.svg)
 
 ## 特性
 
 - **多平台统一接入**：一套代码对接微信、支付宝、抖音、百度、QQ、企业微信、钉钉、飞书
-- **PHP 8.2+ 现代化**：使用 readonly、enum、match、构造函数属性提升等新特性
-- **企业级能力**：除 C端小程序外，完整支持企业微信、钉钉、飞书的通讯录、审批、消息推送
+- **Union 统一入口**（推荐）：通过 `$kernel->union()->authenticate(Channel::WechatMini, ...)` 一行代码完成跨平台登录 / 支付 / 回调，跨端账号自动合并（UnionID）
+- **微信生态互联**：通过微信开放平台（Component）统一管理公众号、小程序、移动 App、PC 网站应用，账号体系（UnionID）互通
+- **PHP 8.3+ 现代化**：使用 readonly、enum、match、构造函数属性提升、nullsafe、命名参数等新特性
+- **企业级能力**：除 C 端小程序外，完整支持企业微信、钉钉、飞书的通讯录、审批、消息推送
 - **服务端消息处理**：统一处理各平台的消息推送和事件回调
 - **支付桥接**：内置基础支付能力，同时可桥接到 `kode/pays` 企业级聚合支付 SDK
 - **工具桥接**：内置基础工具类，同时可桥接到 `kode/tools` 企业级工具包
@@ -45,6 +48,7 @@ composer require kode/event     # 事件
 | 平台 | 标识 | 类型 | 能力 | 详细文档 |
 |------|------|------|------|----------|
 | 微信 | `wechat` | C端 | 登录、JS-SDK、用户、素材、菜单、客服、消息、订阅消息、小程序码、数据分析、支付、订单物流同步、内容安全、URL Scheme/Link、插件管理、直播、附近小程序、门店、卡券、摇一摇、发票、连Wi-Fi、微信小店、红包、广告、即时配送、搜一搜、动态消息、设备功能、云开发、服务端、回调通知 | [查看](docs/wechat.md) |
+| 微信开放平台 | `wechat_open` | C端 | 第三方平台代公众号 / 小程序、Component AccessToken、PreAuthCode、授权流程、消息加解密、移动 App / PC 网站应用登录与支付 | [查看](docs/wechat-open.md) |
 | 支付宝 | `alipay` | C端 | 登录、支付、转账、账单、营销、会员、回调通知 | [查看](docs/alipay.md) |
 | 抖音 | `douyin` | C端 | 登录、支付、视频、评论 | [查看](docs/douyin.md) |
 | 百度 | `baidu` | C端 | 登录、支付、模板消息 | [查看](docs/baidu.md) |
@@ -99,17 +103,24 @@ if ($pay !== null) {
 
 ```
 Kernel（门面）
-  └── Provider（平台入口）
-        └── App（应用实例）
-              ├── Auth（认证）
-              ├── Pay（基础支付）
-              ├── PayBridge（桥接 kode/pays 企业级支付）
-              ├── Message（消息）
-              ├── Contact（通讯录）
-              ├── Approval（审批）
-              ├── Jssdk（JS-SDK）
-              ├── Server（服务端处理器）
-              └── Notify（回调通知处理器）
+  ├── Provider（平台入口）           ←  底层细粒度接口
+  │     └── App（应用实例）
+  │           ├── Auth（认证）
+  │           ├── Pay（基础支付）
+  │           ├── PayBridge（桥接 kode/pays 企业级支付）
+  │           ├── Message（消息）
+  │           ├── Contact（通讯录）
+  │           ├── Approval（审批）
+  │           ├── Jssdk（JS-SDK）
+  │           ├── Server（服务端处理器）
+  │           └── Notify（回调通知处理器）
+  │
+  └── union() ─→ Union（统一入口）   ←  业务侧推荐使用
+        ├── Channel 枚举（跨平台渠道）
+        ├── LoginAdapter（统一登录）
+        ├── UserAdapter（统一用户资料）
+        ├── PayAdapter（统一支付）
+        └── NotifyAdapter（统一回调）
 ```
 
 ### 核心组件
@@ -120,6 +131,7 @@ Kernel（门面）
 - **Server**：服务端消息处理器，统一处理各平台的消息推送和事件回调
 - **Message**：消息构造器，构造被动回复消息
 - **Notify**：支付回调通知处理器，自动验签并触发业务逻辑
+- **Union**（推荐）：统一入口门面，通过 `Channel` 枚举 + 适配器屏蔽各平台差异
 - **PayBridge**：支付桥接器，自动检测并桥接到 `kode/pays` 企业级支付 SDK
 - **ToolsBridge**：工具桥接器，自动检测并优先使用 `kode/tools` 工具类
 - **ExceptionBridge**：异常桥接器，自动检测并扩展 `kode/exception` 异常码体系
@@ -130,12 +142,14 @@ Kernel（门面）
 
 | 平台 | 文档路径 | 说明 |
 |------|----------|------|
+| **Union 统一入口** | [docs/union.md](docs/union.md) | 跨平台一键登录 / 支付 / 回调，跨端账号自动合并（**推荐阅读**） |
 | 微信 | [docs/wechat.md](docs/wechat.md) | 公众号/小程序，30+ 功能模块 |
+| 微信开放平台 | [docs/wechat-open.md](docs/wechat-open.md) | 第三方平台（代公众号 / 小程序），App / PC 互联 |
+| 微信企业号 | [docs/wechat-work.md](docs/wechat-work.md) | 企业微信，通讯录/审批/客户联系/会话存档 |
 | 支付宝 | [docs/alipay.md](docs/alipay.md) | 小程序/生活号，支付/转账/营销 |
 | 抖音 | [docs/douyin.md](docs/douyin.md) | 小程序，视频管理/支付 |
 | 百度 | [docs/baidu.md](docs/baidu.md) | 小程序，登录/支付/模板消息 |
 | QQ | [docs/qq.md](docs/qq.md) | 小程序，登录/支付 |
-| 微信企业号 | [docs/wechat-work.md](docs/wechat-work.md) | 企业微信，通讯录/审批/客户联系/会话存档 |
 | 钉钉 | [docs/dingtalk.md](docs/dingtalk.md) | 企业办公，通讯录/审批/考勤/智能人事 |
 | 飞书 | [docs/lark.md](docs/lark.md) | 企业办公，通讯录/审批/多维表格/文档/日历 |
 
@@ -155,6 +169,22 @@ Kernel（门面）
     'key_path'   => '/path/to/apiclient_key.pem',
     'token'      => 'your-token',
     'aes_key'    => 'your-aes-key',
+]
+```
+
+### 微信开放平台
+
+```php
+'wechat_open' => [
+    'component_appid'      => 'wxcomp0000000000',  // 第三方平台 AppID
+    'component_secret'     => 'component-secret',  // 第三方平台 AppSecret
+    'token'                => 'your-token',        // 消息校验 Token
+    'encoding_aes_key'     => str_repeat('a', 43), // 43 位消息加解密 Key
+    // 可选：移动 / PC 应用配置（Union 入口自动读取）
+    'mobile_app_id'        => 'wxapp0000000000',   // 移动应用 AppID
+    'mobile_app_secret'    => 'mobile-secret',
+    'site_app_id'          => 'wxapp0000000001',   // PC 网站应用 AppID
+    'site_app_secret'      => 'site-secret',
 ]
 ```
 
@@ -238,6 +268,81 @@ Kernel（门面）
 ```
 
 ## 平台能力使用
+
+### Union 统一入口（推荐：跨平台场景）
+
+> Union 是 SDK 的统一入口门面，屏蔽各平台差异，业务侧只需关心"业务场景"。
+> 详细文档：[docs/union.md](docs/union.md)
+
+```php
+use Kode\MiniApp\Kernel;
+use Kode\MiniApp\Union\Channel;
+
+$kernel = new Kernel([
+    'wechat' => [...],
+    'wechat_open' => [...],
+    'alipay' => [...],
+]);
+
+// 一行代码登录 - 业务侧完全无感
+$user = $kernel->union()->authenticate(
+    Channel::WechatMini,
+    ['code' => 'JS_CODE']
+);
+
+echo $user->unionId;   // 跨平台统一 ID（同一开放平台下所有应用共享）
+echo $user->openId;    // 平台内 OpenID
+echo $user->nickname;  // 标准化昵称
+
+// 跨端账号自动合并：用户先用小程序登录，再用 PC 扫码
+$user = $kernel->union()->authenticate(Channel::WechatPc, ['code' => 'PC_CODE']);
+// 同一用户 $user->unionId 相同
+```
+
+支持的渠道（`Channel` 枚举）：
+
+| 渠道 | 场景 |
+|------|------|
+| `WechatMp` | 公众号 OAuth 网页授权 |
+| `WechatMini` | 小程序登录（jscode2session） |
+| `WechatH5` | 公众号 H5 / 微信内 H5 |
+| `WechatPc` | PC 网站应用扫码 |
+| `WechatApp` | 移动 App |
+| `WechatOpen` | 微信开放平台（第三方平台代公众号/小程序） |
+| `WechatWork` | 企业微信 |
+| `Qq` | QQ |
+| `AlipayMini` / `AlipayMp` / `AlipayApp` | 支付宝小程序 / 生活号 / App |
+| `DouyinMini` / `DouyinMp` | 抖音小程序 / 头条号 |
+| `BaiduMini` | 百度智能小程序 |
+| `Dingtalk` | 钉钉 |
+| `Lark` | 飞书 |
+
+Union 入口四大能力：
+
+```php
+// 1. 登录认证 - 跨平台统一返回 UnionUser
+$user = $kernel->union()->authenticate(Channel::WechatMini, ['code' => $code]);
+
+// 2. 用户资料 - 通过 openId 拉取
+$user = $kernel->union()->profile(Channel::WechatMp, $openId, ['access_token' => $token]);
+
+// 3. 支付下单
+$order = $kernel->union()->pay(Channel::WechatMini)->unifiedOrder([
+    'out_trade_no' => 'ORDER_001',
+    'body'         => '商品',
+    'total_fee'    => 100,
+    'openid'       => $openId,
+    'notify_url'   => 'https://example.com/notify',
+]);
+
+// 4. 回调通知
+$decoded = $kernel->union()->notify(Channel::WechatMini)->decode(
+    $request->all(),
+    $request->headers->all()
+);
+```
+
+**Union 入口 vs 底层 Provider**：底层 Provider/App/Module 是 Union 的内部实现，更细粒度。Union 是给业务侧的"快捷方式"，专注于"业务场景"。
 
 ### 微信
 
@@ -1111,10 +1216,45 @@ composer run test
 
 ## 扩展新平台
 
+### 扩展 Provider（底层细粒度接口）
+
 1. `src/Contracts/Platform.php` 添加枚举值
 2. `src/Providers/{Platform}/` 实现 Provider、App、Config、Modules
 3. `src/Kernel.php` 注册 Provider
 4. `tests/Providers/{Platform}/` 编写测试
+
+### 扩展 Union 渠道（统一入口）
+
+1. `src/Union/Channel.php` 添加渠道枚举
+2. `src/Union/Channels/{Platform}/` 实现 LoginAdapter / UserAdapter / PayAdapter / NotifyAdapter
+3. `src/Union/Union.php` 的 match 中添加渠道路由
+4. `tests/Union/` 编写测试
+
+```php
+// 示例：实现一个自定义登录适配器
+use Kode\MiniApp\Union\Contracts\LoginAdapter;
+use Kode\MiniApp\Union\UnionUser;
+
+class MyLoginAdapter extends BaseAdapter implements LoginAdapter
+{
+    public function channel(): Channel
+    {
+        return Channel::WechatWork;  // 也可新增自定义渠道
+    }
+
+    public function authenticate(array $payload): UnionUser
+    {
+        // 自定义登录逻辑
+        return UnionUser::fromRaw(
+            channel: Channel::WechatWork,
+            openId:  $payload['openid'] ?? '',
+            raw:     $payload,
+        );
+    }
+}
+
+$kernel->union()->registerLoginAdapter(new MyLoginAdapter($kernel));
+```
 
 ## 许可证
 

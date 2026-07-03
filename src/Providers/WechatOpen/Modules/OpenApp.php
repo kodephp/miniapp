@@ -53,10 +53,21 @@ readonly class OpenApp
     /**
      * 通过 code 换取网页授权 access_token
      *
+     * - 移动应用：appId / secret 必传
+     * - 网站应用：appId / secret 必传
+     * 留空时尝试从 WechatOpenConfig 读取（mobile_app_id / mobile_app_secret 字段）
+     *
      * @return array<string, mixed>
      */
-    public function accessToken(string $appId, string $secret, string $code): array
-    {
+    public function accessToken(
+        string $code,
+        ?string $appId = null,
+        ?string $secret = null,
+    ): array {
+        $config  = $this->app->config()->all();
+        $appId   = $appId  ?? (string) ($config['mobile_app_id']  ?? $config['site_app_id']  ?? $config['app_id']  ?? '');
+        $secret  = $secret ?? (string) ($config['mobile_secret']  ?? $config['site_secret']  ?? $config['secret']  ?? '');
+
         $response = $this->app->http()->get(
             self::API_SNS . '/oauth2/access_token',
             [
