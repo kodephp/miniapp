@@ -7,6 +7,7 @@ namespace Kode\MiniApp\Union;
 use InvalidArgumentException;
 use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
+use Kode\MiniApp\Session\SessionManager;
 use Kode\MiniApp\Union\Contracts\LoginAdapter;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
@@ -106,6 +107,11 @@ final class Union
         'lark'         => ['lark',         LarkUnion::class],
     ];
 
+    /**
+     * 关联的 SessionManager（可选，用于多端登录约束）
+     */
+    private ?SessionManager $sessionManager = null;
+
     public function __construct(
         private readonly KernelInterface $kernel,
     ) {
@@ -179,9 +185,37 @@ final class Union
             $provider = $this->kernelProvider($key);
             /** @var PlatformUnion $instance */
             $instance = new $class($provider, $this);
+            if ($this->sessionManager !== null) {
+                $instance->withSession($this->sessionManager);
+            }
             $this->platforms[$key] = $instance;
         }
         return $this->platforms[$key];
+    }
+
+    /**
+     * 设置 SessionManager（用于多端登录约束）
+     *
+     * 业务侧用法：
+     *   $kernel->union()->withSession(new SessionManager(new CacheSessionStorage($redis)));
+     *
+     * @return $this 支持链式调用
+     */
+    public function withSession(SessionManager $manager): self
+    {
+        $this->sessionManager = $manager;
+        foreach ($this->platforms as $instance) {
+            $instance->withSession($manager);
+        }
+        return $this;
+    }
+
+    /**
+     * 获取当前 SessionManager
+     */
+    public function sessionManager(): ?SessionManager
+    {
+        return $this->sessionManager;
     }
 
     /**

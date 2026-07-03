@@ -9,6 +9,7 @@
 ## 特性
 
 - **Union 统一调用入口**（推荐）：业务侧只需要 `use Kode\MiniApp\Union\Union;` 一行代码，通过 `Union::wechat()->mini($code)` 一行完成跨平台登录、支付、回调，跨端账号自动合并（UnionID）
+- **多端登录约束（SessionManager）**：内置 `SessionManager` 提供 4 种登录约束策略（多端可登录 / 单设备单账号 / 单账号单端 / 单账号全端），可应对优酷/腾讯视频/银行 App 等"禁止账号共享"场景
 - **多平台统一接入**：一套代码对接微信、支付宝、抖音、百度、QQ、企业微信、钉钉、飞书
 - **微信生态互联**：通过微信开放平台（Component）统一管理公众号、小程序、移动 App、PC 网站应用，账号体系（UnionID）互通
 - **PHP 8.3+ 现代化**：使用 readonly、enum、match、构造函数属性提升、nullsafe、命名参数、`__call`/`__callStatic` 魔术分发等新特性
@@ -17,7 +18,7 @@
 - **支付桥接**：内置基础支付能力，同时可桥接到 `kode/pays` 企业级聚合支付 SDK
 - **工具桥接**：内置基础工具类，同时可桥接到 `kode/tools` 企业级工具包
 - **异常桥接**：内置异常体系，同时可桥接到 `kode/exception` 统一异常处理组件
-- **Kode 生态兼容**：与 kode/pays、kode/tools、kode/exception、kode/cache、kode/event 等包无缝协作
+- **Kode 生态兼容**：与 kode/pays、kode/tools、kode/exception、kode/cache、kode/event、kode/jwt 等包无缝协作
 
 ## Kode 生态关联
 
@@ -28,8 +29,9 @@ Kode MiniApp 是 Kode 生态的重要组成部分，与以下包可协同工作�
 | `kode/pays` | suggest | 企业级多平台聚合支付 SDK，安装后可通过 `payBridge()` 获取更强支付能力 |
 | `kode/tools` | suggest | PHP 通用工具包（加解密、二维码、消息体等），安装后自动优先使用 |
 | `kode/exception` | suggest | 统一异常处理组件，安装后扩展异常码体系 |
-| `kode/cache` | suggest | 高性能缓存组件，支持 Redis/Memcached 等 |
-| `kode/event` | suggest | 轻量级事件编排库，支持异步事件处理 |
+| `kode/cache` | suggest | 高性能缓存组件，支持 Redis/Memcached 等，SessionManager 默认基于 PSR-16 |
+| `kode/event` | suggest | 轻量级事件编排库 |
+| `kode/jwt` | 可选 | JWT 签发/验证，建议与 SessionManager 配合使用（见下文） |
 
 ```bash
 # 安装核心包
@@ -317,6 +319,135 @@ $data = Union::alipay()->notify()->decode($payload, $headers);
 
 // 5. 用户资料
 $user = Union::wechat()->user($openId, ['access_token' => $token]);
+```
+
+### 多端登录约束（SessionManager）
+
+> **业务场景**：1 个用户可能从小程序、APP、PC、公众号等多个端口登录。
+> 某些业务（优酷/腾讯视频/银行 App）需要约束登录端口，防止账号共享或设备被顶替。
+
+SDK 内置 `SessionManager` 提供 4 种登录约束策略：
+
+| 策略 | 含义 | 适用场景 |
+|------|------|----------|
+| `Multi` | 多端可同时登录（默认） | 通用应用 |
+| `SingleEnd` | 单设备单账号（同设备只能登录 1 个账号） | 共享设备、家庭账户 |
+| `SingleUser` | 单账号单端（同账号同端口重复登录踢旧） | 跨端允许，限同端重复 |
+| `SingleAll` | 单账号全端（同账号只能登录 1 次） | 优酷、腾讯视频、银行 App |
+
+#### 与 `kode/jwt` 的关系（设计边界）
+
+| 关注点 | 归属 |
+|--------|------|
+| Token 签发 / 验证 / 刷新 | `kode/jwt`（stateless） |
+| Token 黑名单 / 撤销 | `kode/jwt`（通过 jti） |
+| 登录约束 / 多端踢人 | **`kode/miniapp` SessionManager**（stateful） |
+| 业务侧权限 / 角色 | 业务侧 |
+
+**业务侧典型组合用法**：
+
+```php
+use Kode\MiniApp\Kernel;
+use Kode\MiniApp\Session\SessionManager;
+use Kode\MiniApp\Session\CacheSessionStorage;
+use Kode\MiniApp\Session\SessionPolicy;
+use Kode\MiniApp\Union\Union;
+use Kode\MiniApp\Union\Channel;
+
+// 1. 初始化
+$kernel = new Kernel(['wechat' => [...], 'alipay' => [...]]);
+$kernel->union();
+
+// 2. 接入 SessionManager（选一种存储，推荐 Redis）
+$session = new SessionManager(
+    new CacheSessionStorage($redisCache),         // PSR-16 Cache
+    SessionPolicy::SingleAll,                     // 强制单账号全端
+    86400 * 30                                    // 30 天过期
+);
+$kernel->union()->withSession($session);
+
+// 3. 业务侧登录（自动创建 session 并应用登录约束）
+$user = Union::wechat()->mini('JS_CODE');  // 同账号再次登录会自动踢掉之前所有 session
+
+// 4. 业务侧用 session.id 作为 JWT jti 签发 token
+$token = $jwt->issue(['jti' => $session->id, 'sub' => $user->unionId]);
+
+// 5. 验证 token 时，校验 session 是否还有效
+$session = $sessionManager->get($jwt->jti);
+if ($session === null) {
+    throw new UnauthorizedException('会话已失效');
+}
+```
+
+#### 四种策略对比
+
+```php
+// 场景：用户在三个设备登录了同一账号
+//   - iPhone 小程序 (unionId=u001)
+//   - Android 小程序 (unionId=u001)
+//   - PC 公众号 (unionId=u001)
+
+// Multi: 全部允许
+// → 最终 3 个 session 都有效
+
+// SingleEnd: 同设备只能登录 1 个账号
+// → iPhone Android PC 各自独立（不冲突），但同设备重复登录会踢
+
+// SingleUser: 同账号同端口只允许 1 个 session
+// → 3 个都有效（小程序和公众号是不同端口），但同端口重复登录会踢
+
+// SingleAll: 强制全端唯一
+// → 只有最后一个 session 有效（前面的都被踢）
+// → 优酷/腾讯视频/银行 App 通常用这个
+```
+
+#### 显式创建 Session
+
+```php
+$user = Union::wechat()->mini('JS_CODE');
+
+// 显式创建 session（可传入 client / clientId / ip 等）
+$session = Union::wechat()->createSession(
+    $user,
+    scene:    'mini',
+    client:   'ios',
+    clientId: $deviceId,
+    ip:       $request->ip(),
+    userAgent:$request->userAgent(),
+    payload:  ['role' => 'vip', 'level' => 5]
+);
+
+// 查询 session
+$active = $session->get($sessionId);
+$userSessions = $session->listByUnionId('u001');
+
+// 主动踢人
+$session->destroy($sessionId);              // 主动登出
+$session->destroyByClient('u001', 'ios');   // 踢掉某设备
+$session->destroyAll('u001');               // 踢掉所有端
+```
+
+#### Session 存储扩展
+
+`SessionManager` 底层使用 PSR-16 Cache 接口，可注入任何实现：
+
+```php
+// Redis（推荐）
+use Kode\Cache\Psr16\RedisCache;
+$session = new SessionManager(
+    new CacheSessionStorage(new RedisCache($redis))
+);
+
+// Memcached
+use Symfony\Component\Cache\Psr16Adapter;
+$session = new SessionManager(
+    new CacheSessionStorage(new Psr16Adapter('memcached://localhost'))
+);
+
+// 文件（开发环境）
+$session = new SessionManager(
+    new CacheSessionStorage(new Symfony\Component\Cache\Psr16Adapter('file://' . __DIR__ . '/cache'))
+);
 ```
 
 ### 核心设计：Union 静态门面
@@ -1228,19 +1359,22 @@ $kernel = new Kernel($config, $http);
 
 ## 缓存
 
-AccessToken 自动缓存基于 Symfony Cache：
+SDK 推荐直接使用 **SessionManager** 进行会话/约束管理（见上文），底层基于 PSR-16 Cache 接口，
+可注入任何实现（Redis / Memcached / 文件 等）：
 
 ```php
-use Kode\MiniApp\Core\Cache;
-use Kode\MiniApp\Core\AccessToken;
+use Kode\MiniApp\Session\SessionManager;
+use Kode\MiniApp\Session\CacheSessionStorage;
+use Kode\Cache\Psr16\RedisCache;  // 或其他 PSR-16 Cache 实现
 
-// 使用内置缓存
-$cache = Cache::getInstance('/custom/cache/path');
-$tokenManager = new AccessToken($cache);
-
-// 如安装了 kode/cache，可替换为高性能缓存
-// composer require kode/cache
+$session = new SessionManager(
+    new CacheSessionStorage(new RedisCache($redis))
+);
 ```
+
+> **历史类说明**：`Kode\MiniApp\Core\Cache` 和 `Kode\MiniApp\Core\AccessToken` 是早期为手动管理
+> AccessToken 缓存提供的工具类。SDK 内部已不再使用，业务侧推荐使用 `kode/cache` + SessionManager
+> 的组合。如确有需要，可继续使用这两个类（保持向后兼容）。
 
 ## 工具类
 

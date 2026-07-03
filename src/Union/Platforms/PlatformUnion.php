@@ -7,6 +7,8 @@ namespace Kode\MiniApp\Union\Platforms;
 use Kode\MiniApp\Contracts\AppInterface;
 use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
+use Kode\MiniApp\Session\Session;
+use Kode\MiniApp\Session\SessionManager;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\LoginAdapter;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
@@ -25,6 +27,8 @@ use Kode\MiniApp\Union\UnionUser;
  */
 abstract class PlatformUnion
 {
+    protected ?SessionManager $sessionManager = null;
+
     public function __construct(
         protected readonly PlatformInterface $provider,
         protected readonly Union $union,
@@ -35,6 +39,25 @@ abstract class PlatformUnion
      * 平台标识（如 wechat / alipay / douyin）
      */
     abstract public function platform(): string;
+
+    /**
+     * 关联 SessionManager（用于多端登录约束）
+     *
+     * @return $this
+     */
+    public function withSession(SessionManager $manager): static
+    {
+        $this->sessionManager = $manager;
+        return $this;
+    }
+
+    /**
+     * 获取当前 SessionManager
+     */
+    public function sessionManager(): ?SessionManager
+    {
+        return $this->sessionManager;
+    }
 
     /**
      * 平台原生 App 实例（已就绪）
@@ -58,6 +81,7 @@ abstract class PlatformUnion
      * 通用登录入口
      *
      * 通过场景名分发到对应 Channel 适配器。
+     * 登录成功后，如果关联了 SessionManager，会自动创建 Session（应用登录约束）。
      *
      * @param array<string, mixed> $payload
      */
@@ -66,7 +90,12 @@ abstract class PlatformUnion
         $channel = $scene !== null
             ? $this->channelForScene($scene)
             : $this->defaultChannel();
-        return $this->union->authenticate($channel, $payload);
+        $user = $this->union->authenticate($channel, $payload);
+
+        // 可选：自动创建 Session
+        $this->autoCreateSession($user, $scene ?? 'default', $payload);
+
+        return $user;
     }
 
     /**
@@ -75,6 +104,62 @@ abstract class PlatformUnion
     public function loginByCode(string $code, ?string $scene = null): UnionUser
     {
         return $this->login(['code' => $code], $scene);
+    }
+
+    /**
+     * 创建 Session（业务侧显式调用）
+     *
+     * 用法：
+     *   $session = Union::wechat()->createSession($user, 'mini', 'ios', $deviceId);
+     *
+     * @param array<string, mixed> $payload
+     */
+    public function createSession(
+        UnionUser $user,
+        string $scene = 'default',
+        string $client = 'web',
+        string $clientId = '',
+        string $ip = '',
+        string $userAgent = '',
+        array $payload = [],
+    ): ?Session {
+        if ($this->sessionManager === null) {
+            return null;
+        }
+        return $this->sessionManager->create(
+            $user,
+            $scene,
+            $client,
+            $clientId,
+            $ip,
+            $userAgent,
+            $payload,
+        );
+    }
+
+    /**
+     * 自动创建 Session（内部使用，从 payload 中提取 client/clientId/ip/userAgent）
+     *
+     * @param array<string, mixed> $payload
+     */
+    private function autoCreateSession(UnionUser $user, string $scene, array $payload): void
+    {
+        if ($this->sessionManager === null) {
+            return;
+        }
+        $client   = (string) ($payload['client']    ?? $payload['_client']    ?? '');
+        $clientId = (string) ($payload['client_id'] ?? $payload['_client_id'] ?? '');
+        $ip       = (string) ($payload['ip']        ?? $payload['_ip']        ?? '');
+        $userAgent = (string) ($payload['user_agent'] ?? $payload['_ua']       ?? '');
+
+        $this->sessionManager->create(
+            $user,
+            $scene,
+            $client !== '' ? $client : 'web',
+            $clientId,
+            $ip,
+            $userAgent,
+        );
     }
 
     /**
