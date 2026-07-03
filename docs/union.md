@@ -1,449 +1,289 @@
-# 统一入口 (Union) - 跨平台一键登录 / 支付 / 回调
+# Union 统一调用入口
 
-> Kode MiniApp SDK 的统一入口，屏蔽各平台差异，业务侧只需关心"业务场景"。
+> **设计目标**：业务侧只需要 `use Kode\MiniApp\Union\Union;` 一行代码，通过静态方法即可访问所有平台，
+> 一行代码完成跨平台登录 / 支付 / 回调，跨端账号自动合并（UnionID）。
 
-## 目录
+## 为什么需要 Union 统一入口
 
-- [设计理念](#设计理念)
-- [快速开始](#快速开始)
-- [支持的渠道 (Channel)](#支持的渠道-channel)
-- [统一用户模型 (UnionUser)](#统一用户模型-unionuser)
-- [登录认证](#登录认证)
-- [用户资料](#用户资料)
-- [支付下单](#支付下单)
-- [回调通知](#回调通知)
-- [统一账号体系 (UnionID)](#统一账号体系-unionid)
-- [自定义适配器](#自定义适配器)
-- [底层 vs 统一入口](#底层-vs-统一入口)
+在传统 SDK 中，业务侧需要：
 
-## 设计理念
+```php
+// 原来需要 use 很多模块
+use Kode\MiniApp\Providers\Wechat\Modules\Auth;
+use Kode\MiniApp\Providers\Wechat\Modules\Pay;
+use Kode\MiniApp\Providers\Wechat\WechatProvider;
+use Kode\MiniApp\Providers\Alipay\AlipayProvider;
+use Kode\MiniApp\Providers\WechatOpen\WechatOpenProvider;
 
-```
-┌─────────────────────────────────────────────┐
-│ 业务侧代码                                    │
-│  $user = $kernel->union()->authenticate(   │
-│      Channel::WechatMini, ['code' => 'xxx']  │
-│  );                                          │
-└──────────────────────┬──────────────────────┘
-                       │
-                       ▼
-┌─────────────────────────────────────────────┐
-│ Union 统一入口                                │
-│  - Channel 枚举路由                           │
-│  - Adapter 适配器解析                         │
-│  - 统一 UnionUser 构造                       │
-└──────────────────────┬──────────────────────┘
-                       │
-        ┌──────────────┼──────────────┐
-        ▼              ▼              ▼
-   微信 Adapter    支付宝 Adapter   抖音 Adapter
-        │              │              │
-        └──────┬───────┴──────┬───────┘
-               ▼              ▼
-           Provider / App / Module (底层实现)
+// 微信小程序登录
+$wechat = $kernel->wechat();
+$app = $wechat->app();
+$session = $app->auth()->session($code);
+$openId = $session['openid'];
+$unionId = $session['unionid'] ?? '';
+
+// 微信公众号 OAuth 登录 - 又是一套不同接口
+$accessToken = $app->auth()->token($code);
+$userInfo = $app->user()->info($accessToken, $openId);
+
+// 跨端账号合并 - 手动处理
+// 用户先用小程序登录，又用 PC 扫码 - 需要手动查数据库合并
 ```
 
-**核心价值**：
-- 业务侧只 `use Union` 一个命名空间
-- 跨平台数据格式统一（UnionUser）
-- UnionID 跨平台识别同一用户
-- 底层 Provider/App/Module 仍可单独使用
+**使用 Union 后**：
+
+```php
+use Kode\MiniApp\Union\Union;
+
+// 微信小程序登录 - 一行搞定
+$user = Union::wechat()->mini($code);
+
+// 微信公众号 - 同样一行
+$user = Union::wechat()->mp($code);
+
+// PC 扫码 - 同样一行
+$user = Union::wechat()->pc($code);
+
+// 跨端账号自动合并（同一 unionId）
+$user1 = Union::wechat()->mini($code);  // unionId: u001
+$user2 = Union::wechat()->pc($code);    // unionId: u001 (相同)
+```
 
 ## 快速开始
 
 ```php
 use Kode\MiniApp\Kernel;
-use Kode\MiniApp\Union\Channel;
+use Kode\MiniApp\Union\Union;
 
+// 1. 初始化
 $kernel = new Kernel([
-    'wechat' => [
-        'app_id'     => 'wxapp0000000000',
-        'app_secret' => 'app-secret',
-    ],
-    'wechat_open' => [
-        'component_appid'  => 'wxcomp0000000000',
-        'component_secret' => 'comp-secret',
-        'token'            => 'token',
-        'encoding_aes_key' => str_repeat('a', 43),
-    ],
-    'qq' => [
-        'app_id'     => 'qqapp0000000000',
-        'app_secret' => 'qq-secret',
-    ],
+    'wechat'       => [...],
+    'wechat_open'  => [...],
+    'alipay'       => [...],
+    // ...其他平台配置
 ]);
+$kernel->union();  // 触发 Union 初始化（之后即可用静态方法）
 
-// 一键登录 - 业务侧完全无感
-$user = $kernel->union()->authenticate(
-    Channel::WechatMini,
-    ['code' => 'JS_CODE']
-);
-
-echo $user->unionId;   // 跨平台统一 ID
-echo $user->openId;    // 平台内 OpenID
-echo $user->channel;   // 渠道
-echo $user->nickname;  // 标准化昵称
+// 2. 业务侧只需要 use Union 类
+$user = Union::wechat()->mini('JS_CODE');      // 微信小程序
+$user = Union::alipay()->mini('AUTH_CODE');    // 支付宝
+$order = Union::wechat()->pay()->unifiedOrder([...]);
 ```
 
-## 支持的渠道 (Channel)
+## Union 静态门面
+
+通过 `__callStatic` 魔术方法，Union 类把平台方法统一为：
+
+| 静态方法 | 返回 | 说明 |
+|----------|------|------|
+| `Union::wechat()` | `WechatUnion` | 微信生态聚合 |
+| `Union::wechatOpen()` / `Union::openPlatform()` | `WechatOpenPlatformUnion` | 微信开放平台 |
+| `Union::alipay()` | `AlipayUnion` | 支付宝聚合 |
+| `Union::douyin()` | `DouyinUnion` | 抖音聚合 |
+| `Union::baidu()` | `BaiduUnion` | 百度智能小程序 |
+| `Union::qq()` | `QqUnion` | QQ 聚合 |
+| `Union::wechatWork()` / `Union::work()` | `WechatWorkUnion` | 企业微信聚合 |
+| `Union::dingtalk()` | `DingtalkUnion` | 钉钉聚合 |
+| `Union::lark()` | `LarkUnion` | 飞书聚合 |
+
+## 平台聚合类（Platform Union）
+
+每个平台聚合类（`WechatUnion`、`AlipayUnion` 等）提供以下统一方法：
+
+### 场景登录
+
+| 方法 | 适用场景 |
+|------|----------|
+| `->mini($code)` | 小程序 / 默认登录 |
+| `->mp($code)` | 公众号 |
+| `->h5($code)` | H5 |
+| `->pc($code)` | PC 网站应用 |
+| `->app($code)` | 移动 App |
+| `->open($payload)` | 开放平台 |
+| `->suite($code)` | 企业微信套件 |
+| `->login($payload, $scene)` | 通用登录（自定义 payload + 场景） |
+
+### 四大能力
 
 ```php
-enum Channel: string
-{
-    // 微信生态
-    case WechatMp        = 'wechat_mp';       // 公众号
-    case WechatMini      = 'wechat_mini';     // 小程序
-    case WechatH5        = 'wechat_h5';       // 微信 H5
-    case WechatPc        = 'wechat_pc';       // PC 网站应用
-    case WechatApp       = 'wechat_app';      // 移动 App
-    case WechatOpen      = 'wechat_open';     // 开放平台
-    case WechatWork      = 'wechat_work';     // 企业微信
-    case Qq              = 'qq';              // QQ
+// 1. 登录 - 统一返回 UnionUser
+$user = Union::wechat()->mini($code);
 
-    // 阿里生态
-    case AlipayMini      = 'alipay_mini';     // 支付宝小程序
-    case AlipayMp        = 'alipay_mp';       // 支付宝生活号
-    case AlipayApp       = 'alipay_app';      // 支付宝 App
+// 2. 用户资料 - 通过 openId 拉取
+$user = Union::wechat()->user($openId, ['access_token' => $token]);
 
-    // 字节生态
-    case DouyinMini      = 'douyin_mini';     // 抖音小程序
-    case DouyinMp        = 'douyin_mp';       // 抖音头条号
-
-    // 百度
-    case BaiduMini       = 'baidu_mini';      // 百度智能小程序
-
-    // 协同办公
-    case Dingtalk        = 'dingtalk';        // 钉钉
-    case Lark            = 'lark';            // 飞书
-}
-```
-
-## 统一用户模型 (UnionUser)
-
-```php
-final readonly class UnionUser
-{
-    public string  $unionId;     // 统一 ID（跨平台识别）
-    public string  $openId;      // 平台内 OpenID
-    public Channel $channel;     // 来源渠道
-    public ?string $nickname;    // 标准化昵称
-    public ?string $avatar;      // 标准化头像
-    public ?string $email;
-    public ?string $phone;
-    public ?string $gender;      // male / female / unknown
-    public ?string $country;
-    public ?string $province;
-    public ?string $city;
-    public array   $raw;         // 平台原始数据
-    public array   $extra;       // 平台扩展信息
-
-    public function toArray(): array;
-    public function hasUnionId(): bool;
-}
-```
-
-**关键设计**：
-- `unionId` 是跨平台识别同一用户的"密钥"
-- 平台字段（headimgurl / avatarUrl / figureurl 等）经 `UnionUser::fromRaw()` 归一化为标准字段
-- `raw` 保留平台原始数据，便于业务侧处理平台特有逻辑
-- `extra` 用于传递 access_token / refresh_token 等凭证
-
-## 登录认证
-
-```php
-// 微信小程序
-$user = $kernel->union()->authenticate(Channel::WechatMini, [
-    'code' => 'JS_CODE',
-]);
-
-// 微信公众号
-$user = $kernel->union()->authenticate(Channel::WechatMp, [
-    'code' => 'OAUTH_CODE',
-]);
-
-// 微信 PC 扫码
-$user = $kernel->union()->authenticate(Channel::WechatPc, [
-    'code' => 'PC_SCAN_CODE',
-]);
-
-// 微信移动 App
-$user = $kernel->union()->authenticate(Channel::WechatApp, [
-    'code' => 'APP_AUTH_CODE',
-]);
-
-// 微信开放平台（代公众号 / 小程序）
-$user = $kernel->union()->authenticate(Channel::WechatOpen, [
-    'authorization_code'      => 'AUTH_CODE',
-    'component_access_token'  => 'COMP_TOK',
-]);
-
-// 企业微信
-$user = $kernel->union()->authenticate(Channel::WechatWork, [
-    'code' => 'WORK_CODE',
-]);
-
-// QQ
-$user = $kernel->union()->authenticate(Channel::Qq, [
-    'code' => 'QQ_CODE',
-]);
-
-// 支付宝
-$user = $kernel->union()->authenticate(Channel::AlipayMini, [
-    'code' => 'ALIPAY_CODE',
-]);
-
-// 抖音
-$user = $kernel->union()->authenticate(Channel::DouyinMini, [
-    'code'           => 'DOUYIN_CODE',
-    'anonymous_code' => 'ANON_CODE',  // 可选
-]);
-
-// 百度
-$user = $kernel->union()->authenticate(Channel::BaiduMini, [
-    'code' => 'BAIDU_CODE',
-]);
-
-// 钉钉
-$user = $kernel->union()->authenticate(Channel::Dingtalk, [
-    'code' => 'DING_CODE',
-]);
-
-// 飞书
-$user = $kernel->union()->authenticate(Channel::Lark, [
-    'code' => 'LARK_CODE',
-]);
-```
-
-字符串形式：
-```php
-$user = $kernel->union()->login('wechat_mini', ['code' => 'JS_CODE']);
-```
-
-## 用户资料
-
-```php
-// 通过 openId 拉取用户资料
-$user = $kernel->union()->profile(
-    Channel::WechatMp,
-    'OPEN_ID',
-    [
-        'access_token' => 'AUTH_ACCESS_TOKEN',
-    ]
-);
-```
-
-## 支付下单
-
-```php
-// 微信小程序支付
-$result = $kernel->union()->pay(Channel::WechatMini)->unifiedOrder([
-    'out_trade_no' => 'ORDER_001',
+// 3. 支付 - 统一下单
+$order = Union::wechat()->pay()->unifiedOrder([
+    'out_trade_no' => 'O001',
     'body'         => '商品',
-    'total_fee'    => 100,  // 单位：分
-    'openid'       => 'USER_OPENID',
-    'notify_url'   => 'https://example.com/notify',
+    'total_fee'    => 100,
+    'openid'       => $openId,
 ]);
+// 简写
+$order = Union::wechat()->unifiedOrder([...]);
 
-// 微信 App 支付（开放平台移动应用）
-$result = $kernel->union()->pay(Channel::WechatApp)->unifiedOrder([
-    'out_trade_no'           => 'ORDER_002',
-    'body'                   => '商品',
-    'total_fee'              => 200,
-    'authorizer_access_token' => 'AUTH_TOK',
-    'authorizer_appid'        => 'wxapp0000000000',
-    'notify_url'             => 'https://example.com/notify',
-]);
-
-// 支付宝
-$result = $kernel->union()->pay(Channel::AlipayMini)->unifiedOrder([
-    'out_trade_no' => 'ORDER_003',
-    'subject'      => '商品',
-    'total_amount' => '1.00',
-    'notify_url'   => 'https://example.com/notify',
-]);
+// 4. 回调 - 验证 + 解析
+$data = Union::wechat()->notify()->decode($payload, $headers);
 ```
 
-## 回调通知
+### 透传底层 Provider / App
+
+如需细粒度控制（如素材管理、菜单管理、JS-SDK 等）：
 
 ```php
-// 微信支付回调
-$decoded = $kernel->union()->notify(Channel::WechatMini)->decode(
-    $request->all(),
-    $request->headers->all()
-);
+$wechat = Union::wechat();
 
-// 支付宝回调
-$decoded = $kernel->union()->notify(Channel::AlipayMini)->decode(
-    $request->all(),
-    $request->headers->all()
-);
+// 获取平台 App 实例（含 30+ 能力模块）
+$app = $wechat->appInstance();
+$app->message()->send($openId, 'text', 'Hello');
+$app->media()->upload('image', '/path/to/image.jpg');
+$app->menu()->create([...]);
+$app->jssdk()->config($url, ['chooseImage']);
+$app->subscribeMessage()->send($openId, $templateId, $data);
+
+// 获取 Provider
+$provider = $wechat->provider();
 ```
 
-## 统一账号体系 (UnionID)
+## 跨端账号合并（UnionID）
 
-**关键概念**：
-- 同一用户在不同平台登录，`openId` 不同但 `unionId` 相同（前提是平台支持 UnionID）
-- 用 `unionId` 作为业务用户表的唯一键
-- 微信生态（公众号/小程序/App/PC/QQ）共享 UnionID
+配置好微信开放平台（同一开放平台下绑定所有应用）后，跨端账号自动合并：
 
-**数据库设计建议**：
-
-```sql
-CREATE TABLE users (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    union_id VARCHAR(64) UNIQUE NOT NULL,
-    nickname VARCHAR(128),
-    avatar VARCHAR(255),
-    created_at DATETIME,
-    INDEX idx_union_id (union_id)
-);
-
-CREATE TABLE user_identities (
-    id BIGINT PRIMARY KEY AUTO_INCREMENT,
-    user_id BIGINT NOT NULL,
-    channel VARCHAR(32) NOT NULL,     -- wechat_mini / alipay / douyin
-    open_id VARCHAR(128) NOT NULL,
-    union_id VARCHAR(64),
-    extra JSON,
-    UNIQUE KEY uk_channel_openid (channel, open_id),
-    INDEX idx_user_id (user_id)
-);
-```
-
-**登录流程**：
 ```php
-$user = $kernel->union()->authenticate(Channel::WechatMini, ['code' => $code]);
+// 用户先用小程序登录
+$user1 = Union::wechat()->mini('JS_CODE');        // unionId: u001
 
-// 1. 通过 unionId 找到主用户
-$mainUser = User::firstOrCreate(
-    ['union_id' => $user->unionId],
-    ['nickname' => $user->nickname, 'avatar' => $user->avatar]
-);
+// 再用 PC 扫码
+$user2 = Union::wechat()->pc('PC_CODE');          // unionId: u001 (相同)
+$user3 = Union::wechat()->app('APP_CODE');        // unionId: u001 (相同)
+$user4 = Union::wechat()->h5('H5_CODE');          // unionId: u001 (相同)
+$user5 = Union::wechat()->mp('OAUTH_CODE');       // unionId: u001 (相同)
 
-// 2. 记录平台身份
-$mainUser->identities()->updateOrCreate(
-    ['channel' => $user->channel->value, 'open_id' => $user->openId],
-    ['union_id' => $user->unionId, 'extra' => $user->extra]
-);
+// 业务侧只需用 unionId 关联业务账号
+$businessUser = User::where('union_id', $user1->unionId)->first();
 ```
 
-**跨端识别效果**：
-- 用户先用微信小程序登录 → 业务表记录 `union_id = A`
-- 用户再用 PC 扫码登录 → 拿到 `union_id = A` → 识别为同一用户
-- 业务侧无需额外处理"账号合并"
-
-## 自定义适配器
-
-业务侧可注册自定义适配器扩展第三方平台：
+## 自定义适配器（业务扩展）
 
 ```php
 use Kode\MiniApp\Union\Contracts\LoginAdapter;
 use Kode\MiniApp\Union\UnionUser;
+use Kode\MiniApp\Union\Channel;
 
-class WechatCorpLoginAdapter implements LoginAdapter
+class MyLoginAdapter implements LoginAdapter
 {
-    public function channel(): Channel { return Channel::WechatWork; }
+    public function channel(): Channel
+    {
+        return Channel::WechatMini;
+    }
 
     public function authenticate(array $payload): UnionUser
     {
         // 自定义登录逻辑
-        return new UnionUser(
-            unionId: 'xxx',
-            openId:  'xxx',
-            channel: Channel::WechatWork,
+        return UnionUser::fromRaw(
+            channel: Channel::WechatMini,
+            openId:  $payload['openid'] ?? '',
+            raw:     $payload,
         );
     }
 }
 
-$kernel->union()->registerLoginAdapter(new WechatCorpLoginAdapter());
+$kernel->union()->registerLoginAdapter(new MyLoginAdapter());
 ```
-
-类似的：
-- `registerUserAdapter(UserAdapter)` - 用户资料
-- `registerPayAdapter(PayAdapter)` - 支付
-- `registerNotifyAdapter(NotifyAdapter)` - 回调
 
 ## 底层 vs 统一入口
 
-| 场景 | 推荐方式 |
-|---|---|
-| 跨平台一键登录 | **统一入口** |
-| 跨端账号合并 | **统一入口** |
-| 单一平台业务 | 底层（更细粒度） |
-| 自定义业务流 | 底层 |
-| 复用一个 access_token 调多个接口 | 底层 |
-| 复杂支付 / 退款流程 | 底层 |
-| 平台特有接口（小程序订阅消息等） | 底层 |
+| 维度 | 底层 Provider / App | Union 统一入口 |
+|------|--------------------|-----------------|
+| 适用对象 | 框架开发者、扩展定制 | 业务开发者（**99% 场景**） |
+| 能力粒度 | 30+ 模块细粒度 | 场景登录 + 4 大能力 + 透传 Provider |
+| 学习成本 | 高（需了解每个模块） | 极低（几行代码搞定） |
+| 跨平台切换 | 需重写业务 | 无缝切换 |
+| UnionID 处理 | 手动 | 自动 |
+| 静态调用 | 不支持 | 支持 `Union::wechat()` |
 
-**底层调用示例**：
-```php
-// 单一平台业务
-$session = $kernel->wechat()->app()->auth()->session($code);
-$user    = $kernel->wechat()->app()->subscribeMessage()->send([...]);
+> **设计哲学**：底层 Provider/App 是 SDK 的"零件库"，Union 是面向业务场景的"成品工具"。
+> 业务侧 99% 的需求都可以用 Union 解决，仅在需要极细粒度控制时才用底层 Provider。
 
-// 复杂业务流
-$result = $kernel->wechatOpen()->app()->component()->queryAuth($token, $code);
-```
-
-**统一入口调用**：
-```php
-// 跨平台场景
-$user = $kernel->union()->authenticate(Channel::WechatMini, ['code' => $code]);
-```
-
-**两者并存，按场景选用**。底层 Provider/App/Module 是统一入口的内部实现，统一入口是给业务侧的"快捷方式"。
-
-## 完整示例：用户中心
+## 完整调用示例
 
 ```php
-// 用户登录 - 不管从哪个端来
-public function login(Request $request, Kernel $kernel): Response
-{
-    $channel = $request->input('channel');  // 来自前端
-    $code    = $request->input('code');
+use Kode\MiniApp\Union\Union;
 
-    $user = $kernel->union()->login($channel, ['code' => $code]);
+// ===== 1. 跨平台登录 =====
+$user1 = Union::wechat()->mini('JS_CODE');           // 微信小程序
+$user2 = Union::wechat()->mp('CODE');                // 公众号
+$user3 = Union::wechat()->pc('PC_CODE');             // PC 扫码
+$user4 = Union::wechat()->h5('H5_CODE');             // H5
+$user5 = Union::wechat()->app('APP_CODE');           // 移动 App
 
-    // 业务逻辑：用 unionId 关联用户
-    $localUser = $this->userService->findOrCreate([
-        'union_id' => $user->unionId,
-        'nickname' => $user->nickname,
-        'avatar'   => $user->avatar,
-    ]);
+$user6 = Union::alipay()->mini('AUTH_CODE');         // 支付宝小程序
+$user7 = Union::alipay()->mp('CODE');                // 支付宝生活号
+$user8 = Union::alipay()->login(['code' => $code, 'channel' => 'alipay_app']);  // 支付宝 App
 
-    // 记录身份
-    $localUser->identities()->updateOrCreate([
-        'channel' => $user->channel->value,
-        'open_id' => $user->openId,
-    ], [
-        'union_id' => $user->unionId,
-        'extra'    => $user->extra,
-    ]);
+$user9  = Union::douyin()->mini('CODE');             // 抖音小程序
+$user10 = Union::baidu()->mini('CODE');              // 百度小程序
+$user11 = Union::qq()->mini('CODE');                 // QQ 小程序
+$user12 = Union::work()->login('CODE');              // 企业微信
+$user13 = Union::dingtalk()->mini('CODE');           // 钉钉
+$user14 = Union::lark()->mini('CODE');               // 飞书
 
-    // 颁发业务 token
-    return response()->json([
-        'token'    => $this->tokenService->issue($localUser),
-        'nickname' => $user->nickname,
-        'avatar'   => $user->avatar,
-    ]);
-}
+// ===== 2. 跨平台支付 =====
+$order1 = Union::wechat()->pay()->unifiedOrder([
+    'out_trade_no' => 'O001',
+    'body'         => '商品',
+    'total_fee'    => 100,
+    'openid'       => $user1->openId,
+]);
+$order2 = Union::alipay()->pay()->unifiedOrder([...]);
+$order3 = Union::work()->pay()->unifiedOrder([...]);
+
+// ===== 3. 跨平台回调 =====
+$data1 = Union::wechat()->notify()->decode($payload, $headers);
+$data2 = Union::alipay()->notify()->decode($payload, $headers);
+
+// ===== 4. 跨平台用户资料 =====
+$user1 = Union::wechat()->user($openId, ['access_token' => $token]);
+$user2 = Union::alipay()->user($openId, ['access_token' => $token]);
+
+// ===== 5. 细粒度访问（30+ 模块） =====
+$app = Union::wechat()->appInstance();
+$app->message()->sendSubscribe($openId, $templateId, [...]);
+$app->media()->upload('image', '/path/to/image.jpg');
+$app->menu()->create([...]);
+$app->jssdk()->config($url, ['chooseImage']);
 ```
 
-## 注意事项
+## 架构设计
 
-1. **UnionID 跨平台前提**：
-   - 同一开放平台账号下的应用
-   - 支付宝、抖音、百度是独立账号体系（无 UnionID）
-   - 钉钉、飞书是企业内部账号（userid 为准）
+```
+Union 静态门面（__callStatic 调度）
+  ├── wechat()       → WechatUnion       → WechatProvider      → WechatApp (30+ 模块)
+  ├── alipay()       → AlipayUnion       → AlipayProvider      → AlipayApp
+  ├── douyin()       → DouyinUnion       → DouyinProvider      → DouyinApp
+  ├── baidu()        → BaiduUnion        → BaiduProvider       → BaiduApp
+  ├── qq()           → QqUnion           → QqProvider          → QqApp
+  ├── wechatWork()   → WechatWorkUnion   → WechatWorkProvider  → WechatWorkApp
+  ├── dingtalk()     → DingtalkUnion     → DingtalkProvider    → DingtalkApp
+  ├── lark()         → LarkUnion         → LarkProvider        → LarkApp
+  └── wechatOpen()   → WechatOpenPlatformUnion → WechatOpenProvider → WechatOpenApp
+```
 
-2. **敏感凭证**：
-   - `session_key`（小程序）、`access_token`、`refresh_token` 放在 `extra` 中
-   - 不应直接返回给前端
-   - 后端应通过业务 token 颁发体系间接使用
+**统一账号体系**：
 
-3. **多端登录互踢**：
-   - 业务侧应在数据库记录 `user_id + channel + device`
-   - 同一 channel 重新登录可考虑"挤下线"
-
-4. **回调幂等性**：
-   - 支付回调必须做幂等（按 out_trade_no）
-   - Union 入口的 `decode` 仅做数据归一化，不做幂等处理
+```
+用户在小程序登录       用户在公众号登录       用户在 PC 扫码       用户在 App 登录
+       ↓                     ↓                    ↓                    ↓
+   jscode2session        OAuth 网页授权        扫码回调            App 授权回调
+       ↓                     ↓                    ↓                    ↓
+   Union::wechat()->mini   Union::wechat()->mp   Union::wechat()->pc  Union::wechat()->app
+       ↓                     ↓                    ↓                    ↓
+       └─────────────────────┴────────────────────┴────────────────────┘
+                                       ↓
+                                 统一 UnionUser
+                                  ├─ unionId: u001 (跨端相同)
+                                  ├─ openId:  wx_xxx (平台内唯一)
+                                  ├─ channel: wechat_mini / wechat_mp / wechat_pc / wechat_app
+                                  ├─ nickname, avatar, ...
+                                  └─ raw / extra (平台原始数据)
+```

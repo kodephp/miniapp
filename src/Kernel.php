@@ -125,14 +125,23 @@ final class Kernel implements KernelInterface
      * 统一登录 / 鉴权 / 支付 / 回调 入口
      *
      * 推荐业务侧使用此入口，统一处理跨平台场景。
+     * 同时会自动初始化 Union::setKernel()，以便业务侧使用 Union::wechat() 等静态快捷方法。
      *
      * 用法：
-     *   $user = $kernel->union()->authenticate(Channel::WechatMini, ['code' => 'xxx']);
-     *   $order = $kernel->union()->pay(Channel::WechatMini)->unifiedOrder([...]);
+     *   $user = $kernel->union()->wechat()->mini('JS_CODE');
+     *   $order = $kernel->union()->wechat()->pay()->unifiedOrder([...]);
+     *   // 或者
+     *   $user = Union::wechat()->mini('JS_CODE');
      */
     public function union(): Union
     {
-        return $this->unionInstance ??= new Union($this);
+        if ($this->unionInstance === null) {
+            $this->unionInstance = new Union($this);
+            Union::setKernel($this);
+        }
+        /** @var Union $instance */
+        $instance = $this->unionInstance;
+        return $instance;
     }
 
     /**

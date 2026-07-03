@@ -6,29 +6,70 @@ namespace Kode\MiniApp\Union;
 
 use InvalidArgumentException;
 use Kode\MiniApp\Contracts\KernelInterface;
+use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Union\Contracts\LoginAdapter;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
 use Kode\MiniApp\Union\Contracts\UserAdapter;
+use Kode\MiniApp\Union\Platforms\AlipayUnion;
+use Kode\MiniApp\Union\Platforms\BaiduUnion;
+use Kode\MiniApp\Union\Platforms\DingtalkUnion;
+use Kode\MiniApp\Union\Platforms\DouyinUnion;
+use Kode\MiniApp\Union\Platforms\LarkUnion;
+use Kode\MiniApp\Union\Platforms\PlatformUnion;
+use Kode\MiniApp\Union\Platforms\QqUnion;
+use Kode\MiniApp\Union\Platforms\WechatOpenPlatformUnion;
+use Kode\MiniApp\Union\Platforms\WechatUnion;
+use Kode\MiniApp\Union\Platforms\WechatWorkUnion;
 
 /**
- * 统一入口门面
- *
- * 所有平台（微信 / 支付宝 / 抖音 / 百度 / 钉钉 / 飞书 / 企业微信 / QQ）通过
- * 本类统一对外暴露，业务侧无需关心各平台差异。
- *
- * 用法：
- *   $user = $kernel->union()->authenticate(Channel::WechatMini, ['code' => 'xxx']);
- *   $order = $kernel->union()->pay(Channel::WechatMini)->unifiedOrder([...]);
- *   $data = $kernel->union()->notify(Channel::WechatMini)->decode($payload, $headers);
+ * Union 统一入口（门面 + 静态快捷访问）
  *
  * 设计原则：
- *   - 一个渠道 = 一个 Channel
- *   - 平台原始模块（Provider/App/Module）作为内部实现，仍可单独使用
- *   - 统一入口专注于"业务场景"，避免业务侧 use 大量类
+ *  - 业务侧只需要 `use Kode\MiniApp\Union\Union;` 一行代码
+ *  - 通过静态方法 `Union::wechat()` / `Union::alipay()` 等访问各平台
+ *  - 通过链式调用 `.mini()` / `.pay()` / `.notify()` 完成所有业务
+ *  - 跨端账号通过 UnionID 自动合并
+ *
+ * 用法：
+ *   $user = Union::wechat()->mini('code');                          // 微信小程序登录
+ *   $user = Union::wechat()->mp('code');                            // 公众号登录
+ *   $order = Union::wechat()->pay()->unifiedOrder([...]);           // 微信支付
+ *   $user = Union::alipay()->mini('code');                          // 支付宝小程序登录
+ *   $data = Union::wechat()->notify()->decode($payload, $headers);  // 微信回调
+ *   $user = Union::wechat()->user('openid')->profile();             // 用户资料
+ *
+ * 高级用法（从 Kernel 入口）：
+ *   $kernel->union()->wechat()->mini('code');
+ *
+ * @method WechatUnion wechat()
+ * @method WechatOpenPlatformUnion wechatOpen()
+ * @method WechatOpenPlatformUnion openPlatform()
+ * @method AlipayUnion alipay()
+ * @method DouyinUnion douyin()
+ * @method BaiduUnion baidu()
+ * @method QqUnion qq()
+ * @method WechatWorkUnion wechatWork()
+ * @method WechatWorkUnion work()
+ * @method DingtalkUnion dingtalk()
+ * @method LarkUnion lark()
+ * @method static WechatUnion wechat()
+ * @method static WechatOpenPlatformUnion wechatOpen()
+ * @method static WechatOpenPlatformUnion openPlatform()
+ * @method static AlipayUnion alipay()
+ * @method static DouyinUnion douyin()
+ * @method static BaiduUnion baidu()
+ * @method static QqUnion qq()
+ * @method static WechatWorkUnion wechatWork()
+ * @method static WechatWorkUnion work()
+ * @method static DingtalkUnion dingtalk()
+ * @method static LarkUnion lark()
  */
 final class Union
 {
+    /** @var array<string, PlatformUnion> */
+    private array $platforms = [];
+
     /** @var array<string, LoginAdapter> */
     private array $loginAdapters = [];
 
@@ -41,13 +82,45 @@ final class Union
     /** @var array<string, NotifyAdapter> */
     private array $notifyAdapters = [];
 
+    /**
+     * 全局 Kernel 引用（供静态方法使用）
+     */
+    private static ?KernelInterface $globalKernel = null;
+
+    /**
+     * 平台方法名 -> (platformKey, unionClass) 映射
+     *
+     * @var array<string, array{0: string, 1: class-string<PlatformUnion>}>
+     */
+    private const PLATFORM_MAP = [
+        'wechat'       => ['wechat',       WechatUnion::class],
+        'wechatOpen'   => ['wechat_open',  WechatOpenPlatformUnion::class],
+        'openPlatform' => ['wechat_open',  WechatOpenPlatformUnion::class],
+        'alipay'       => ['alipay',       AlipayUnion::class],
+        'douyin'       => ['douyin',       DouyinUnion::class],
+        'baidu'        => ['baidu',        BaiduUnion::class],
+        'qq'           => ['qq',           QqUnion::class],
+        'wechatWork'   => ['wechat_work',  WechatWorkUnion::class],
+        'work'         => ['wechat_work',  WechatWorkUnion::class],
+        'dingtalk'     => ['dingtalk',     DingtalkUnion::class],
+        'lark'         => ['lark',         LarkUnion::class],
+    ];
+
     public function __construct(
         private readonly KernelInterface $kernel,
     ) {
     }
 
     /**
-     * 渠道登录认证（最常用入口）
+     * 静态初始化（在框架启动时调用一次）
+     */
+    public static function setKernel(KernelInterface $kernel): void
+    {
+        self::$globalKernel = $kernel;
+    }
+
+    /**
+     * 渠道登录认证（底层方法，大多数场景可直接用 Union::xxx()->scene()）
      *
      * @param array<string, mixed> $payload
      */
@@ -93,7 +166,88 @@ final class Union
     }
 
     /**
-     * 注册自定义登录适配器（用于业务侧扩展第三方平台）
+     * 通用平台访问入口
+     *
+     * 业务侧可直接通过 `Union::wechat()` / `$kernel->union()->wechat()` 访问。
+     * 实际由 `__callStatic` 和 `__call` 转发到本方法。
+     *
+     * @internal 由 __call / __callStatic 调用
+     */
+    public function platform(string $key, string $class): PlatformUnion
+    {
+        if (!isset($this->platforms[$key])) {
+            $provider = $this->kernelProvider($key);
+            /** @var PlatformUnion $instance */
+            $instance = new $class($provider, $this);
+            $this->platforms[$key] = $instance;
+        }
+        return $this->platforms[$key];
+    }
+
+    /**
+     * 实例级魔术方法：访问平台聚合
+     *
+     * `$kernel->union()->wechat()` 等价于 `$kernel->union()->platform('wechat', WechatUnion::class)`
+     *
+     * @param array<int, mixed> $arguments
+     */
+    public function __call(string $name, array $arguments): PlatformUnion
+    {
+        return $this->resolvePlatform($name, $arguments);
+    }
+
+    /**
+     * 静态魔术方法：业务侧主入口
+     *
+     * `Union::wechat()` 等价于 `Union::instance()->wechat()`
+     * `Union::wechat()->mini($code)` 一行完成登录
+     *
+     * @param array<int, mixed> $arguments
+     */
+    public static function __callStatic(string $name, array $arguments): PlatformUnion
+    {
+        return self::instance()->resolvePlatform($name, $arguments);
+    }
+
+    /**
+     * 获取 Union 单例（基于全局 Kernel）
+     */
+    public static function instance(): self
+    {
+        if (self::$globalKernel === null) {
+            throw new \RuntimeException(
+                'Union 静态方法需要在使用前调用 Union::setKernel($kernel) 初始化，' .
+                '或通过 $kernel->union() 入口获取实例。'
+            );
+        }
+        /** @var self $union */
+        $union = self::$globalKernel->union();
+        return $union;
+    }
+
+    /**
+     * @param array<int, mixed> $arguments
+     */
+    private function resolvePlatform(string $name, array $arguments): PlatformUnion
+    {
+        if (!isset(self::PLATFORM_MAP[$name])) {
+            throw new InvalidArgumentException(
+                "Union 不支持平台方法 [{$name}]，可选：" . implode(', ', array_keys(self::PLATFORM_MAP))
+            );
+        }
+        [$key, $class] = self::PLATFORM_MAP[$name];
+        if ($arguments !== []) {
+            throw new \BadMethodCallException(
+                "平台方法 [{$name}] 不接受参数"
+            );
+        }
+        return $this->platform($key, $class);
+    }
+
+    // ===== 适配器注册（业务扩展）=====
+
+    /**
+     * 注册自定义登录适配器
      */
     public function registerLoginAdapter(LoginAdapter $adapter): void
     {
@@ -124,55 +278,65 @@ final class Union
         $this->notifyAdapters[$adapter->channel()->value] = $adapter;
     }
 
-    /**
-     * 解析登录适配器
-     */
+    // ===== 私有：Provider 解析 =====
+
+    private function kernelProvider(string $key): PlatformInterface
+    {
+        $method = match ($key) {
+            'wechat'      => 'wechat',
+            'wechat_open' => 'wechatOpen',
+            'alipay'      => 'alipay',
+            'douyin'      => 'douyin',
+            'baidu'       => 'baidu',
+            'qq'          => 'qq',
+            'wechat_work' => 'wechatWork',
+            'dingtalk'    => 'dingtalk',
+            'lark'        => 'lark',
+            default       => throw new InvalidArgumentException("未知平台标识: {$key}"),
+        };
+
+        $provider = $this->kernel->{$method}();
+        if (!$provider instanceof PlatformInterface) {
+            throw new \RuntimeException("平台 [{$key}] 的 Provider 未注册或类型错误");
+        }
+        return $provider;
+    }
+
+    // ===== 私有：适配器解析 =====
+
     private function loginAdapter(Channel $channel): LoginAdapter
     {
         $key = $channel->value;
         if (!isset($this->loginAdapters[$key])) {
             $this->loginAdapters[$key] = $this->buildLoginAdapter($channel);
         }
-
         return $this->loginAdapters[$key];
     }
 
-    /**
-     * 解析用户资料适配器
-     */
     private function userAdapter(Channel $channel): UserAdapter
     {
         $key = $channel->value;
         if (!isset($this->userAdapters[$key])) {
             $this->userAdapters[$key] = $this->buildUserAdapter($channel);
         }
-
         return $this->userAdapters[$key];
     }
 
-    /**
-     * 解析支付适配器
-     */
     private function payAdapter(Channel $channel): PayAdapter
     {
         $key = $channel->value;
         if (!isset($this->payAdapters[$key])) {
             $this->payAdapters[$key] = $this->buildPayAdapter($channel);
         }
-
         return $this->payAdapters[$key];
     }
 
-    /**
-     * 解析回调适配器
-     */
     private function notifyAdapter(Channel $channel): NotifyAdapter
     {
         $key = $channel->value;
         if (!isset($this->notifyAdapters[$key])) {
             $this->notifyAdapters[$key] = $this->buildNotifyAdapter($channel);
         }
-
         return $this->notifyAdapters[$key];
     }
 
