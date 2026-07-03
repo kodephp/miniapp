@@ -29,21 +29,25 @@ final readonly class QqApp implements AppInterface
         $this->pay  = new Pay($this);
     }
 
+    #[\Override]
     public function name(): string
     {
         return $this->name;
     }
 
+    #[\Override]
     public function platform(): PlatformInterface
     {
         return $this->platform;
     }
 
+    #[\Override]
     public function config(): ConfigInterface
     {
         return $this->config;
     }
 
+    #[\Override]
     public function http(): HttpClientInterface
     {
         return $this->http;
@@ -57,5 +61,24 @@ final readonly class QqApp implements AppInterface
     public function pay(): Pay
     {
         return $this->pay;
+    }
+
+    /**
+     * 桥接到微信主 Provider
+     *
+     * QQ 属于微信生态（QQ 与微信用户体系已打通），
+     * 业务侧可通过此方法复用微信主 Provider 的能力。
+     */
+    public function wechat(): ?\Kode\MiniApp\Providers\Wechat\WechatProvider
+    {
+        $kernel = $this->platform->kernel();
+        if ($kernel === null) {
+            return null;
+        }
+
+        $provider = $kernel->wechat();
+        return $provider instanceof \Kode\MiniApp\Providers\Wechat\WechatProvider
+            ? $provider
+            : null;
     }
 }

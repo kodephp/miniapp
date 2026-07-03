@@ -53,21 +53,25 @@ final readonly class DingtalkApp implements AppInterface
         $this->workflow = new Workflow($this);
     }
 
+    #[\Override]
     public function name(): string
     {
         return $this->name;
     }
 
+    #[\Override]
     public function platform(): PlatformInterface
     {
         return $this->platform;
     }
 
+    #[\Override]
     public function config(): DingtalkConfig
     {
         return $this->config;
     }
 
+    #[\Override]
     public function http(): HttpClientInterface
     {
         return $this->http;

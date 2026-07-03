@@ -5,22 +5,20 @@ declare(strict_types=1);
 namespace Kode\MiniApp\Providers\Alipay;
 
 use Kode\MiniApp\Contracts\AppInterface;
-use Kode\MiniApp\Contracts\ConfigInterface;
+use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\Platform;
-use Kode\MiniApp\Contracts\PlatformInterface;
-use Kode\MiniApp\Core\HttpClient;
+use Kode\MiniApp\Core\BaseProvider;
 
 /**
  * 支付宝 Provider
  */
-final class AlipayProvider implements PlatformInterface
+final class AlipayProvider extends BaseProvider
 {
-    private AlipayConfig $config;
-    private HttpClientInterface $http;
-
     /** @var array<string, AlipayApp> */
     private array $apps = [];
+
+    private AlipayConfig $alipayConfig;
 
     /**
      * @param array<string, mixed> $config
@@ -28,9 +26,10 @@ final class AlipayProvider implements PlatformInterface
     public function __construct(
         array $config,
         ?HttpClientInterface $http = null,
+        ?KernelInterface $kernel = null,
     ) {
-        $this->config = new AlipayConfig($config);
-        $this->http   = $http ?? new HttpClient();
+        parent::__construct($config, $http ?? new \Kode\MiniApp\Core\HttpClient(), $kernel);
+        $this->alipayConfig = new AlipayConfig($config);
     }
 
     public function name(): Platform
@@ -38,22 +37,19 @@ final class AlipayProvider implements PlatformInterface
         return Platform::Alipay;
     }
 
+    #[\Override]
     public function app(string $name = 'default'): AppInterface
     {
         if (!isset($this->apps[$name])) {
-            $this->apps[$name] = new AlipayApp($name, $this, $this->config, $this->http);
+            $this->apps[$name] = new AlipayApp($name, $this, $this->alipayConfig, $this->http);
         }
 
         return $this->apps[$name];
     }
 
-    public function http(): HttpClientInterface
+    #[\Override]
+    public function config(): AlipayConfig
     {
-        return $this->http;
-    }
-
-    public function config(): ConfigInterface
-    {
-        return $this->config;
+        return $this->alipayConfig;
     }
 }

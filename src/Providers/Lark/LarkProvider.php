@@ -5,22 +5,20 @@ declare(strict_types=1);
 namespace Kode\MiniApp\Providers\Lark;
 
 use Kode\MiniApp\Contracts\AppInterface;
-use Kode\MiniApp\Contracts\ConfigInterface;
+use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\Platform;
-use Kode\MiniApp\Contracts\PlatformInterface;
-use Kode\MiniApp\Core\HttpClient;
+use Kode\MiniApp\Core\BaseProvider;
 
 /**
  * 飞书 Provider
  */
-final class LarkProvider implements PlatformInterface
+final class LarkProvider extends BaseProvider
 {
-    private LarkConfig $config;
-    private HttpClientInterface $http;
-
     /** @var array<string, LarkApp> */
     private array $apps = [];
+
+    private LarkConfig $larkConfig;
 
     /**
      * @param array<string, mixed> $config
@@ -28,9 +26,10 @@ final class LarkProvider implements PlatformInterface
     public function __construct(
         array $config,
         ?HttpClientInterface $http = null,
+        ?KernelInterface $kernel = null,
     ) {
-        $this->config = new LarkConfig($config);
-        $this->http   = $http ?? new HttpClient();
+        parent::__construct($config, $http ?? new \Kode\MiniApp\Core\HttpClient(), $kernel);
+        $this->larkConfig = new LarkConfig($config);
     }
 
     public function name(): Platform
@@ -38,22 +37,19 @@ final class LarkProvider implements PlatformInterface
         return Platform::Lark;
     }
 
+    #[\Override]
     public function app(string $name = 'default'): AppInterface
     {
         if (!isset($this->apps[$name])) {
-            $this->apps[$name] = new LarkApp($name, $this, $this->config, $this->http);
+            $this->apps[$name] = new LarkApp($name, $this, $this->larkConfig, $this->http);
         }
 
         return $this->apps[$name];
     }
 
-    public function http(): HttpClientInterface
-    {
-        return $this->http;
-    }
-
+    #[\Override]
     public function config(): LarkConfig
     {
-        return $this->config;
+        return $this->larkConfig;
     }
 }

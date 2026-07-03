@@ -5,22 +5,20 @@ declare(strict_types=1);
 namespace Kode\MiniApp\Providers\Douyin;
 
 use Kode\MiniApp\Contracts\AppInterface;
-use Kode\MiniApp\Contracts\ConfigInterface;
+use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\Platform;
-use Kode\MiniApp\Contracts\PlatformInterface;
-use Kode\MiniApp\Core\HttpClient;
+use Kode\MiniApp\Core\BaseProvider;
 
 /**
  * 抖音 Provider
  */
-final class DouyinProvider implements PlatformInterface
+final class DouyinProvider extends BaseProvider
 {
-    private DouyinConfig $config;
-    private HttpClientInterface $http;
-
     /** @var array<string, DouyinApp> */
     private array $apps = [];
+
+    private DouyinConfig $douyinConfig;
 
     /**
      * @param array<string, mixed> $config
@@ -28,9 +26,10 @@ final class DouyinProvider implements PlatformInterface
     public function __construct(
         array $config,
         ?HttpClientInterface $http = null,
+        ?KernelInterface $kernel = null,
     ) {
-        $this->config = new DouyinConfig($config);
-        $this->http   = $http ?? new HttpClient();
+        parent::__construct($config, $http ?? new \Kode\MiniApp\Core\HttpClient(), $kernel);
+        $this->douyinConfig = new DouyinConfig($config);
     }
 
     public function name(): Platform
@@ -38,22 +37,19 @@ final class DouyinProvider implements PlatformInterface
         return Platform::Douyin;
     }
 
+    #[\Override]
     public function app(string $name = 'default'): AppInterface
     {
         if (!isset($this->apps[$name])) {
-            $this->apps[$name] = new DouyinApp($name, $this, $this->config, $this->http);
+            $this->apps[$name] = new DouyinApp($name, $this, $this->douyinConfig, $this->http);
         }
 
         return $this->apps[$name];
     }
 
-    public function http(): HttpClientInterface
+    #[\Override]
+    public function config(): DouyinConfig
     {
-        return $this->http;
-    }
-
-    public function config(): ConfigInterface
-    {
-        return $this->config;
+        return $this->douyinConfig;
     }
 }

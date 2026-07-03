@@ -80,21 +80,25 @@ final readonly class WechatWorkApp implements AppInterface
         $this->msghub        = new Msghub($this);
     }
 
+    #[\Override]
     public function name(): string
     {
         return $this->name;
     }
 
+    #[\Override]
     public function platform(): PlatformInterface
     {
         return $this->platform;
     }
 
+    #[\Override]
     public function config(): WechatWorkConfig
     {
         return $this->config;
     }
 
+    #[\Override]
     public function http(): HttpClientInterface
     {
         return $this->http;
@@ -198,5 +202,40 @@ final readonly class WechatWorkApp implements AppInterface
     public function notify(): Notify
     {
         return new Notify($this);
+    }
+
+    /**
+     * 桥接到微信主 Provider
+     *
+     * 适用于：企业微信关联公众号 / 小程序场景的协同处理。
+     * 当 Kernel 中同时配置 wechat 与 wechat_work 时，可通过此方法获取微信主 Provider。
+     */
+    public function wechat(): ?\Kode\MiniApp\Providers\Wechat\WechatProvider
+    {
+        $kernel = $this->platform->kernel();
+        if ($kernel === null) {
+            return null;
+        }
+
+        $provider = $kernel->wechat();
+        return $provider instanceof \Kode\MiniApp\Providers\Wechat\WechatProvider
+            ? $provider
+            : null;
+    }
+
+    /**
+     * 桥接到微信开放平台 Provider
+     */
+    public function wechatOpen(): ?\Kode\MiniApp\Providers\WechatOpen\WechatOpenProvider
+    {
+        $kernel = $this->platform->kernel();
+        if ($kernel === null) {
+            return null;
+        }
+
+        $provider = $kernel->wechatOpen();
+        return $provider instanceof \Kode\MiniApp\Providers\WechatOpen\WechatOpenProvider
+            ? $provider
+            : null;
     }
 }

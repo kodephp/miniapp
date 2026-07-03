@@ -1,6 +1,6 @@
 {
     "name": "kode/miniapp",
-    "description": "多平台小程序、公众号、企业号统一接入 SDK（微信、支付宝、抖音、百度、QQ、企业微信、钉钉、飞书）",
+    "description": "多平台小程序、公众号、企业号、微信开放平台统一接入 SDK（微信、支付宝、抖音、百度、QQ、企业微信、钉钉、飞书）",
     "type": "library",
     "keywords": [
         "小程序",
@@ -8,16 +8,18 @@
         "企业微信",
         "钉钉",
         "飞书",
+        "微信开放平台",
         "微信支付",
         "支付宝",
         "抖音",
         "wechat",
+        "openplatform",
         "miniprogram",
         "mp"
     ],
     "homepage": "https://github.com/kode-lab/miniapp",
     "license": "Apache-2.0",
-    "version": "1.8.2",
+    "version": "1.10.0",
     "authors": [
         {
             "name": "Kode Lab",
@@ -25,7 +27,9 @@
         }
     ],
     "require": {
-        "php": ">=8.2",
+        "php": ">=8.3",
+        "ext-json": "*",
+        "ext-openssl": "*",
         "guzzlehttp/guzzle": "^7.8",
         "psr/simple-cache": "^3.0",
         "psr/log": "^3.0",

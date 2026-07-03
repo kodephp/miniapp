@@ -45,21 +45,25 @@ final readonly class AlipayApp implements AppInterface
         $this->member   = new Member($this);
     }
 
+    #[\Override]
     public function name(): string
     {
         return $this->name;
     }
 
+    #[\Override]
     public function platform(): PlatformInterface
     {
         return $this->platform;
     }
 
+    #[\Override]
     public function config(): ConfigInterface
     {
         return $this->config;
     }
 
+    #[\Override]
     public function http(): HttpClientInterface
     {
         return $this->http;

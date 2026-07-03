@@ -56,21 +56,25 @@ final readonly class LarkApp implements AppInterface
         $this->mail     = new Mail($this);
     }
 
+    #[\Override]
     public function name(): string
     {
         return $this->name;
     }
 
+    #[\Override]
     public function platform(): PlatformInterface
     {
         return $this->platform;
     }
 
+    #[\Override]
     public function config(): LarkConfig
     {
         return $this->config;
     }
 
+    #[\Override]
     public function http(): HttpClientInterface
     {
         return $this->http;

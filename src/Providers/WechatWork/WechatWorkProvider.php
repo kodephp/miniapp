@@ -5,22 +5,20 @@ declare(strict_types=1);
 namespace Kode\MiniApp\Providers\WechatWork;
 
 use Kode\MiniApp\Contracts\AppInterface;
-use Kode\MiniApp\Contracts\ConfigInterface;
+use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\Platform;
-use Kode\MiniApp\Contracts\PlatformInterface;
-use Kode\MiniApp\Core\HttpClient;
+use Kode\MiniApp\Core\BaseProvider;
 
 /**
  * 微信企业号 Provider
  */
-final class WechatWorkProvider implements PlatformInterface
+final class WechatWorkProvider extends BaseProvider
 {
-    private WechatWorkConfig $config;
-    private HttpClientInterface $http;
-
     /** @var array<string, WechatWorkApp> */
     private array $apps = [];
+
+    private WechatWorkConfig $wechatWorkConfig;
 
     /**
      * @param array<string, mixed> $config
@@ -28,9 +26,10 @@ final class WechatWorkProvider implements PlatformInterface
     public function __construct(
         array $config,
         ?HttpClientInterface $http = null,
+        ?KernelInterface $kernel = null,
     ) {
-        $this->config = new WechatWorkConfig($config);
-        $this->http   = $http ?? new HttpClient();
+        parent::__construct($config, $http ?? new \Kode\MiniApp\Core\HttpClient(), $kernel);
+        $this->wechatWorkConfig = new WechatWorkConfig($config);
     }
 
     public function name(): Platform
@@ -38,22 +37,19 @@ final class WechatWorkProvider implements PlatformInterface
         return Platform::WechatWork;
     }
 
+    #[\Override]
     public function app(string $name = 'default'): AppInterface
     {
         if (!isset($this->apps[$name])) {
-            $this->apps[$name] = new WechatWorkApp($name, $this, $this->config, $this->http);
+            $this->apps[$name] = new WechatWorkApp($name, $this, $this->wechatWorkConfig, $this->http);
         }
 
         return $this->apps[$name];
     }
 
-    public function http(): HttpClientInterface
-    {
-        return $this->http;
-    }
-
+    #[\Override]
     public function config(): WechatWorkConfig
     {
-        return $this->config;
+        return $this->wechatWorkConfig;
     }
 }

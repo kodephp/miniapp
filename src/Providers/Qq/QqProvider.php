@@ -5,22 +5,20 @@ declare(strict_types=1);
 namespace Kode\MiniApp\Providers\Qq;
 
 use Kode\MiniApp\Contracts\AppInterface;
-use Kode\MiniApp\Contracts\ConfigInterface;
+use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\Platform;
-use Kode\MiniApp\Contracts\PlatformInterface;
-use Kode\MiniApp\Core\HttpClient;
+use Kode\MiniApp\Core\BaseProvider;
 
 /**
  * QQ Provider
  */
-final class QqProvider implements PlatformInterface
+final class QqProvider extends BaseProvider
 {
-    private QqConfig $config;
-    private HttpClientInterface $http;
-
     /** @var array<string, QqApp> */
     private array $apps = [];
+
+    private QqConfig $qqConfig;
 
     /**
      * @param array<string, mixed> $config
@@ -28,9 +26,10 @@ final class QqProvider implements PlatformInterface
     public function __construct(
         array $config,
         ?HttpClientInterface $http = null,
+        ?KernelInterface $kernel = null,
     ) {
-        $this->config = new QqConfig($config);
-        $this->http   = $http ?? new HttpClient();
+        parent::__construct($config, $http ?? new \Kode\MiniApp\Core\HttpClient(), $kernel);
+        $this->qqConfig = new QqConfig($config);
     }
 
     public function name(): Platform
@@ -38,22 +37,19 @@ final class QqProvider implements PlatformInterface
         return Platform::Qq;
     }
 
+    #[\Override]
     public function app(string $name = 'default'): AppInterface
     {
         if (!isset($this->apps[$name])) {
-            $this->apps[$name] = new QqApp($name, $this, $this->config, $this->http);
+            $this->apps[$name] = new QqApp($name, $this, $this->qqConfig, $this->http);
         }
 
         return $this->apps[$name];
     }
 
-    public function http(): HttpClientInterface
+    #[\Override]
+    public function config(): QqConfig
     {
-        return $this->http;
-    }
-
-    public function config(): ConfigInterface
-    {
-        return $this->config;
+        return $this->qqConfig;
     }
 }

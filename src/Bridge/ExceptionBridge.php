@@ -56,6 +56,7 @@ final class ExceptionBridge
     {
         $base = match ($platform) {
             Platform::Wechat     => 100000,
+            Platform::WechatOpen => 110000,
             Platform::Alipay     => 200000,
             Platform::Douyin     => 300000,
             Platform::Baidu      => 400000,

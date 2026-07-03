@@ -5,22 +5,20 @@ declare(strict_types=1);
 namespace Kode\MiniApp\Providers\Dingtalk;
 
 use Kode\MiniApp\Contracts\AppInterface;
-use Kode\MiniApp\Contracts\ConfigInterface;
+use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\Platform;
-use Kode\MiniApp\Contracts\PlatformInterface;
-use Kode\MiniApp\Core\HttpClient;
+use Kode\MiniApp\Core\BaseProvider;
 
 /**
  * 钉钉 Provider
  */
-final class DingtalkProvider implements PlatformInterface
+final class DingtalkProvider extends BaseProvider
 {
-    private DingtalkConfig $config;
-    private HttpClientInterface $http;
-
     /** @var array<string, DingtalkApp> */
     private array $apps = [];
+
+    private DingtalkConfig $dingtalkConfig;
 
     /**
      * @param array<string, mixed> $config
@@ -28,9 +26,10 @@ final class DingtalkProvider implements PlatformInterface
     public function __construct(
         array $config,
         ?HttpClientInterface $http = null,
+        ?KernelInterface $kernel = null,
     ) {
-        $this->config = new DingtalkConfig($config);
-        $this->http   = $http ?? new HttpClient();
+        parent::__construct($config, $http ?? new \Kode\MiniApp\Core\HttpClient(), $kernel);
+        $this->dingtalkConfig = new DingtalkConfig($config);
     }
 
     public function name(): Platform
@@ -38,22 +37,19 @@ final class DingtalkProvider implements PlatformInterface
         return Platform::Dingtalk;
     }
 
+    #[\Override]
     public function app(string $name = 'default'): AppInterface
     {
         if (!isset($this->apps[$name])) {
-            $this->apps[$name] = new DingtalkApp($name, $this, $this->config, $this->http);
+            $this->apps[$name] = new DingtalkApp($name, $this, $this->dingtalkConfig, $this->http);
         }
 
         return $this->apps[$name];
     }
 
-    public function http(): HttpClientInterface
-    {
-        return $this->http;
-    }
-
+    #[\Override]
     public function config(): DingtalkConfig
     {
-        return $this->config;
+        return $this->dingtalkConfig;
     }
 }

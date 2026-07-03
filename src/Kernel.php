@@ -5,13 +5,12 @@ declare(strict_types=1);
 namespace Kode\MiniApp;
 
 use Kode\MiniApp\Contracts\AppInterface;
-use Kode\MiniApp\Contracts\ConfigInterface;
-use Kode\MiniApp\Contracts\HttpClientInterface;
-use Kode\MiniApp\Contracts\Platform;
+use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
+use Kode\MiniApp\Contracts\Platform;
+use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Core\HttpClient;
 use Kode\MiniApp\Exceptions\ConfigException;
-use Kode\MiniApp\Exceptions\InvalidArgumentException;
 use Kode\MiniApp\Providers\Alipay\AlipayProvider;
 use Kode\MiniApp\Providers\Baidu\BaiduProvider;
 use Kode\MiniApp\Providers\Dingtalk\DingtalkProvider;
@@ -19,15 +18,18 @@ use Kode\MiniApp\Providers\Douyin\DouyinProvider;
 use Kode\MiniApp\Providers\Lark\LarkProvider;
 use Kode\MiniApp\Providers\Qq\QqProvider;
 use Kode\MiniApp\Providers\Wechat\WechatProvider;
+use Kode\MiniApp\Providers\WechatOpen\WechatOpenProvider;
 use Kode\MiniApp\Providers\WechatWork\WechatWorkProvider;
 
 /**
  * 门面类，统一入口
+ *
  * 用法：
  *   $kernel = new Kernel($config);
  *   $kernel->wechat()->app()->auth->session($code);
+ *   $kernel->wechatOpen()->app()->component()->loginPage(...);
  */
-final class Kernel
+final class Kernel implements KernelInterface
 {
     /** @var array<string, PlatformInterface> */
     private array $providers = [];
@@ -50,6 +52,14 @@ final class Kernel
     public function wechat(): PlatformInterface
     {
         return $this->get(Platform::Wechat);
+    }
+
+    /**
+     * 获取微信开放平台 Provider
+     */
+    public function wechatOpen(): PlatformInterface
+    {
+        return $this->get(Platform::WechatOpen);
     }
 
     /**
@@ -140,14 +150,15 @@ final class Kernel
         );
 
         return match ($platform) {
-            Platform::Wechat     => new WechatProvider($config, $this->http),
-            Platform::Alipay     => new AlipayProvider($config, $this->http),
-            Platform::Douyin     => new DouyinProvider($config, $this->http),
-            Platform::Baidu      => new BaiduProvider($config, $this->http),
-            Platform::Qq         => new QqProvider($config, $this->http),
-            Platform::WechatWork => new WechatWorkProvider($config, $this->http),
-            Platform::Dingtalk   => new DingtalkProvider($config, $this->http),
-            Platform::Lark       => new LarkProvider($config, $this->http),
+            Platform::Wechat     => new WechatProvider($config, $this->http, $this),
+            Platform::WechatOpen => new WechatOpenProvider($config, $this->http, $this),
+            Platform::Alipay     => new AlipayProvider($config, $this->http, $this),
+            Platform::Douyin     => new DouyinProvider($config, $this->http, $this),
+            Platform::Baidu      => new BaiduProvider($config, $this->http, $this),
+            Platform::Qq         => new QqProvider($config, $this->http, $this),
+            Platform::WechatWork => new WechatWorkProvider($config, $this->http, $this),
+            Platform::Dingtalk   => new DingtalkProvider($config, $this->http, $this),
+            Platform::Lark       => new LarkProvider($config, $this->http, $this),
         };
     }
 }

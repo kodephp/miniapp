@@ -115,21 +115,25 @@ final readonly class WechatApp implements AppInterface
         $this->cloudbase       = new Cloudbase($this);
     }
 
+    #[\Override]
     public function name(): string
     {
         return $this->name;
     }
 
+    #[\Override]
     public function platform(): PlatformInterface
     {
         return $this->platform;
     }
 
+    #[\Override]
     public function config(): WechatConfig
     {
         return $this->config;
     }
 
+    #[\Override]
     public function http(): HttpClientInterface
     {
         return $this->http;
@@ -300,5 +304,25 @@ final readonly class WechatApp implements AppInterface
     public function notify(): Notify
     {
         return new Notify($this);
+    }
+
+    /**
+     * 桥接到微信开放平台 Provider
+     *
+     * 适用于：使用微信开放平台代公众号 / 小程序调用接口的场景。
+     * 当 Kernel 中同时配置 wechat 与 wechat_open 时，可通过此方法获取
+     * 开放平台 Provider，再代调用授权方公众号 / 小程序接口。
+     */
+    public function wechatOpen(): ?\Kode\MiniApp\Providers\WechatOpen\WechatOpenProvider
+    {
+        $kernel = $this->platform->kernel();
+        if ($kernel === null) {
+            return null;
+        }
+
+        $provider = $kernel->wechatOpen();
+        return $provider instanceof \Kode\MiniApp\Providers\WechatOpen\WechatOpenProvider
+            ? $provider
+            : null;
     }
 }
