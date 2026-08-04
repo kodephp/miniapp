@@ -19,6 +19,15 @@
 - **工具桥接**：内置基础工具类，同时可桥接到 `kode/tools` 企业级工具包
 - **异常桥接**：内置异常体系，同时可桥接到 `kode/exception` 统一异常处理组件
 - **Kode 生态兼容**：与 kode/pays、kode/tools、kode/exception、kode/cache、kode/event、kode/jwt 等包无缝协作
+- **统一 API 响应与业务异常**：`ApiResponse` 归一化各平台异构错误字段（errcode / err_no / errno / code / 支付宝 xxx_response.code / OAuth error），`ApiException` 提供令牌失效、频率限制、可重试分类，业务侧可据此自动清缓存 / 退避
+- **AccessToken 自动缓存**：基于 PSR-16 的令牌缓存 + 单飞锁（single-flight）防击穿，带安全边界提前过期，避免每次调用重复换取触发平台配额
+- **HTTP 重试与日志脱敏**：可配置指数退避重试（遵循 Retry-After）、自定义中间件注入，敏感字段（secret / access_token / sign 等）在日志中自动掩码
+
+## v1.14.0 核心增强
+
+- 新增 `ApiResponse` / `ApiException` / `TokenManager` / `RetryPolicy` / `LogSanitizer` / `ArrayCache` 等核心组件，统一响应解析、令牌缓存、请求重试与日志脱敏。
+- 支付宝统一网关 `AlipayGateway` 收敛散落的签名逻辑，并修正签名串剔除空值 / 顶层参数误入 `biz_content` 两处缺陷，私钥兼容 PKCS#1 与 PKCS#8。
+- 9 个平台 Auth 模块接入统一响应与令牌缓存，最低 PHP 要求保持 `>= 8.3`。
 
 ## Kode 生态关联
 

@@ -184,7 +184,10 @@ class PlatformUnionTest extends TestCase
     {
         $kernel = $this->kernel();
         $adapter = new class implements LoginAdapter {
-            public function channel(): Channel { return Channel::WechatMini; }
+            public function channel(): Channel
+            {
+                return Channel::WechatMini;
+            }
             public function authenticate(array $payload): UnionUser
             {
                 return UnionUser::fromRaw(
@@ -205,7 +208,10 @@ class PlatformUnionTest extends TestCase
     {
         $kernel = $this->kernel();
         $adapter = new class implements UserAdapter {
-            public function channel(): Channel { return Channel::WechatMini; }
+            public function channel(): Channel
+            {
+                return Channel::WechatMini;
+            }
             public function profile(string $openId, array $payload = []): UnionUser
             {
                 return UnionUser::fromRaw(

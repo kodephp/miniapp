@@ -4,14 +4,21 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Providers\Dingtalk\Modules;
 
+use Kode\MiniApp\Contracts\Platform;
+use Kode\MiniApp\Core\ApiResponse;
+use Kode\MiniApp\Core\TokenManager;
+use Kode\MiniApp\Core\TokenResult;
 use Kode\MiniApp\Providers\Dingtalk\DingtalkApp;
 
 /**
  * 钉钉认证模块
+ *
+ * AccessToken 默认走缓存（PSR-16），带缓存击穿保护。
  */
 readonly class Auth
 {
-    private const BASE_URL = 'https://oapi.dingtalk.com';
+    private const string BASE_URL    = 'https://oapi.dingtalk.com';
+    private const string TOKEN_SCOPE = 'access_token';
 
     public function __construct(
         private DingtalkApp $app,
@@ -19,24 +26,34 @@ readonly class Auth
     }
 
     /**
-     * 获取 AccessToken
+     * 获取 AccessToken（默认命中缓存）
      */
-    public function token(): string
+    public function token(bool $forceRefresh = false): string
     {
-        $config = $this->app->config();
-        $params = [
-            'appkey'    => $config->get('app_key', ''),
-            'appsecret' => $config->get('app_secret', ''),
-        ];
+        $manager = TokenManager::for($this->app->config());
 
-        $response = $this->app->http()->get(self::BASE_URL . '/gettoken', ['query' => $params]);
-        $data     = json_decode((string) $response->getBody(), true);
+        $token = $forceRefresh
+            ? $manager->refresh(Platform::Dingtalk, $this->identity(), self::TOKEN_SCOPE, $this->resolver())
+            : $manager->remember(Platform::Dingtalk, $this->identity(), self::TOKEN_SCOPE, $this->resolver());
 
-        if (isset($data['errcode']) && $data['errcode'] !== 0) {
-            throw new \RuntimeException("获取 AccessToken 失败: [{$data['errcode']}] {$data['errmsg']}");
-        }
+        return is_string($token) ? $token : '';
+    }
 
-        return (string) $data['access_token'];
+    /**
+     * 强制刷新 AccessToken
+     */
+    public function refreshToken(): string
+    {
+        return $this->token(true);
+    }
+
+    /**
+     * 清除 AccessToken 缓存
+     */
+    public function forgetToken(): void
+    {
+        TokenManager::for($this->app->config())
+            ->forget(Platform::Dingtalk, $this->identity(), self::TOKEN_SCOPE);
     }
 
     /**
@@ -51,13 +68,10 @@ readonly class Auth
             self::BASE_URL . "/user/getuserinfo?access_token={$token}",
             ['code' => $code]
         );
-        $data = json_decode((string) $response->getBody(), true);
 
-        if (isset($data['errcode']) && $data['errcode'] !== 0) {
-            throw new \RuntimeException("获取用户信息失败: [{$data['errcode']}] {$data['errmsg']}");
-        }
-
-        return $data;
+        return ApiResponse::fromPsr($response, Platform::Dingtalk)
+            ->throwIfFailed('获取用户信息')
+            ->toArray();
     }
 
     /**
@@ -72,12 +86,42 @@ readonly class Auth
             self::BASE_URL . "/topapi/v2/user/get?access_token={$token}",
             ['userid' => $userId]
         );
-        $data = json_decode((string) $response->getBody(), true);
 
-        if (isset($data['errcode']) && $data['errcode'] !== 0) {
-            throw new \RuntimeException("获取用户详情失败: [{$data['errcode']}] {$data['errmsg']}");
-        }
+        $api = ApiResponse::fromPsr($response, Platform::Dingtalk)
+            ->throwIfFailed('获取用户详情');
 
-        return $data['result'] ?? [];
+        /** @var array<string, mixed> */
+        return $api->array('result');
+    }
+
+    private function identity(): string
+    {
+        $config = $this->app->config();
+
+        return $config->appKey() . '|' . $config->appSecret();
+    }
+
+    /**
+     * @return callable(): TokenResult
+     */
+    private function resolver(): callable
+    {
+        return function (): TokenResult {
+            $config   = $this->app->config();
+            $response = $this->app->http()->get(self::BASE_URL . '/gettoken', [
+                'query' => [
+                    'appkey'    => $config->appKey(),
+                    'appsecret' => $config->appSecret(),
+                ],
+            ]);
+
+            $api = ApiResponse::fromPsr($response, Platform::Dingtalk)
+                ->throwIfFailed('获取 AccessToken');
+
+            return new TokenResult(
+                $api->string('access_token'),
+                $api->int('expires_in', TokenResult::DEFAULT_EXPIRES_IN)
+            );
+        };
     }
 }

@@ -65,7 +65,10 @@ class UnionTest extends TestCase
 
         // 自定义一个不需要真实 HTTP 的 adapter
         $adapter = new class implements LoginAdapter {
-            public function channel(): Channel { return Channel::WechatMini; }
+            public function channel(): Channel
+            {
+                return Channel::WechatMini;
+            }
             public function authenticate(array $payload): UnionUser
             {
                 return UnionUser::fromRaw(
@@ -94,7 +97,10 @@ class UnionTest extends TestCase
         ]);
 
         $adapter = new class implements LoginAdapter {
-            public function channel(): Channel { return Channel::WechatMini; }
+            public function channel(): Channel
+            {
+                return Channel::WechatMini;
+            }
             public function authenticate(array $payload): UnionUser
             {
                 return new UnionUser(
@@ -124,9 +130,14 @@ class UnionTest extends TestCase
         $union  = $kernel->union();
 
         $called  = false;
-        $adapter = new class($called) implements LoginAdapter {
-            public function __construct(public bool &$called) {}
-            public function channel(): Channel { return Channel::BaiduMini; }
+        $adapter = new class ($called) implements LoginAdapter {
+            public function __construct(public bool &$called)
+            {
+            }
+            public function channel(): Channel
+            {
+                return Channel::BaiduMini;
+            }
             public function authenticate(array $payload): UnionUser
             {
                 $this->called = true;
@@ -148,7 +159,10 @@ class UnionTest extends TestCase
         $union  = $kernel->union();
 
         $adapter = new class implements UserAdapter {
-            public function channel(): Channel { return Channel::WechatMini; }
+            public function channel(): Channel
+            {
+                return Channel::WechatMini;
+            }
             public function profile(string $openId, array $payload = []): UnionUser
             {
                 return UnionUser::fromRaw(

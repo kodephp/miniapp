@@ -39,3 +39,7 @@ dist/
 # Temporary
 tmp/
 temp/
+
+# 本地专用（不进仓库）
+.workbuddy/
+CHANGELOG.md

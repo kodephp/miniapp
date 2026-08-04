@@ -24,8 +24,11 @@ class SessionManagerTest extends TestCase
         return new SessionManager($storage, $policy);
     }
 
-    private function user(string $openId = 'open_001', string $unionId = 'union_001', Channel $channel = Channel::WechatMini): UnionUser
-    {
+    private function user(
+        string $openId = 'open_001',
+        string $unionId = 'union_001',
+        Channel $channel = Channel::WechatMini,
+    ): UnionUser {
         return UnionUser::fromRaw(
             channel: $channel,
             openId:  $openId,

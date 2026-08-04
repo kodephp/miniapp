@@ -64,9 +64,13 @@ readonly class OpenApp
         ?string $appId = null,
         ?string $secret = null,
     ): array {
-        $config  = $this->app->config()->all();
-        $appId   = $appId  ?? (string) ($config['mobile_app_id']  ?? $config['site_app_id']  ?? $config['app_id']  ?? '');
-        $secret  = $secret ?? (string) ($config['mobile_secret']  ?? $config['site_secret']  ?? $config['secret']  ?? '');
+        $config = $this->app->config()->all();
+        $appId = $appId ?? (string) (
+            $config['mobile_app_id'] ?? $config['site_app_id'] ?? $config['app_id'] ?? ''
+        );
+        $secret = $secret ?? (string) (
+            $config['mobile_secret'] ?? $config['site_secret'] ?? $config['secret'] ?? ''
+        );
 
         $response = $this->app->http()->get(
             self::API_SNS . '/oauth2/access_token',

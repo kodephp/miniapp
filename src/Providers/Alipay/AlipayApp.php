@@ -30,6 +30,7 @@ final readonly class AlipayApp implements AppInterface
     private Bill $bill;
     private Marketing $marketing;
     private Member $member;
+    private AlipayGateway $gateway;
 
     public function __construct(
         private string $name,
@@ -37,6 +38,7 @@ final readonly class AlipayApp implements AppInterface
         private ConfigInterface $config,
         private HttpClientInterface $http,
     ) {
+        $this->gateway  = new AlipayGateway($this);
         $this->auth     = new Auth($this);
         $this->pay      = new Pay($this);
         $this->transfer = new Transfer($this);
@@ -72,6 +74,14 @@ final readonly class AlipayApp implements AppInterface
     public function auth(): Auth
     {
         return $this->auth;
+    }
+
+    /**
+     * 获取网关调用器（公共参数拼装 + RSA2 签名 + 验签）
+     */
+    public function gateway(): AlipayGateway
+    {
+        return $this->gateway;
     }
 
     /**

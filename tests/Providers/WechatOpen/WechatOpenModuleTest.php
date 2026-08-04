@@ -194,47 +194,133 @@ class WechatOpenModuleTest extends TestCase
              */
             private function respondWith(array $body): ResponseInterface
             {
-                return new class($body) implements ResponseInterface {
+                return new class ($body) implements ResponseInterface {
                     /**
                      * @param array<string, mixed> $body
                      */
-                    public function __construct(private array $body) {}
-                    public function getProtocolVersion(): string { return '1.1'; }
-                    public function withProtocolVersion($version): self { return $this; }
-                    public function getHeaders(): array { return []; }
-                    public function hasHeader($name): bool { return false; }
-                    public function getHeader($name): array { return []; }
-                    public function getHeaderLine($name): string { return ''; }
-                    public function withHeader($name, $value): self { return $this; }
-                    public function withAddedHeader($name, $value): self { return $this; }
-                    public function withoutHeader($name): self { return $this; }
-                    public function getBody(): StreamInterface {
-                        return new class($this->body) implements StreamInterface {
+                    public function __construct(private array $body)
+                    {
+                    }
+                    public function getProtocolVersion(): string
+                    {
+                        return '1.1';
+                    }
+                    public function withProtocolVersion($version): self
+                    {
+                        return $this;
+                    }
+                    public function getHeaders(): array
+                    {
+                        return [];
+                    }
+                    public function hasHeader($name): bool
+                    {
+                        return false;
+                    }
+                    public function getHeader($name): array
+                    {
+                        return [];
+                    }
+                    public function getHeaderLine($name): string
+                    {
+                        return '';
+                    }
+                    public function withHeader($name, $value): self
+                    {
+                        return $this;
+                    }
+                    public function withAddedHeader($name, $value): self
+                    {
+                        return $this;
+                    }
+                    public function withoutHeader($name): self
+                    {
+                        return $this;
+                    }
+                    public function getBody(): StreamInterface
+                    {
+                        return new class ($this->body) implements StreamInterface {
                             /**
                              * @param array<string, mixed> $body
                              */
-                            public function __construct(private array $body) {}
-                            public function __toString(): string { return (string) json_encode($this->body); }
-                            public function close(): void {}
-                            public function detach() { return null; }
-                            public function getSize(): ?int { return null; }
-                            public function tell(): int { return 0; }
-                            public function eof(): bool { return true; }
-                            public function isSeekable(): bool { return false; }
-                            public function seek($offset, $whence = SEEK_SET): void {}
-                            public function rewind(): void {}
-                            public function isWritable(): bool { return false; }
-                            public function write($string): int { return 0; }
-                            public function isReadable(): bool { return true; }
-                            public function read($length): string { return ''; }
-                            public function getContents(): string { return (string) json_encode($this->body); }
-                            public function getMetadata($key = null) { return null; }
+                            public function __construct(private array $body)
+                            {
+                            }
+                            public function __toString(): string
+                            {
+                                return (string) json_encode($this->body);
+                            }
+                            public function close(): void
+                            {
+                            }
+                            public function detach()
+                            {
+                                return null;
+                            }
+                            public function getSize(): ?int
+                            {
+                                return null;
+                            }
+                            public function tell(): int
+                            {
+                                return 0;
+                            }
+                            public function eof(): bool
+                            {
+                                return true;
+                            }
+                            public function isSeekable(): bool
+                            {
+                                return false;
+                            }
+                            public function seek($offset, $whence = SEEK_SET): void
+                            {
+                            }
+                            public function rewind(): void
+                            {
+                            }
+                            public function isWritable(): bool
+                            {
+                                return false;
+                            }
+                            public function write($string): int
+                            {
+                                return 0;
+                            }
+                            public function isReadable(): bool
+                            {
+                                return true;
+                            }
+                            public function read($length): string
+                            {
+                                return '';
+                            }
+                            public function getContents(): string
+                            {
+                                return (string) json_encode($this->body);
+                            }
+                            public function getMetadata($key = null)
+                            {
+                                return null;
+                            }
                         };
                     }
-                    public function withBody(StreamInterface $body): self { return $this; }
-                    public function getStatusCode(): int { return 200; }
-                    public function withStatus($code, $reasonPhrase = ''): self { return $this; }
-                    public function getReasonPhrase(): string { return 'OK'; }
+                    public function withBody(StreamInterface $body): self
+                    {
+                        return $this;
+                    }
+                    public function getStatusCode(): int
+                    {
+                        return 200;
+                    }
+                    public function withStatus($code, $reasonPhrase = ''): self
+                    {
+                        return $this;
+                    }
+                    public function getReasonPhrase(): string
+                    {
+                        return 'OK';
+                    }
                 };
             }
         };
@@ -288,9 +374,18 @@ class WechatOpenModuleTest extends TestCase
                 return $this->respond();
             }
 
-            public function put(string $uri, array $options = []): ResponseInterface { return $this->respond(); }
-            public function patch(string $uri, array $options = []): ResponseInterface { return $this->respond(); }
-            public function delete(string $uri, array $options = []): ResponseInterface { return $this->respond(); }
+            public function put(string $uri, array $options = []): ResponseInterface
+            {
+                return $this->respond();
+            }
+            public function patch(string $uri, array $options = []): ResponseInterface
+            {
+                return $this->respond();
+            }
+            public function delete(string $uri, array $options = []): ResponseInterface
+            {
+                return $this->respond();
+            }
             public function postJson(string $uri, array $data = [], array $headers = []): ResponseInterface
             {
                 $this->lastUri = $uri;
@@ -306,44 +401,132 @@ class WechatOpenModuleTest extends TestCase
             private function respond(): ResponseInterface
             {
                 $body = ['errcode' => 0, 'errmsg' => 'ok'];
-                $stream = new class($body) implements StreamInterface {
+                $stream = new class ($body) implements StreamInterface {
                     /**
                      * @param array<string, mixed> $body
                      */
-                    public function __construct(private array $body) {}
-                    public function __toString(): string { return (string) json_encode($this->body); }
-                    public function close(): void {}
-                    public function detach() { return null; }
-                    public function getSize(): ?int { return null; }
-                    public function tell(): int { return 0; }
-                    public function eof(): bool { return true; }
-                    public function isSeekable(): bool { return false; }
-                    public function seek($offset, $whence = SEEK_SET): void {}
-                    public function rewind(): void {}
-                    public function isWritable(): bool { return false; }
-                    public function write($string): int { return 0; }
-                    public function isReadable(): bool { return true; }
-                    public function read($length): string { return ''; }
-                    public function getContents(): string { return (string) json_encode($this->body); }
-                    public function getMetadata($key = null) { return null; }
+                    public function __construct(private array $body)
+                    {
+                    }
+                    public function __toString(): string
+                    {
+                        return (string) json_encode($this->body);
+                    }
+                    public function close(): void
+                    {
+                    }
+                    public function detach()
+                    {
+                        return null;
+                    }
+                    public function getSize(): ?int
+                    {
+                        return null;
+                    }
+                    public function tell(): int
+                    {
+                        return 0;
+                    }
+                    public function eof(): bool
+                    {
+                        return true;
+                    }
+                    public function isSeekable(): bool
+                    {
+                        return false;
+                    }
+                    public function seek($offset, $whence = SEEK_SET): void
+                    {
+                    }
+                    public function rewind(): void
+                    {
+                    }
+                    public function isWritable(): bool
+                    {
+                        return false;
+                    }
+                    public function write($string): int
+                    {
+                        return 0;
+                    }
+                    public function isReadable(): bool
+                    {
+                        return true;
+                    }
+                    public function read($length): string
+                    {
+                        return '';
+                    }
+                    public function getContents(): string
+                    {
+                        return (string) json_encode($this->body);
+                    }
+                    public function getMetadata($key = null)
+                    {
+                        return null;
+                    }
                 };
 
-                return new class($stream) implements ResponseInterface {
-                    public function __construct(private StreamInterface $stream) {}
-                    public function getProtocolVersion(): string { return '1.1'; }
-                    public function withProtocolVersion($version): self { return $this; }
-                    public function getHeaders(): array { return []; }
-                    public function hasHeader($name): bool { return false; }
-                    public function getHeader($name): array { return []; }
-                    public function getHeaderLine($name): string { return ''; }
-                    public function withHeader($name, $value): self { return $this; }
-                    public function withAddedHeader($name, $value): self { return $this; }
-                    public function withoutHeader($name): self { return $this; }
-                    public function getBody(): StreamInterface { return $this->stream; }
-                    public function withBody(StreamInterface $body): self { return $this; }
-                    public function getStatusCode(): int { return 200; }
-                    public function withStatus($code, $reasonPhrase = ''): self { return $this; }
-                    public function getReasonPhrase(): string { return 'OK'; }
+                return new class ($stream) implements ResponseInterface {
+                    public function __construct(private StreamInterface $stream)
+                    {
+                    }
+                    public function getProtocolVersion(): string
+                    {
+                        return '1.1';
+                    }
+                    public function withProtocolVersion($version): self
+                    {
+                        return $this;
+                    }
+                    public function getHeaders(): array
+                    {
+                        return [];
+                    }
+                    public function hasHeader($name): bool
+                    {
+                        return false;
+                    }
+                    public function getHeader($name): array
+                    {
+                        return [];
+                    }
+                    public function getHeaderLine($name): string
+                    {
+                        return '';
+                    }
+                    public function withHeader($name, $value): self
+                    {
+                        return $this;
+                    }
+                    public function withAddedHeader($name, $value): self
+                    {
+                        return $this;
+                    }
+                    public function withoutHeader($name): self
+                    {
+                        return $this;
+                    }
+                    public function getBody(): StreamInterface
+                    {
+                        return $this->stream;
+                    }
+                    public function withBody(StreamInterface $body): self
+                    {
+                        return $this;
+                    }
+                    public function getStatusCode(): int
+                    {
+                        return 200;
+                    }
+                    public function withStatus($code, $reasonPhrase = ''): self
+                    {
+                        return $this;
+                    }
+                    public function getReasonPhrase(): string
+                    {
+                        return 'OK';
+                    }
                 };
             }
         };
@@ -426,47 +609,133 @@ class WechatOpenModuleTest extends TestCase
              */
             private function respond(array $body): ResponseInterface
             {
-                return new class($body) implements ResponseInterface {
+                return new class ($body) implements ResponseInterface {
                     /**
                      * @param array<string, mixed> $body
                      */
-                    public function __construct(private array $body) {}
-                    public function getProtocolVersion(): string { return '1.1'; }
-                    public function withProtocolVersion($version): self { return $this; }
-                    public function getHeaders(): array { return []; }
-                    public function hasHeader($name): bool { return false; }
-                    public function getHeader($name): array { return []; }
-                    public function getHeaderLine($name): string { return ''; }
-                    public function withHeader($name, $value): self { return $this; }
-                    public function withAddedHeader($name, $value): self { return $this; }
-                    public function withoutHeader($name): self { return $this; }
-                    public function getBody(): StreamInterface {
-                        return new class($this->body) implements StreamInterface {
+                    public function __construct(private array $body)
+                    {
+                    }
+                    public function getProtocolVersion(): string
+                    {
+                        return '1.1';
+                    }
+                    public function withProtocolVersion($version): self
+                    {
+                        return $this;
+                    }
+                    public function getHeaders(): array
+                    {
+                        return [];
+                    }
+                    public function hasHeader($name): bool
+                    {
+                        return false;
+                    }
+                    public function getHeader($name): array
+                    {
+                        return [];
+                    }
+                    public function getHeaderLine($name): string
+                    {
+                        return '';
+                    }
+                    public function withHeader($name, $value): self
+                    {
+                        return $this;
+                    }
+                    public function withAddedHeader($name, $value): self
+                    {
+                        return $this;
+                    }
+                    public function withoutHeader($name): self
+                    {
+                        return $this;
+                    }
+                    public function getBody(): StreamInterface
+                    {
+                        return new class ($this->body) implements StreamInterface {
                             /**
                              * @param array<string, mixed> $body
                              */
-                            public function __construct(private array $body) {}
-                            public function __toString(): string { return (string) json_encode($this->body); }
-                            public function close(): void {}
-                            public function detach() { return null; }
-                            public function getSize(): ?int { return null; }
-                            public function tell(): int { return 0; }
-                            public function eof(): bool { return true; }
-                            public function isSeekable(): bool { return false; }
-                            public function seek($offset, $whence = SEEK_SET): void {}
-                            public function rewind(): void {}
-                            public function isWritable(): bool { return false; }
-                            public function write($string): int { return 0; }
-                            public function isReadable(): bool { return true; }
-                            public function read($length): string { return ''; }
-                            public function getContents(): string { return (string) json_encode($this->body); }
-                            public function getMetadata($key = null) { return null; }
+                            public function __construct(private array $body)
+                            {
+                            }
+                            public function __toString(): string
+                            {
+                                return (string) json_encode($this->body);
+                            }
+                            public function close(): void
+                            {
+                            }
+                            public function detach()
+                            {
+                                return null;
+                            }
+                            public function getSize(): ?int
+                            {
+                                return null;
+                            }
+                            public function tell(): int
+                            {
+                                return 0;
+                            }
+                            public function eof(): bool
+                            {
+                                return true;
+                            }
+                            public function isSeekable(): bool
+                            {
+                                return false;
+                            }
+                            public function seek($offset, $whence = SEEK_SET): void
+                            {
+                            }
+                            public function rewind(): void
+                            {
+                            }
+                            public function isWritable(): bool
+                            {
+                                return false;
+                            }
+                            public function write($string): int
+                            {
+                                return 0;
+                            }
+                            public function isReadable(): bool
+                            {
+                                return true;
+                            }
+                            public function read($length): string
+                            {
+                                return '';
+                            }
+                            public function getContents(): string
+                            {
+                                return (string) json_encode($this->body);
+                            }
+                            public function getMetadata($key = null)
+                            {
+                                return null;
+                            }
                         };
                     }
-                    public function withBody(StreamInterface $body): self { return $this; }
-                    public function getStatusCode(): int { return 200; }
-                    public function withStatus($code, $reasonPhrase = ''): self { return $this; }
-                    public function getReasonPhrase(): string { return 'OK'; }
+                    public function withBody(StreamInterface $body): self
+                    {
+                        return $this;
+                    }
+                    public function getStatusCode(): int
+                    {
+                        return 200;
+                    }
+                    public function withStatus($code, $reasonPhrase = ''): self
+                    {
+                        return $this;
+                    }
+                    public function getReasonPhrase(): string
+                    {
+                        return 'OK';
+                    }
                 };
             }
         };
