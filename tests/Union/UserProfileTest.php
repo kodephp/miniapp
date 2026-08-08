@@ -14,15 +14,18 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 
 /**
- * 全平台用户资料端到端集成测试（抖音 / QQ / 百度）。
+ * 全平台用户资料端到端集成测试（抖音 / QQ / 百度 / 企业微信）。
  *
- * v1.18.0 之前，这三个渠道的 profile() 直接返回空 raw（未真实拉取资料），
- * 属于「静默欠交付」。本测试验证：
+ * v1.18.0 之前，抖音 / QQ / 百度三端的 profile() 直接返回空 raw（未真实拉取资料），
+ * 属于「静默欠交付」；企业微信此前更被错误路由到微信适配器，根本取不到资料。
+ * 本测试验证：
  *  - 抖音 profile：真实调用 get_profile，归一化昵称 / 头像 / 性别 / union_id，
  *    未传 access_token 时自动回退到 app token；
  *  - QQ profile：真实调用 graph.qq.com/user/get_user_info（错误字段 ret）；
  *  - 百度 profile：真实调用 smartapp/getuserinfo（错误字段 errno）；
- *  - 三端在 token / 授权失效时真实抛出 ApiException（杜绝静默失败）；
+ *  - 企业微信 profile：真实调用 /user/get（以 userid 为键），归一化姓名 / 头像，
+ *    原来被错误路由到微信适配器的问题已修复；
+ *  - 各端在 token / userid 失效时真实抛出 ApiException（杜绝静默失败）；
  *  - QQ / 百度未传 access_token 时优雅返回空 raw（不发起请求）。
  */
 class UserProfileTest extends TestCase
@@ -94,6 +97,19 @@ class UserProfileTest extends TestCase
 
                     return $this->baiduProfile($openId, $token);
                 }
+                if (str_contains($uri, 'cgi-bin/gettoken')) {
+                    return $this->respond([
+                        'errcode'     => 0,
+                        'errmsg'      => 'ok',
+                        'access_token' => 'WW_TOK',
+                        'expires_in'  => 7200,
+                    ]);
+                }
+                if (str_contains($uri, 'cgi-bin/user/get')) {
+                    $userId = (string) ($query['userid'] ?? '');
+
+                    return $this->weworkProfile($userId);
+                }
                 if (str_contains($uri, 'v2/token') && str_contains($uri, 'developer.toutiao.com')) {
                     return $this->respond([
                         'err_no' => 0, 'err_tips' => '',
@@ -148,6 +164,22 @@ class UserProfileTest extends TestCase
                         'headimgurl' => 'http://bd/avatar.png',
                         'sex'       => 1,
                     ],
+                ]);
+            }
+
+            private function weworkProfile(string $userId): ResponseInterface
+            {
+                if ($userId === 'bad') {
+                    return $this->respond(['errcode' => 60111, 'errmsg' => 'userid not found']);
+                }
+                return $this->respond([
+                    'errcode'   => 0,
+                    'errmsg'    => 'ok',
+                    'userid'    => $userId !== '' ? $userId : 'WW_USER',
+                    'name'      => '王五',
+                    'avatar'    => 'http://ww/avatar.png',
+                    'department' => [1],
+                    'position'  => '工程师',
                 ]);
             }
 
@@ -334,6 +366,12 @@ class UserProfileTest extends TestCase
                     'app_id' => 'bd_app',
                     'secret' => 's3cr3t',
                 ],
+                'wechat_work' => [
+                    'corp_id'  => 'ww_corp',
+                    'secret'   => 's3cr3t',
+                    'agent_id' => '1000002',
+                    'cache'    => new ArrayCache(),
+                ],
             ],
             $this->http(),
         );
@@ -422,5 +460,32 @@ class UserProfileTest extends TestCase
         self::assertNull($user->nickname);
         self::assertNull($user->avatar);
         self::assertSame([], $user->raw, '未传 access_token 不应发起请求');
+    }
+
+    // ===== 企业微信 =====
+
+    public function testWeWorkProfileFetchesRealData(): void
+    {
+        // openId 在登录阶段已被规范为 userid，直接用于 /user/get
+        $user = $this->kernel()->union()->profile(Channel::WechatWork, 'WW_USER', []);
+
+        self::assertSame('WW_USER', $user->openId);
+        self::assertSame('王五', $user->nickname, '企业微信 name 应归一化为 nickname');
+        self::assertSame('http://ww/avatar.png', $user->avatar);
+        self::assertSame(Channel::WechatWork, $user->channel);
+    }
+
+    public function testWeWorkProfileAcceptsExplicitUserid(): void
+    {
+        $user = $this->kernel()->union()->profile(Channel::WechatWork, 'WW_USER', ['userid' => 'WW_OTHER']);
+
+        self::assertSame('WW_OTHER', $user->openId, 'payload[userid] 应覆盖 openId 作为查询键');
+        self::assertSame('王五', $user->nickname);
+    }
+
+    public function testWeWorkProfileErrorThrows(): void
+    {
+        $this->expectException(ApiException::class);
+        $this->kernel()->union()->profile(Channel::WechatWork, 'bad', []);
     }
 }
