@@ -25,6 +25,10 @@ use Psr\Http\Message\StreamInterface;
  *  - 百度 profile：真实调用 smartapp/getuserinfo（错误字段 errno）；
  *  - 企业微信 profile：真实调用 /user/get（以 userid 为键），归一化姓名 / 头像，
  *    原来被错误路由到微信适配器的问题已修复；
+ *  - 支付宝 profile：真实调用 alipay.user.info.share，归一化 nick_name / avatar；
+ *  - 钉钉 profile：真实调用 topapi/v2/user/get，归一化 name / avatar；
+ *  - 飞书 profile：真实调用 contact/v3/users，name / avatar 为嵌套对象，
+ *    经适配器归一化为 nick_name / avatar_url（修复静默丢失昵称 / 头像的 bug）；
  *  - 各端在 token / userid 失效时真实抛出 ApiException（杜绝静默失败）；
  *  - QQ / 百度未传 access_token 时优雅返回空 raw（不发起请求）。
  */
@@ -52,6 +56,9 @@ class UserProfileTest extends TestCase
 
                     return $this->douyinProfile($openId, $token);
                 }
+                if (str_contains($uri, 'gateway.do')) {
+                    return $this->routeAlipay((string) ($form['method'] ?? ''));
+                }
                 return $this->respond([]);
             }
 
@@ -72,6 +79,15 @@ class UserProfileTest extends TestCase
 
             public function postJson(string $uri, array $data = [], array $headers = []): ResponseInterface
             {
+                if (str_contains($uri, 'topapi/v2/user/get')) {
+                    return $this->dingtalkProfile((string) ($data['userid'] ?? ''));
+                }
+                if (str_contains($uri, 'tenant_access_token')) {
+                    return $this->respond([
+                        'code' => 0, 'msg' => 'ok',
+                        'tenant_access_token' => 'LK_TENANT', 'expire' => 7200,
+                    ]);
+                }
                 return $this->respond([]);
             }
 
@@ -115,6 +131,12 @@ class UserProfileTest extends TestCase
                         'err_no' => 0, 'err_tips' => '',
                         'data' => ['access_token' => 'DY_APPTOK', 'expires_in' => 7200],
                     ]);
+                }
+                if (str_contains($uri, 'contact/v3/users/')) {
+                    if (preg_match('#contact/v3/users/([^?/]+)#', $uri, $m) === 1) {
+                        return $this->larkProfile($m[1]);
+                    }
+                    return $this->larkProfile('');
                 }
                 return $this->respond([]);
             }
@@ -180,6 +202,59 @@ class UserProfileTest extends TestCase
                     'avatar'    => 'http://ww/avatar.png',
                     'department' => [1],
                     'position'  => '工程师',
+                ]);
+            }
+
+            private function routeAlipay(string $method): ResponseInterface
+            {
+                if ($method === 'alipay.user.info.share') {
+                    return $this->respond([
+                        'alipay_user_info_share_response' => [
+                            'code'      => '10000',
+                            'user_id'   => 'ALI_USER',
+                            'nick_name' => '支付宝小明',
+                            'avatar'    => 'http://ali/avatar.png',
+                        ],
+                        'sign' => 'x',
+                    ]);
+                }
+                return $this->respond([]);
+            }
+
+            private function dingtalkProfile(string $userId): ResponseInterface
+            {
+                if ($userId === 'bad') {
+                    return $this->respond(['errcode' => 60121, 'errmsg' => 'userid not found']);
+                }
+                return $this->respond([
+                    'errcode' => 0, 'errmsg' => 'ok',
+                    'result'  => [
+                        'userid'  => $userId !== '' ? $userId : 'DT_USER',
+                        'name'    => '赵六',
+                        'avatar'  => 'http://dt/avatar.png',
+                        'unionid' => 'DT_UNION',
+                    ],
+                ]);
+            }
+
+            private function larkProfile(string $userId): ResponseInterface
+            {
+                if ($userId === 'bad') {
+                    return $this->respond(['code' => 19021, 'msg' => 'user not found']);
+                }
+                return $this->respond([
+                    'code' => 0, 'msg' => 'ok',
+                    'data' => [
+                        'user_id'   => $userId !== '' ? $userId : 'LK_USER',
+                        'union_id'  => 'LK_UNION',
+                        'open_id'   => 'LK_OPENID',
+                        'name'      => ['zh_cn' => '张三', 'en_us' => 'San Zhang'],
+                        'avatar'    => [
+                            'avatar_origin' => 'http://lk/avatar_origin.png',
+                            'avatar_240'    => 'http://lk/avatar_240.png',
+                            'avatar_72'     => 'http://lk/avatar_72.png',
+                        ],
+                    ],
                 ]);
             }
 
@@ -372,9 +447,38 @@ class UserProfileTest extends TestCase
                     'agent_id' => '1000002',
                     'cache'    => new ArrayCache(),
                 ],
+                'alipay' => [
+                    'app_id'      => 'ali_app',
+                    'secret'      => 's3cr3t',
+                    'private_key' => $this->rsaKey(),
+                ],
+                'dingtalk' => [
+                    'app_key'    => 'dt_key',
+                    'app_secret' => 's3cr3t',
+                    'cache'      => new ArrayCache(),
+                ],
+                'lark' => [
+                    'app_id' => 'lk_app',
+                    'secret' => 's3cr3t',
+                    'cache'  => new ArrayCache(),
+                ],
             ],
             $this->http(),
         );
+    }
+
+    /**
+     * 生成测试用 RSA 私钥（支付宝网关签名需要有效私钥，空密钥会抛 ConfigException）
+     */
+    private function rsaKey(): string
+    {
+        $key = openssl_pkey_new(['private_key_type' => OPENSSL_KEYTYPE_RSA, 'bits' => 2048]);
+        if ($key === false) {
+            self::fail('openssl_pkey_new 生成测试私钥失败');
+        }
+        openssl_pkey_export($key, $privateKey);
+
+        return $privateKey;
     }
 
     // ===== 抖音 =====
@@ -487,5 +591,69 @@ class UserProfileTest extends TestCase
     {
         $this->expectException(ApiException::class);
         $this->kernel()->union()->profile(Channel::WechatWork, 'bad', []);
+    }
+
+    // ===== 支付宝 =====
+
+    public function testAlipayProfileFetchesRealData(): void
+    {
+        $user = $this->kernel()->union()->profile(Channel::AlipayMini, 'ALI_OPENID', ['access_token' => 'ALI_TOK']);
+
+        self::assertSame('ALI_OPENID', $user->openId);
+        self::assertSame('支付宝小明', $user->nickname, '支付宝 nick_name 应归一化为 nickname');
+        self::assertSame('http://ali/avatar.png', $user->avatar);
+        self::assertSame(Channel::AlipayMini, $user->channel);
+    }
+
+    public function testAlipayProfileWithoutTokenReturnsEmptyRaw(): void
+    {
+        $user = $this->kernel()->union()->profile(Channel::AlipayMini, 'ALI_OPENID', []);
+
+        self::assertSame('ALI_OPENID', $user->openId);
+        self::assertNull($user->nickname);
+        self::assertNull($user->avatar);
+        self::assertSame([], $user->raw, '未传 access_token 不应发起请求');
+    }
+
+    // ===== 钉钉 =====
+
+    public function testDingtalkProfileFetchesRealData(): void
+    {
+        $user = $this->kernel()->union()->profile(Channel::Dingtalk, 'DT_USER', []);
+
+        self::assertSame('DT_USER', $user->openId);
+        self::assertSame('赵六', $user->nickname, '钉钉 name 应归一化为 nickname');
+        self::assertSame('http://dt/avatar.png', $user->avatar);
+        self::assertSame(Channel::Dingtalk, $user->channel);
+    }
+
+    public function testDingtalkProfileErrorThrows(): void
+    {
+        $this->expectException(ApiException::class);
+        $this->kernel()->union()->profile(Channel::Dingtalk, 'bad', []);
+    }
+
+    // ===== 飞书 =====
+
+    public function testLarkProfileNormalizesNestedNameAndAvatar(): void
+    {
+        // 飞书 contact/v3/users 返回 name/avatar 为嵌套对象，适配器需归一化
+        $user = $this->kernel()->union()->profile(Channel::Lark, 'LK_USER', []);
+
+        self::assertSame('LK_USER', $user->openId);
+        self::assertSame('LK_UNION', $user->unionId);
+        self::assertSame('张三', $user->nickname, '飞书嵌套 name.zh_cn 应归一化为 nickname');
+        self::assertSame(
+            'http://lk/avatar_origin.png',
+            $user->avatar,
+            '飞书嵌套 avatar.avatar_origin 应归一化为 avatar'
+        );
+        self::assertSame(Channel::Lark, $user->channel);
+    }
+
+    public function testLarkProfileErrorThrows(): void
+    {
+        $this->expectException(ApiException::class);
+        $this->kernel()->union()->profile(Channel::Lark, 'bad', []);
     }
 }
