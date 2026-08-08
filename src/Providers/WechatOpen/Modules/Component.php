@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Providers\WechatOpen\Modules;
 
+use Kode\MiniApp\Contracts\Platform;
+use Kode\MiniApp\Core\ApiResponse;
 use Kode\MiniApp\Providers\WechatOpen\WechatOpenApp;
 
 /**
@@ -121,9 +123,8 @@ readonly class Component
             ]
         );
 
-        $data = json_decode((string) $response->getBody(), true);
-
-        return is_array($data) ? $data : [];
+        // 真实对接：非法 JSON 归一化为空数组；微信错误（errcode）由上层适配器判定。
+        return ApiResponse::fromPsr($response, Platform::Wechat)->toArray();
     }
 
     /**

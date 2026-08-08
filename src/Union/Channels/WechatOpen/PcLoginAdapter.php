@@ -46,7 +46,15 @@ final class PcLoginAdapter extends BaseAdapter implements LoginAdapter
         $openId      = self::str($token, 'openid');
         $unionId     = self::strOrNull($token, 'unionid') ?? '';
 
-        $raw = $accessToken !== '' && $openId !== '' ? $openApp->userInfo($accessToken, $openId) : [];
+        // 拉取用户信息（需 snsapi_userinfo 授权）；snsapi_base 静默授权
+        // 微信返回 48001，此时 raw 保持为空，避免把错误体当作用户资料。
+        $raw = [];
+        if ($accessToken !== '' && $openId !== '') {
+            $userRaw = $openApp->userInfo($accessToken, $openId);
+            if (!isset($userRaw['errcode']) || (int) $userRaw['errcode'] === 0) {
+                $raw = $userRaw;
+            }
+        }
 
         return UnionUser::fromRaw(
             channel: Channel::WechatPc,

@@ -4,22 +4,27 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Union\Channels\Wechat;
 
+use Kode\MiniApp\Contracts\Platform;
 use Kode\MiniApp\Contracts\PlatformInterface;
+use Kode\MiniApp\Core\ApiResponse;
+use Kode\MiniApp\Providers\Wechat\WechatApp;
 use Kode\MiniApp\Union\Channels\BaseAdapter;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\LoginAdapter;
 use Kode\MiniApp\Union\UnionUser;
 
 /**
- * 微信公众号登录适配器（OAuth 网页授权）
+ * 微信公众号 / H5 登录适配器（OAuth 网页授权）
  *
  * 业务侧调用：
  *   $user = $kernel->union()->authenticate(Channel::WechatMp, ['code' => 'xxx']);
  *
  * 内部实现：
  *   1. 通过 code 换取 access_token / openid / unionid
- *   2. 拉取用户基本信息
+ *   2. 拉取用户基本信息（需 snsapi_userinfo 授权）
  *   3. 构造 UnionUser 统一对象
+ *
+ * 真实对接：微信返回 errcode（如 40029 无效 code）时抛 ApiException。
  */
 final class MpLoginAdapter extends BaseAdapter implements LoginAdapter
 {
@@ -34,7 +39,7 @@ final class MpLoginAdapter extends BaseAdapter implements LoginAdapter
 
         $provider   = $this->provider('wechat');
         $app        = $provider->app();
-        if (!$app instanceof \Kode\MiniApp\Providers\Wechat\WechatApp) {
+        if (!$app instanceof WechatApp) {
             throw new \RuntimeException('公众号登录要求 wechat Provider');
         }
         $http       = $app->http();
@@ -42,19 +47,16 @@ final class MpLoginAdapter extends BaseAdapter implements LoginAdapter
         $appId      = $config->appId();
         $appSecret  = $config->secret();
 
-        // 1. code 换 access_token
+        // 1. code 换 access_token（真实对接：微信错误抛 ApiException）
         $tokenUrl = 'https://api.weixin.qq.com/sns/oauth2/access_token'
             . '?appid=' . urlencode($appId)
             . '&secret=' . urlencode($appSecret)
             . '&code=' . urlencode($code)
             . '&grant_type=authorization_code';
 
-        $tokenRaw = $this->parseResponse($http->get($tokenUrl));
-        if (isset($tokenRaw['errcode']) && (int) $tokenRaw['errcode'] !== 0) {
-            throw new \RuntimeException(
-                "公众号 OAuth 换取 access_token 失败: " . self::str($tokenRaw, 'errmsg')
-            );
-        }
+        $tokenRaw = ApiResponse::fromPsr($http->get($tokenUrl), Platform::Wechat)
+            ->throwIfFailed('公众号 OAuth 换取 access_token')
+            ->toArray();
 
         $accessToken = self::str($tokenRaw, 'access_token');
         $openId      = self::str($tokenRaw, 'openid');
@@ -68,7 +70,7 @@ final class MpLoginAdapter extends BaseAdapter implements LoginAdapter
                 . '?access_token=' . urlencode($accessToken)
                 . '&openid=' . urlencode($openId)
                 . '&lang=zh_CN';
-            $userRaw = $this->parseResponse($http->get($userUrl));
+            $userRaw = ApiResponse::fromPsr($http->get($userUrl), Platform::Wechat)->toArray();
             if (!isset($userRaw['errcode']) || (int) $userRaw['errcode'] === 0) {
                 $raw = $userRaw;
             }
@@ -81,14 +83,5 @@ final class MpLoginAdapter extends BaseAdapter implements LoginAdapter
             raw:     $raw,
             extra:   $tokenRaw,
         );
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function parseResponse(\Psr\Http\Message\ResponseInterface $response): array
-    {
-        $data = json_decode((string) $response->getBody(), true);
-        return is_array($data) ? $data : [];
     }
 }

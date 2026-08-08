@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Providers\WechatOpen\Modules;
 
+use Kode\MiniApp\Contracts\Platform;
+use Kode\MiniApp\Core\ApiResponse;
 use Kode\MiniApp\Providers\WechatOpen\WechatOpenApp;
 
 /**
@@ -84,9 +86,11 @@ readonly class OpenApp
             ]
         );
 
-        $data = json_decode((string) $response->getBody(), true);
-
-        return is_array($data) ? $data : [];
+        // 真实对接：微信返回 errcode 时必须抛错（如 40029 无效 code），
+        // 避免静默落入空 openid。
+        return ApiResponse::fromPsr($response, Platform::Wechat)
+            ->throwIfFailed('开放平台换取 access_token')
+            ->toArray();
     }
 
     /**
@@ -107,9 +111,9 @@ readonly class OpenApp
             ]
         );
 
-        $data = json_decode((string) $response->getBody(), true);
-
-        return is_array($data) ? $data : [];
+        return ApiResponse::fromPsr($response, Platform::Wechat)
+            ->throwIfFailed('开放平台刷新 access_token')
+            ->toArray();
     }
 
     /**
@@ -129,13 +133,14 @@ readonly class OpenApp
             ]
         );
 
-        $data = json_decode((string) $response->getBody(), true);
-
-        return is_array($data) ? $data : [];
+        return ApiResponse::fromPsr($response, Platform::Wechat)->toArray();
     }
 
     /**
      * 拉取用户信息（需 snsapi_userinfo 授权）
+     *
+     * 注意：本方法为「尽力而为」——微信返回 errcode（如 48001 权限不足）
+     * 时返回原始错误数组，由上层适配器判断是否采用，不会抛错。
      *
      * @return array<string, mixed>
      */
@@ -155,9 +160,7 @@ readonly class OpenApp
             ]
         );
 
-        $data = json_decode((string) $response->getBody(), true);
-
-        return is_array($data) ? $data : [];
+        return ApiResponse::fromPsr($response, Platform::Wechat)->toArray();
     }
 
     /**
@@ -170,6 +173,6 @@ readonly class OpenApp
      */
     public function mobileAccessToken(string $appId, string $secret, string $code): array
     {
-        return $this->accessToken($appId, $secret, $code);
+        return $this->accessToken($code, $appId, $secret);
     }
 }

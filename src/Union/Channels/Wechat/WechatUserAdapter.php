@@ -106,6 +106,11 @@ final class WechatUserAdapter extends BaseAdapter implements UserAdapter
         if (!$app instanceof WechatOpenApp) {
             return null;
         }
-        return $app->openApp()->userInfo($accessToken, $openId);
+        $raw = $app->openApp()->userInfo($accessToken, $openId);
+        if (isset($raw['errcode']) && (int) $raw['errcode'] !== 0) {
+            // 开放平台应用未授权 snsapi_userinfo（48001）时返回 null，交由调用方返回空资料
+            return null;
+        }
+        return $raw;
     }
 }

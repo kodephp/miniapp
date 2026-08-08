@@ -195,6 +195,25 @@ $bizUser = User::where('union_id', $mini->unionId)->first();
 
 > 注意：小程序没有服务端用户资料接口，`nickname` / `avatar` 需由客户端通过 `wx.getUserProfile` 取得后随登录一并上报（经 `raw` 传入）。
 
+### 错误处理（真实对接）
+
+所有微信端登录均按微信真实接口契约校验错误，避免「无效 code / 过期 token」被静默当成成功：
+
+- 小程序 `jscode2session`、公众号 `sns/oauth2/access_token`、开放平台 App/PC `sns/oauth2/access_token` 在微信返回 `errcode`（如 `40029 invalid code`、`40013 invalid appid`）时抛出 `Kode\MiniApp\Exceptions\ApiException`。
+- 开放平台「第三方平台代公众号/小程序」授权（`authorization_code` 换 `authorizer_access_token`）在微信返回 `errcode` 时抛出 `RuntimeException`，错误信息含 `errmsg`。
+- 拉取用户资料（`sns/userinfo` / `cgi-bin/user/info`）若授权范围不足（如 `48001`）不会抛错，仅返回空资料，由业务侧决定是否补充授权。
+
+```php
+use Kode\MiniApp\Exceptions\ApiException;
+
+try {
+    $user = Union::wechat()->app('APP_CODE');
+} catch (ApiException $e) {
+    // $e->errorCode() 为微信 errcode，$e->message() 为 errmsg
+    echo $e->errorCode() . ': ' . $e->message();
+}
+```
+
 ## 自定义适配器（业务扩展）
 
 ```php

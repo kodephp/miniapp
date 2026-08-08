@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Providers\Wechat\Modules;
 
+use Kode\MiniApp\Contracts\Platform;
+use Kode\MiniApp\Core\ApiResponse;
 use Kode\MiniApp\Providers\Wechat\WechatApp;
 
 /**
@@ -47,7 +49,8 @@ readonly class User
             self::BASE_URL . "/user/info?access_token={$token}&openid={$openid}&lang={$lang}"
         );
 
-        return json_decode((string) $response->getBody(), true);
+        // 真实对接：非法 JSON 时归一化为空数组，避免 TypeError；WeChat 错误由上层适配器判定。
+        return ApiResponse::fromPsr($response, Platform::Wechat)->toArray();
     }
 
     /**
