@@ -61,13 +61,17 @@ final class MpLoginAdapter extends BaseAdapter implements LoginAdapter
         $unionId     = self::strOrNull($tokenRaw, 'unionid') ?? '';
 
         // 2. 拉取用户信息（需 scope 为 snsapi_userinfo）
+        //    snsapi_base 静默授权不会返回用户资料（接口返回 48001），此时 raw 保持为空
         $raw = [];
         if ($accessToken !== '' && $openId !== '') {
             $userUrl = 'https://api.weixin.qq.com/sns/userinfo'
                 . '?access_token=' . urlencode($accessToken)
                 . '&openid=' . urlencode($openId)
                 . '&lang=zh_CN';
-            $raw = $this->parseResponse($http->get($userUrl));
+            $userRaw = $this->parseResponse($http->get($userUrl));
+            if (!isset($userRaw['errcode']) || (int) $userRaw['errcode'] === 0) {
+                $raw = $userRaw;
+            }
         }
 
         return UnionUser::fromRaw(

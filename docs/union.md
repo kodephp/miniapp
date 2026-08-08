@@ -110,7 +110,12 @@ $order = Union::wechat()->pay()->unifiedOrder([...]);
 $user = Union::wechat()->mini($code);
 
 // 2. 用户资料 - 通过 openId 拉取
-$user = Union::wechat()->user($openId, ['access_token' => $token]);
+//    公众号 / H5：自动解析 mp access_token，无需手动传入
+$user = Union::wechat()->user($openId, [], 'mp');
+//    小程序：服务端无法拉取，使用客户端上报（已解密）的资料
+$user = Union::wechat()->user($openId, ['raw' => $clientUserInfo], 'mini');
+//    开放平台移动 / 网站应用：传入登录时获取的 OAuth access_token
+$user = Union::wechat()->user($openId, ['access_token' => $token], 'app');
 
 // 3. 支付 - 统一下单
 $order = Union::wechat()->pay()->unifiedOrder([
@@ -162,6 +167,33 @@ $user5 = Union::wechat()->mp('OAUTH_CODE');       // unionId: u001 (相同)
 // 业务侧只需用 unionId 关联业务账号
 $businessUser = User::where('union_id', $user1->unionId)->first();
 ```
+
+## 微信开放平台绑定：公众号 / 小程序一键登录 + 用户信息
+
+将公众号、小程序、移动 App、网站应用绑定到**同一个微信开放平台**后，同一用户在各端登录都会得到相同的 `unionId`，业务侧据此关联同一用户（即"一键登录、多端通用"）。
+
+```php
+use Kode\MiniApp\Union\Union;
+
+// 1) 一键登录：各端一行代码，自动返回相同的 unionId
+$mini = Union::wechat()->mini('JS_CODE');   // 小程序
+$mp   = Union::wechat()->mp('OAUTH_CODE');  // 公众号 OAuth
+$pc   = Union::wechat()->pc('PC_CODE');     // 网站应用扫码
+$app  = Union::wechat()->app('APP_CODE');   // 移动 App
+
+// 2) 获取用户信息：登录后通过 openId 拉取
+//    公众号 / H5：无需手动传 token，适配器自动解析 mp access_token
+$profile = Union::wechat()->user($mp->openId, [], 'mp');
+//    小程序：服务端无法拉取，使用客户端上报（已解密）的资料
+$profile = Union::wechat()->user($mini->openId, ['raw' => $clientUserInfo], 'mini');
+//    开放平台 App / PC：传入登录时获取的 OAuth access_token
+$profile = Union::wechat()->user($app->openId, ['access_token' => $oauthToken], 'app');
+
+// 3) 关联业务账号：unionId 在所有绑定应用中一致
+$bizUser = User::where('union_id', $mini->unionId)->first();
+```
+
+> 注意：小程序没有服务端用户资料接口，`nickname` / `avatar` 需由客户端通过 `wx.getUserProfile` 取得后随登录一并上报（经 `raw` 传入）。
 
 ## 自定义适配器（业务扩展）
 
@@ -243,7 +275,8 @@ $data1 = Union::wechat()->notify()->decode($payload, $headers);
 $data2 = Union::alipay()->notify()->decode($payload, $headers);
 
 // ===== 4. 跨平台用户资料 =====
-$user1 = Union::wechat()->user($openId, ['access_token' => $token]);
+// 公众号 / H5 自动解析 mp access_token；小程序传客户端上报数据；App / PC 传登录 token
+$user1 = Union::wechat()->user($openId, [], 'mp');
 $user2 = Union::alipay()->user($openId, ['access_token' => $token]);
 
 // ===== 5. 细粒度访问（30+ 模块） =====

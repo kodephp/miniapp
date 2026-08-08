@@ -326,8 +326,10 @@ $order = Union::work()->pay()->unifiedOrder([...]);   // 企业微信支付
 $data = Union::wechat()->notify()->decode($payload, $headers);
 $data = Union::alipay()->notify()->decode($payload, $headers);
 
-// 5. 用户资料
-$user = Union::wechat()->user($openId, ['access_token' => $token]);
+// 5. 用户资料（公众号 / H5 自动解析 mp access_token，无需手动传入）
+$user = Union::wechat()->user($openId, [], 'mp');
+//    小程序：传入客户端上报（已解密）的资料
+$user = Union::wechat()->user($openId, ['raw' => $clientUserInfo], 'mini');
 ```
 
 ### 多端登录约束（SessionManager）
