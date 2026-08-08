@@ -125,6 +125,16 @@ final readonly class ApiResponse implements ArrayAccess, JsonSerializable, \Stri
             return null;
         }
 
+        // 支付宝错误响应挂在独立的 error_response 节点（不以 alipay_ 开头），
+        // 此前未被识别，导致真实错误被当作成功（静默失败）。
+        $error = $this->alipayErrorResponse();
+        if ($error !== null) {
+            $code    = (string) ($error['code'] ?? '');
+            $subCode = $error['sub_code'] ?? null;
+
+            return is_string($subCode) && $subCode !== '' ? $subCode : ($code !== '' ? $code : 'unknown');
+        }
+
         foreach (array_keys(self::ERROR_FIELDS) as $field) {
             if (!$this->isErrorField($field)) {
                 continue;
@@ -162,6 +172,18 @@ final readonly class ApiResponse implements ArrayAccess, JsonSerializable, \Stri
         if ($alipay !== null) {
             foreach (['sub_msg', 'msg'] as $key) {
                 $msg = $alipay[$key] ?? null;
+                if (is_string($msg) && $msg !== '') {
+                    return $msg;
+                }
+            }
+
+            return '支付宝接口返回失败';
+        }
+
+        $error = $this->alipayErrorResponse();
+        if ($error !== null) {
+            foreach (['sub_msg', 'msg'] as $key) {
+                $msg = $error[$key] ?? null;
                 if (is_string($msg) && $msg !== '') {
                     return $msg;
                 }
@@ -378,6 +400,18 @@ final readonly class ApiResponse implements ArrayAccess, JsonSerializable, \Stri
         }
 
         return null;
+    }
+
+    /**
+     * 支付宝错误响应节点（形如 error_response，独立节点，不以 alipay_ 开头）
+     *
+     * @return array<string, mixed>|null
+     */
+    private function alipayErrorResponse(): ?array
+    {
+        $value = $this->data['error_response'] ?? null;
+
+        return is_array($value) ? $value : null;
     }
 
     /**
