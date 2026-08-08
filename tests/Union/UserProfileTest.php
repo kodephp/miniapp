@@ -126,6 +126,23 @@ class UserProfileTest extends TestCase
 
                     return $this->weworkProfile($userId);
                 }
+                if (str_contains($uri, 'cgi-bin/token')) {
+                    return $this->respond([
+                        'access_token' => 'WX_MP_TOK',
+                        'expires_in'   => 7200,
+                    ]);
+                }
+                if (str_contains($uri, 'cgi-bin/user/info')) {
+                    $openId = (string) ($query['openid'] ?? '');
+
+                    return $this->wechatMpProfile($openId);
+                }
+                if (str_contains($uri, 'sns/userinfo')) {
+                    $accessToken = (string) ($query['access_token'] ?? '');
+                    $openId      = (string) ($query['openid'] ?? '');
+
+                    return $this->wechatOpenProfile($accessToken, $openId);
+                }
                 if (str_contains($uri, 'v2/token') && str_contains($uri, 'developer.toutiao.com')) {
                     return $this->respond([
                         'err_no' => 0, 'err_tips' => '',
@@ -202,6 +219,42 @@ class UserProfileTest extends TestCase
                     'avatar'    => 'http://ww/avatar.png',
                     'department' => [1],
                     'position'  => '工程师',
+                ]);
+            }
+
+            private function wechatMpProfile(string $openId): ResponseInterface
+            {
+                if ($openId === 'bad') {
+                    return $this->respond(['errcode' => 40001, 'errmsg' => 'invalid credential']);
+                }
+                if ($openId === 'nofollow') {
+                    // 48001：用户未关注公众号 / 未授权 userinfo（预期内空资料，不抛错）
+                    return $this->respond(['errcode' => 48001, 'errmsg' => 'user not subscribe']);
+                }
+                return $this->respond([
+                    'openid'     => $openId !== '' ? $openId : 'WX_OPENID',
+                    'nickname'   => '微信小明',
+                    'headimgurl' => 'http://wx/avatar.png',
+                    'unionid'    => 'WX_UNION',
+                    'sex'        => 1,
+                ]);
+            }
+
+            private function wechatOpenProfile(string $accessToken, string $openId): ResponseInterface
+            {
+                if ($accessToken === 'bad') {
+                    return $this->respond(['errcode' => 40001, 'errmsg' => 'invalid credential']);
+                }
+                if ($accessToken === 'nofollow') {
+                    // 48001：用户未授权 snsapi_userinfo（预期内空资料，不抛错）
+                    return $this->respond(['errcode' => 48001, 'errmsg' => 'not authorized']);
+                }
+                return $this->respond([
+                    'openid'     => $openId !== '' ? $openId : 'WX_OPENID',
+                    'nickname'   => '微信App用户',
+                    'headimgurl' => 'http://wx/app.png',
+                    'unionid'    => 'WX_UNION',
+                    'sex'        => 1,
                 ]);
             }
 
@@ -462,6 +515,16 @@ class UserProfileTest extends TestCase
                     'secret' => 's3cr3t',
                     'cache'  => new ArrayCache(),
                 ],
+                'wechat' => [
+                    'app_id' => 'wx_app',
+                    'secret' => 's3cr3t',
+                    'cache'  => new ArrayCache(),
+                ],
+                'wechat_open' => [
+                    'app_id' => 'wx_open_app',
+                    'secret' => 's3cr3t',
+                    'cache'  => new ArrayCache(),
+                ],
             ],
             $this->http(),
         );
@@ -655,5 +718,79 @@ class UserProfileTest extends TestCase
     {
         $this->expectException(ApiException::class);
         $this->kernel()->union()->profile(Channel::Lark, 'bad', []);
+    }
+
+    // ===== 微信（公众号 mp）=====
+
+    public function testWechatMpProfileFetchesRealData(): void
+    {
+        $user = $this->kernel()->union()->profile(Channel::WechatMp, 'WX_OPENID', []);
+
+        self::assertSame('WX_OPENID', $user->openId);
+        self::assertSame('WX_UNION', $user->unionId, '公众号资料接口的 unionid 应归一化');
+        self::assertSame('微信小明', $user->nickname, '公众号 nickname 应归一化为 nickname');
+        self::assertSame('http://wx/avatar.png', $user->avatar, '公众号 headimgurl 应归一化为 avatar');
+        self::assertSame(Channel::WechatMp, $user->channel);
+    }
+
+    public function testWechatMpProfileBenign48001ReturnsEmpty(): void
+    {
+        // 用户未关注公众号 / 未授权 userinfo（48001）属于业务常态，应返回空资料而非抛错
+        $user = $this->kernel()->union()->profile(Channel::WechatMp, 'nofollow', []);
+
+        self::assertSame('nofollow', $user->openId);
+        self::assertNull($user->nickname);
+        self::assertNull($user->avatar);
+        self::assertSame([], $user->raw, '48001 不应把错误体当作用户资料');
+    }
+
+    public function testWechatMpProfileInvalidTokenThrows(): void
+    {
+        // 40001 等真实错误应与全平台一致地抛出 ApiException（杜绝静默失败）
+        $this->expectException(ApiException::class);
+        $this->kernel()->union()->profile(Channel::WechatMp, 'bad', []);
+    }
+
+    // ===== 微信（开放平台 App / PC）=====
+
+    public function testWechatAppProfileFetchesRealData(): void
+    {
+        $user = $this->kernel()->union()->profile(
+            Channel::WechatApp,
+            'WX_OPENID',
+            ['access_token' => 'WX_TOK']
+        );
+
+        self::assertSame('WX_OPENID', $user->openId);
+        self::assertSame('WX_UNION', $user->unionId);
+        self::assertSame('微信App用户', $user->nickname);
+        self::assertSame('http://wx/app.png', $user->avatar);
+        self::assertSame(Channel::WechatApp, $user->channel);
+    }
+
+    public function testWechatAppProfileBenign48001ReturnsEmpty(): void
+    {
+        // 用户未授权 snsapi_userinfo（48001）属于业务常态，应返回空资料而非抛错
+        $user = $this->kernel()->union()->profile(
+            Channel::WechatApp,
+            'WX_OPENID',
+            ['access_token' => 'nofollow']
+        );
+
+        self::assertSame('WX_OPENID', $user->openId);
+        self::assertNull($user->nickname);
+        self::assertNull($user->avatar);
+        self::assertSame([], $user->raw, '48001 不应把错误体当作用户资料');
+    }
+
+    public function testWechatAppProfileInvalidTokenThrows(): void
+    {
+        // 40001 等真实错误应与全平台一致地抛出 ApiException（杜绝静默失败）
+        $this->expectException(ApiException::class);
+        $this->kernel()->union()->profile(
+            Channel::WechatApp,
+            'WX_OPENID',
+            ['access_token' => 'bad']
+        );
     }
 }

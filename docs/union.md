@@ -202,13 +202,13 @@ $bizUser = User::where('union_id', $mini->unionId)->first();
 - **微信系**：小程序 `jscode2session`、公众号 `sns/oauth2/access_token`、开放平台 App/PC `sns/oauth2/access_token` 在微信返回 `errcode`（如 `40029 invalid code`、`40013 invalid appid`）时抛出 `Kode\MiniApp\Exceptions\ApiException`。
 - **支付宝**：网关错误响应挂在独立的 `error_response` 节点（不以 `alipay_` 开头），SDK 已专门识别并在 `code != 10000` 时抛出 `ApiException`（此前该节点未被识别，错误会被静默吞掉）。支付宝无 unionid 概念，`unionId` 恒为空。
 - **抖音 / QQ / 百度 / 企业微信 / 钉钉 / 飞书**：分别按 `err_no` / `errcode` / `error`(OAuth) / `errcode` / `errcode` / `code` 字段校验，失败时同样抛出 `ApiException`。
-- **用户资料拉取（profile）同样校验错误**：抖音 `apps/v2/user/get_profile`（`err_no`）、QQ `graph.qq.com/user/get_user_info`（错误字段为 `ret`，与登录接口的 `errcode` 不同）、百度 `smartapp/getuserinfo`（错误字段为 `errno`，与授权接口的 `error` 不同）、企业微信 `cgi-bin/user/get`（`errcode`）、支付宝 `alipay.user.info.share`（错误节点 `error_response`）、钉钉 `topapi/v2/user/get`（`errcode`）、飞书 `contact/v3/users`（`code`），均在校验失败后抛出 `ApiException`，彻底杜绝资料接口的静默失败。QQ / 百度需调用方传入用户 `access_token`（payload `access_token`）；抖音、企业微信、支付宝、钉钉、飞书未传时自动回退到各自服务端 token。
+- **用户资料拉取（profile）同样校验错误**：抖音 `apps/v2/user/get_profile`（`err_no`）、QQ `graph.qq.com/user/get_user_info`（错误字段为 `ret`，与登录接口的 `errcode` 不同）、百度 `smartapp/getuserinfo`（错误字段为 `errno`，与授权接口的 `error` 不同）、企业微信 `cgi-bin/user/get`（`errcode`）、**微信 `cgi-bin/user/info` 与开放平台 `sns/userinfo`（`errcode`，`48001` 为预期内空资料不抛错，其余如 `40001` 令牌失效统一抛 `ApiException`）**、支付宝 `alipay.user.info.share`（错误节点 `error_response`）、钉钉 `topapi/v2/user/get`（`errcode`）、飞书 `contact/v3/users`（`code`），均在校验失败后抛出 `ApiException`，彻底杜绝资料接口的静默失败。QQ / 百度需调用方传入用户 `access_token`（payload `access_token`）；抖音、微信、企业微信、支付宝、钉钉、飞书未传时自动回退到各自服务端 token。
 - **飞书嵌套字段归一化**：飞书 `contact/v3/users` 返回的 `name`（对象：`zh_cn`/`en_us`）与 `avatar`（对象：`avatar_origin`/`avatar_240`/`avatar_72`）为嵌套结构，适配器已将其归一化为 `nick_name` / `avatar_url`，避免昵称与头像被静默丢失（该 bug 在 v1.20.0 修复）。
 - **企业微信资料修复**：此前 `Channel::WechatWork` 的 profile 被错误路由到微信（Wechat）适配器，根本取不到企业微信成员资料（要么调用错误 Provider、要么静默返回空）。现已新增独立的 `WeWorkUserAdapter`，以 userid 为键调 `/user/get` 拉取姓名 / 头像 / 部门 / 职位等真实资料。
 - 开放平台「第三方平台代公众号/小程序」授权（`authorization_code` 换 `authorizer_access_token`）在微信返回 `errcode` 时抛出 `RuntimeException`，错误信息含 `errmsg`。
-- 拉取用户资料（`sns/userinfo` / `cgi-bin/user/info`）若授权范围不足（如 `48001`）不会抛错，仅返回空资料，由业务侧决定是否补充授权。
+- 拉取用户资料（`sns/userinfo` / `cgi-bin/user/info`）若授权范围不足（如 `48001` 用户未关注 / 未授权 userinfo）不会抛错，仅返回空资料，由业务侧决定是否补充授权；但 `40001`（令牌失效）、`40003`（openid 非法）、`50001`（未授权）等真实错误现已统一抛出 `ApiException`（此前被静默吞进占位 `UnionUser`，业务侧无法感知）。该「预期内错误 vs 真实错误」的判定收敛在 `WechatProfileError` 一处，微信系所有资料拉取路径复用。
 
-> 端到端测试覆盖：`tests/Union/WechatLoginTest.php`、`tests/Union/OpenPlatformLoginTest.php`（微信系）、`tests/Union/PlatformLoginTest.php`（支付宝 / 抖音 / QQ / 百度 / 企业微信 / 钉钉 / 飞书 登录）、`tests/Union/UserProfileTest.php`（抖音 / QQ / 百度 / 企业微信 / 支付宝 / 钉钉 / 飞书 用户资料拉取），每个渠道均验证「成功提取 openid/unionid/昵称/头像」与「无效 code / token / userid 真实抛错」。
+> 端到端测试覆盖：`tests/Union/WechatLoginTest.php`、`tests/Union/OpenPlatformLoginTest.php`（微信系）、`tests/Union/PlatformLoginTest.php`（支付宝 / 抖音 / QQ / 百度 / 企业微信 / 钉钉 / 飞书 登录）、`tests/Union/UserProfileTest.php`（微信 mp / 微信开放平台 App + 抖音 / QQ / 百度 / 企业微信 / 支付宝 / 钉钉 / 飞书 用户资料拉取），每个渠道均验证「成功提取 openid/unionid/昵称/头像」与「无效 code / token / userid / openid 真实抛错」。
 
 ```php
 use Kode\MiniApp\Exceptions\ApiException;

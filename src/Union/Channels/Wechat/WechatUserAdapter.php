@@ -81,9 +81,14 @@ final class WechatUserAdapter extends BaseAdapter implements UserAdapter
         }
 
         $raw = $app->user()->info($openId);
-        if (isset($raw['errcode']) && (int) $raw['errcode'] !== 0) {
-            // access_token 失效或 openid 非本公众号粉丝，返回占位并保留原始错误
-            return UnionUser::fromRaw(channel: $channel, openId: $openId, raw: $raw);
+        $errcode = isset($raw['errcode']) ? (int) $raw['errcode'] : 0;
+        if ($errcode !== 0) {
+            // 48001：用户未关注公众号 / 未授权 userinfo（业务常态），降级为空资料
+            if (WechatProfileError::isBenign($errcode)) {
+                return UnionUser::fromRaw(channel: $channel, openId: $openId);
+            }
+            // 其余（40001 令牌失效、40003 openid 非法等）为真实错误，与全平台一致抛 ApiException
+            WechatProfileError::throwOnGenuine($errcode, $raw, '微信用户资料');
         }
 
         $unionId = self::strOrNull($raw, 'unionid') ?? '';
@@ -107,9 +112,14 @@ final class WechatUserAdapter extends BaseAdapter implements UserAdapter
             return null;
         }
         $raw = $app->openApp()->userInfo($accessToken, $openId);
-        if (isset($raw['errcode']) && (int) $raw['errcode'] !== 0) {
-            // 开放平台应用未授权 snsapi_userinfo（48001）时返回 null，交由调用方返回空资料
-            return null;
+        $errcode = isset($raw['errcode']) ? (int) $raw['errcode'] : 0;
+        if ($errcode !== 0) {
+            // 48001：用户未授权 snsapi_userinfo（业务常态），交由调用方返回空资料
+            if (WechatProfileError::isBenign($errcode)) {
+                return null;
+            }
+            // 其余（40001 令牌失效、40003 openid 非法等）为真实错误，与全平台一致抛 ApiException
+            WechatProfileError::throwOnGenuine($errcode, $raw, '微信开放平台用户资料');
         }
         return $raw;
     }

@@ -152,6 +152,11 @@ final class Union
      */
     public function profile(Channel $channel, string $openId, array $payload = []): UnionUser
     {
+        // 将调用方指定的渠道带入适配器 payload。部分适配器（微信 / 抖音 / 支付宝）
+        // 内部以 payload['channel'] 判定具体子渠道，若缺省会回退到默认渠道，
+        // 导致 Union::profile(Channel::WechatApp, ...) 被误当作公众号 mp 处理。
+        $payload['channel'] = $payload['channel'] ?? $channel->value;
+
         return $this->userAdapter($channel)->profile($openId, $payload);
     }
 
