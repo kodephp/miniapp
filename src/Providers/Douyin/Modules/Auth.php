@@ -51,6 +51,31 @@ readonly class Auth
     }
 
     /**
+     * 拉取用户资料（昵称 / 头像 / 性别 / union_id）
+     *
+     * 抖音小程序资料接口使用 app access_token（服务端令牌）+ openid。
+     * 未传 access_token 时自动获取服务端令牌。
+     *
+     * @return array<string, mixed>
+     */
+    public function userInfo(string $openId, string $accessToken = ''): array
+    {
+        $token = $accessToken !== '' ? $accessToken : $this->token();
+
+        $response = $this->app->http()->post(self::BASE_URL . '/v2/user/get_profile', [
+            'form_params' => [
+                'access_token' => $token,
+                'openid'       => $openId,
+            ],
+        ]);
+
+        /** @var array<string, mixed> */
+        return ApiResponse::fromPsr($response, Platform::Douyin)
+            ->throwIfFailed('抖音获取用户信息')
+            ->array('data');
+    }
+
+    /**
      * 获取 AccessToken（默认命中缓存）
      */
     public function token(bool $forceRefresh = false): string

@@ -29,11 +29,15 @@ final class QqUserAdapter extends BaseAdapter implements UserAdapter
             throw new \RuntimeException('QQ 用户资料要求 qq Provider');
         }
 
+        $accessToken = is_string($payload['access_token'] ?? null) ? $payload['access_token'] : '';
+
+        $raw = $accessToken !== '' ? $app->auth()->userInfo($openId, $accessToken) : [];
+
         return UnionUser::fromRaw(
             channel: Channel::Qq,
             openId:  $openId,
             unionId: '',
-            raw:     [],
+            raw:     $raw,
         );
     }
 }

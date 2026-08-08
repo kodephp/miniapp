@@ -8,6 +8,7 @@ use Kode\MiniApp\Contracts\Platform;
 use Kode\MiniApp\Core\ApiResponse;
 use Kode\MiniApp\Core\TokenManager;
 use Kode\MiniApp\Core\TokenResult;
+use Kode\MiniApp\Exceptions\ApiException;
 use Kode\MiniApp\Providers\Qq\QqApp;
 
 /**
@@ -46,6 +47,40 @@ readonly class Auth
         return ApiResponse::fromPsr($response, Platform::Qq)
             ->throwIfFailed('QQ 登录')
             ->toArray();
+    }
+
+    /**
+     * 拉取用户资料（昵称 / 头像 / 性别）
+     *
+     * QQ 资料接口（graph.qq.com）使用用户 access_token + openid。
+     * 其错误字段为 ret（非登录接口的 errcode），需单独判断。
+     *
+     * @return array<string, mixed>
+     */
+    public function userInfo(string $openId, string $accessToken): array
+    {
+        $config   = $this->app->config();
+        $response = $this->app->http()->get('https://graph.qq.com/user/get_user_info', [
+            'query' => [
+                'access_token'       => $accessToken,
+                'oauth_consumer_key' => $config->appId(),
+                'openid'             => $openId,
+            ],
+        ]);
+
+        $api = ApiResponse::fromPsr($response, Platform::Qq);
+        $ret = (int) ($api['ret'] ?? 0);
+        if ($ret !== 0) {
+            throw new ApiException(
+                message:   (string) ($api['msg'] ?? '获取用户信息失败'),
+                errorCode: $ret,
+                platform:  Platform::Qq,
+                payload:   $api->toArray(),
+                action:    'QQ 获取用户信息',
+            );
+        }
+
+        return $api->toArray();
     }
 
     /**

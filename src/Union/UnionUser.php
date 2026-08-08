@@ -86,7 +86,9 @@ final readonly class UnionUser
         array $extra = [],
     ): self {
         $nickname = self::str($raw, ['nickname', 'nick_name', 'nick', 'name', 'display_name', 'user_name']);
-        $avatar   = self::str($raw, ['headimgurl', 'avatarUrl', 'avatar', 'figureurl', 'avatar_url']);
+        $avatar   = self::str($raw, [
+            'headimgurl', 'avatarUrl', 'avatar', 'figureurl_qq_2', 'figureurl_qq_1', 'figureurl', 'avatar_url',
+        ]);
         $email    = self::str($raw, ['email']);
         $phone    = self::str($raw, ['phone', 'mobile', 'phoneNumber']);
         $gender   = self::str($raw, ['sex', 'gender']);

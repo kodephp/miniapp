@@ -8,6 +8,7 @@ use Kode\MiniApp\Contracts\Platform;
 use Kode\MiniApp\Core\ApiResponse;
 use Kode\MiniApp\Core\TokenManager;
 use Kode\MiniApp\Core\TokenResult;
+use Kode\MiniApp\Exceptions\ApiException;
 use Kode\MiniApp\Providers\Baidu\BaiduApp;
 
 /**
@@ -46,6 +47,38 @@ readonly class Auth
         return ApiResponse::fromPsr($response, Platform::Baidu)
             ->throwIfFailed('百度登录')
             ->toArray();
+    }
+
+    /**
+     * 拉取用户资料（昵称 / 头像 / 性别）
+     *
+     * 百度智能小程序资料接口（openapi.baidu.com）使用用户 access_token + openid。
+     * 其错误字段为 errno（非授权接口的 error），需单独判断。
+     *
+     * @return array<string, mixed>
+     */
+    public function userInfo(string $openId, string $accessToken): array
+    {
+        $response = $this->app->http()->get(self::BASE_URL . '/rest/2.0/smartapp/getuserinfo', [
+            'query' => [
+                'access_token' => $accessToken,
+                'openid'       => $openId,
+            ],
+        ]);
+
+        $api   = ApiResponse::fromPsr($response, Platform::Baidu);
+        $errno = (int) ($api['errno'] ?? 0);
+        if ($errno !== 0) {
+            throw new ApiException(
+                message:   (string) ($api['msg'] ?? '获取用户信息失败'),
+                errorCode: $errno,
+                platform:  Platform::Baidu,
+                payload:   $api->toArray(),
+                action:    '百度获取用户信息',
+            );
+        }
+
+        return $api->array('data');
     }
 
     /**
