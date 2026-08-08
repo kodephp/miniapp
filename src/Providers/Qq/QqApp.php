@@ -9,6 +9,7 @@ use Kode\MiniApp\Contracts\ConfigInterface;
 use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Providers\Qq\Modules\Auth;
+use Kode\MiniApp\Providers\Qq\Modules\Decrypt;
 use Kode\MiniApp\Providers\Qq\Modules\Pay;
 
 /**
@@ -17,6 +18,7 @@ use Kode\MiniApp\Providers\Qq\Modules\Pay;
 final readonly class QqApp implements AppInterface
 {
     private Auth $auth;
+    private Decrypt $decrypt;
     private Pay $pay;
 
     public function __construct(
@@ -25,8 +27,9 @@ final readonly class QqApp implements AppInterface
         private ConfigInterface $config,
         private HttpClientInterface $http,
     ) {
-        $this->auth = new Auth($this);
-        $this->pay  = new Pay($this);
+        $this->auth    = new Auth($this);
+        $this->decrypt = new Decrypt($this);
+        $this->pay     = new Pay($this);
     }
 
     #[\Override]
@@ -56,6 +59,11 @@ final readonly class QqApp implements AppInterface
     public function auth(): Auth
     {
         return $this->auth;
+    }
+
+    public function decrypt(): Decrypt
+    {
+        return $this->decrypt;
     }
 
     public function pay(): Pay

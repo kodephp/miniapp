@@ -7,6 +7,9 @@ namespace Kode\MiniApp\Union;
 use InvalidArgumentException;
 use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
+use Kode\MiniApp\Providers\Douyin\DouyinApp;
+use Kode\MiniApp\Providers\Qq\QqApp;
+use Kode\MiniApp\Providers\Wechat\WechatApp;
 use Kode\MiniApp\Session\SessionManager;
 use Kode\MiniApp\Union\Contracts\LoginAdapter;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
@@ -158,6 +161,46 @@ final class Union
         $payload['channel'] = $payload['channel'] ?? $channel->value;
 
         return $this->userAdapter($channel)->profile($openId, $payload);
+    }
+
+    /**
+     * 解密微信客户端敏感数据（encryptedData + session_key）
+     *
+     * 业务侧用法（微信小程序 getUserProfile / getPhoneNumber）：
+     *   $data = $kernel->union()->decrypt(
+     *       Channel::WechatMini,
+     *       $encryptedData,   // 前端回传
+     *       $sessionKey,      // 登录阶段 jscode2session 拿到的 session_key（敏感，勿下发前端）
+     *       $iv,
+     *   );
+     *
+     * 仅微信生态的小程序 / 公众号 / APP 支持；其余渠道抛出异常。
+     *
+     * @return array<string, mixed>
+     */
+    public function decrypt(
+        Channel $channel,
+        string $encryptedData,
+        string $sessionKey,
+        string $iv,
+    ): array {
+        [$providerKey, $appClass] = match ($channel) {
+            Channel::WechatMini, Channel::WechatMp, Channel::WechatApp => ['wechat', WechatApp::class],
+            Channel::DouyinMini, Channel::DouyinMp => ['douyin', DouyinApp::class],
+            Channel::Qq => ['qq', QqApp::class],
+            default => throw new InvalidArgumentException(
+                "渠道 [{$channel->value}] 暂不支持客户端敏感数据解密",
+            ),
+        };
+
+        /** @var PlatformInterface $provider */
+        $provider = $this->kernelProvider($providerKey);
+        $app      = $provider->app();
+        if (!$app instanceof $appClass) {
+            throw new \RuntimeException("[{$providerKey}] Provider 实例类型异常，无法解密客户端数据");
+        }
+
+        return $app->decrypt()->data($encryptedData, $sessionKey, $iv);
     }
 
     /**

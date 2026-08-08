@@ -16,6 +16,7 @@ use Kode\MiniApp\Providers\Wechat\Modules\Card;
 use Kode\MiniApp\Providers\Wechat\Modules\Cloudbase;
 use Kode\MiniApp\Providers\Wechat\Modules\CustomerService;
 use Kode\MiniApp\Providers\Wechat\Modules\DataAnalysis;
+use Kode\MiniApp\Providers\Wechat\Modules\Decrypt;
 use Kode\MiniApp\Providers\Wechat\Modules\Device;
 use Kode\MiniApp\Providers\Wechat\Modules\DynamicMessage;
 use Kode\MiniApp\Providers\Wechat\Modules\Express;
@@ -59,6 +60,7 @@ final readonly class WechatApp implements AppInterface
     private MiniProgramCode $miniProgramCode;
     private SubscribeMessage $subscribeMessage;
     private DataAnalysis $dataAnalysis;
+    private Decrypt $decrypt;
     private Shipping $shipping;
     private Security $security;
     private UrlLink $urlLink;
@@ -95,6 +97,7 @@ final readonly class WechatApp implements AppInterface
         $this->miniProgramCode = new MiniProgramCode($this);
         $this->subscribeMessage = new SubscribeMessage($this);
         $this->dataAnalysis    = new DataAnalysis($this);
+        $this->decrypt         = new Decrypt($this);
         $this->shipping        = new Shipping($this);
         $this->security        = new Security($this);
         $this->urlLink         = new UrlLink($this);
@@ -204,6 +207,17 @@ final readonly class WechatApp implements AppInterface
     public function dataAnalysis(): DataAnalysis
     {
         return $this->dataAnalysis;
+    }
+
+    /**
+     * 客户端敏感数据解密（encryptedData + session_key）
+     *
+     * 适用于 wx.getUserProfile / getPhoneNumber 返回的加密数据。
+     * 内部自动校验 watermark.appid 与当前小程序 appId 一致。
+     */
+    public function decrypt(): Decrypt
+    {
+        return $this->decrypt;
     }
 
     public function shipping(): Shipping

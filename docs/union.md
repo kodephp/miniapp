@@ -221,6 +221,71 @@ try {
 }
 ```
 
+## 客户端敏感数据解密（encryptedData）
+
+小程序端 `getUserProfile` / `getPhoneNumber` 等接口回传的 `encryptedData` 是**AES 加密的 JSON**，必须由服务端用登录阶段 `jscode2session` 拿到的 `session_key` 解密。微信、抖音、QQ 三端采用**同一套对称算法**（`AES-128-CBC` + `PKCS#7` + `watermark`），SDK 统一封装为共享工具 `Core\Crypto\Aes128CbcPkcs7`，三端 `Decrypt` 模块复用，杜绝重复实现。
+
+- **算法**：`AES-128-CBC`，`key = base64_decode(session_key)`、`iv = base64_decode(iv)`，密文 `base64_decode(encryptedData)`，PKCS#7 由 openssl 自动去填充。
+- **安全约束**：解密结果含 `watermark.appid`，必须与当前小程序 `appId` 一致，否则视为伪造数据并抛 `ApiException`。生产环境务必保持默认开启（`verifyAppId = true`）。
+- **敏感凭证**：`session_key` 属密钥级敏感信息，**切勿下发到前端、切勿写入日志**（`LogSanitizer` 已对 `session_key` 脱敏）。
+
+### 支持的渠道
+
+| 渠道 | Union 入口 | 直接模块 |
+| --- | --- | --- |
+| 微信小程序 / 公众号 / 开放平台 | `Channel::WechatMini` / `WechatMp` / `WechatApp` | `WechatApp::decrypt()` |
+| 抖音小程序 / 抖音 PC | `Channel::DouyinMini` / `DouyinMp` | `DouyinApp::decrypt()` |
+| QQ 小程序 | `Channel::Qq` | `QqApp::decrypt()` |
+
+其余渠道（支付宝 / 百度 / 钉钉 / 飞书等）调用 `decrypt()` 抛 `InvalidArgumentException`。
+
+### 用法一：通过 Union 统一入口
+
+```php
+use Kode\MiniApp\Union\Channel;
+use Kode\MiniApp\Union\Union;
+
+// 前端回传：encryptedData、iv、登录阶段缓存的 session_key
+$data = Union::wechat()->decrypt(Channel::WechatMini, $encryptedData, $sessionKey, $iv);
+// 抖音
+$data = Union::douyin()->decrypt(Channel::DouyinMini, $encryptedData, $sessionKey, $iv);
+// QQ
+$data = Union::qq()->decrypt(Channel::Qq, $encryptedData, $sessionKey, $iv);
+// $data['nickName'] / $data['avatarUrl'] / $data['watermark'] ...
+
+// 手机号（getPhoneNumber）更严格的字段校验
+$phone = Union::wechat()->decrypt(Channel::WechatMini, $encryptedData, $sessionKey, $iv)
+    ->phone(...); // 也可用 $app->decrypt()->phone()
+// $phone['phoneNumber'] / $phone['countryCode'] ...
+```
+
+### 用法二：直接走 App 模块
+
+```php
+use Kode\MiniApp\Kernel;
+
+$app = (new Kernel(['wechat' => ['app_id' => 'wx...', 'app_secret' => '...']]))->wechat()->app();
+
+$raw  = $app->decrypt()->data($encryptedData, $sessionKey, $iv);   // 原始数组（含 watermark 校验）
+$user = $app->decrypt()->userInfo($encryptedData, $sessionKey, $iv); // 同 data()，语义化别名
+$phone = $app->decrypt()->phone($encryptedData, $sessionKey, $iv);  // 手机号，缺字段抛 ApiException
+```
+
+抖音 / QQ 的 `Decrypt` 模块提供完全一致的 `data()` / `userInfo()` / `phone()` 三方法。
+
+### 失败语义（统一抛 ApiException）
+
+| 场景 | 行为 |
+| --- | --- |
+| `watermark.appid` 与当前 `appId` 不一致 | 抛 `ApiException`（伪造数据） |
+| `session_key` / `iv` / `encryptedData` base64 非法 | 抛 `ApiException` |
+| 密钥或向量长度非 16 字节 | 抛 `ApiException` |
+| `session_key` 错误导致解密出乱码（非 JSON） | 抛 `ApiException` |
+| 手机号密文缺少 `phoneNumber` 等字段 | 抛 `ApiException` |
+| 需临时关闭 appId 校验（verifyAppId=false） | 返回原始数组，不校验（仅特殊场景） |
+
+> 端到端测试：`tests/Providers/{Wechat,Douyin,Qq}/DecryptTest.php`（各端真实 AES round-trip、手机号、watermark 校验失败、错误密钥、非法 base64 / 长度）、`tests/Union/DecryptTest.php`（微信 / 抖音 / QQ 分派成功 + 不支持渠道抛错）。加密向量采用与三端官方完全一致的算法生成，即是对「真实对接」的端到端验证。
+
 ## 自定义适配器（业务扩展）
 
 ```php

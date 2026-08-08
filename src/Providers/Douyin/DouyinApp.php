@@ -9,6 +9,7 @@ use Kode\MiniApp\Contracts\ConfigInterface;
 use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Providers\Douyin\Modules\Auth;
+use Kode\MiniApp\Providers\Douyin\Modules\Decrypt;
 use Kode\MiniApp\Providers\Douyin\Modules\Pay;
 use Kode\MiniApp\Providers\Douyin\Modules\Video;
 
@@ -18,6 +19,7 @@ use Kode\MiniApp\Providers\Douyin\Modules\Video;
 final readonly class DouyinApp implements AppInterface
 {
     private Auth $auth;
+    private Decrypt $decrypt;
     private Pay $pay;
     private Video $video;
 
@@ -27,9 +29,10 @@ final readonly class DouyinApp implements AppInterface
         private ConfigInterface $config,
         private HttpClientInterface $http,
     ) {
-        $this->auth = new Auth($this);
-        $this->pay  = new Pay($this);
-        $this->video = new Video($this);
+        $this->auth    = new Auth($this);
+        $this->decrypt = new Decrypt($this);
+        $this->pay     = new Pay($this);
+        $this->video   = new Video($this);
     }
 
     #[\Override]
@@ -59,6 +62,11 @@ final readonly class DouyinApp implements AppInterface
     public function auth(): Auth
     {
         return $this->auth;
+    }
+
+    public function decrypt(): Decrypt
+    {
+        return $this->decrypt;
     }
 
     public function pay(): Pay
