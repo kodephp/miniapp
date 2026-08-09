@@ -629,6 +629,42 @@ final class Union
     }
 
     /**
+     * 从已登录的 UnionUser 一键解密手机号（桥接入口，免重复传参）
+     *
+     * 登录后业务侧已拿到 {@see UnionUser}（含 channel 与 openId），且 `code2session` 阶段
+     * 已自动把 session_key 按 openId 托管到 {@see \Kode\MiniApp\Core\SessionKeyManager}。
+     * 本方法直接从该对象取回 channel / openId，复用 {@see phoneObjectByUser()} 完成解密，
+     * 业务侧无需再手写 `$union->phoneObjectByUser($user->channel, $encryptedData, $iv, $user->openId)`。
+     *
+     * @param string $encryptedData 客户端回传的加密数据
+     * @param string $iv            加密初始向量
+     *
+     * @throws InvalidArgumentException 该 UnionUser 所属渠道不支持 encryptedData 解密获取手机号
+     */
+    public function phoneObjectForUser(UnionUser $user, string $encryptedData, string $iv): UnionPhone
+    {
+        return $this->phoneObjectByUser($user->channel, $encryptedData, $iv, $user->openId);
+    }
+
+    /**
+     * 从已登录的 UnionUser 一键解密用户资料（桥接入口，免重复传参）
+     *
+     * 与 {@see phoneObjectForUser()} 同理：从 {@see UnionUser} 取回 channel / openId 后复用
+     * {@see userInfoObjectByUser()}。unionId 一并透传（若该 UnionUser 已携带开放平台 unionId）。
+     *
+     * @param string $encryptedData 客户端回传的加密数据
+     * @param string $iv            加密初始向量
+     *
+     * @throws InvalidArgumentException 该 UnionUser 所属渠道不支持 encryptedData 解密获取用户资料
+     */
+    public function userInfoObjectForUser(UnionUser $user, string $encryptedData, string $iv): UnionUser
+    {
+        $unionId = $user->unionId !== '' ? $user->unionId : null;
+
+        return $this->userInfoObjectByUser($user->channel, $encryptedData, $iv, $user->openId, $unionId);
+    }
+
+    /**
      * 统一「encryptedData 解密」分派（data / phone / userInfo 共用）
      *
      * @return array{0:string, 1:class-string<WechatApp>|class-string<DouyinApp>|class-string<BaiduApp>|class-string<LarkApp>|class-string<QqApp>|class-string<WechatWorkApp>}

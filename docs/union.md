@@ -608,6 +608,23 @@ echo json_encode(['user' => $user]);     // 不含 raw，可直接下发前端�
 
 > 端到端测试：`tests/Union/UnionPhoneTest.php`（fromArray / 缺失兜底 / toArray / jsonSerialize）、`tests/Union/UnionUserFromDecryptedTest.php`（含 jsonSerialize 断言）。
 
+### 从已登录 UnionUser 一键解密（桥接入口）
+
+最常见的生产链路是：**先登录拿到 `UnionUser`（含 `channel` 与 `openId`），再用它解密手机号 / 用户资料**。`code2session` 阶段 SDK 已自动把 `session_key` 按 `openId` 托管到 `SessionKeyManager`，故解密时无需再传 `session_key`、`channel`、`openId`——本组桥接入口直接从 `UnionUser` 取回这些信息：
+
+| 入口 | 说明 |
+| --- | --- |
+| `Union::phoneObjectForUser(UnionUser $user, $encryptedData, $iv)` | 复用 `phoneObjectByUser()`，从 `$user` 取 `channel` / `openId` |
+| `Union::userInfoObjectForUser(UnionUser $user, $encryptedData, $iv)` | 复用 `userInfoObjectByUser()`，并从 `$user` 透传 `unionId`（若已携带） |
+
+```php
+$user  = Union::wechat()->mini($code);              // 登录即托管 session_key，拿到 UnionUser
+$phone = Union::phoneObjectForUser($user, $encryptedData, $iv);   // 无需再传 channel/openId/session_key
+$info  = Union::userInfoObjectForUser($user, $encryptedData, $iv); // 同样免重复传参
+```
+
+> 端到端测试：`tests/Union/UnionUserBridgeTest.php`（phone / userInfo 一键解密 + unionId 透传 + 不支持渠道抛错）。
+
 ## 自定义适配器（业务扩展）
 
 ```php
