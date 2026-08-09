@@ -29,6 +29,7 @@ use Kode\MiniApp\Providers\Wechat\Modules\Message;
 use Kode\MiniApp\Providers\Wechat\Modules\MiniProgramCode;
 use Kode\MiniApp\Providers\Wechat\Modules\Live;
 use Kode\MiniApp\Providers\Wechat\Modules\Pay;
+use Kode\MiniApp\Providers\Wechat\Modules\Phone;
 use Kode\MiniApp\Providers\Wechat\Modules\Plugin;
 use Kode\MiniApp\Providers\Wechat\Modules\Redpack;
 use Kode\MiniApp\Providers\Wechat\Modules\Search;
@@ -61,6 +62,7 @@ final readonly class WechatApp implements AppInterface
     private SubscribeMessage $subscribeMessage;
     private DataAnalysis $dataAnalysis;
     private Decrypt $decrypt;
+    private Phone $phone;
     private Shipping $shipping;
     private Security $security;
     private UrlLink $urlLink;
@@ -98,6 +100,7 @@ final readonly class WechatApp implements AppInterface
         $this->subscribeMessage = new SubscribeMessage($this);
         $this->dataAnalysis    = new DataAnalysis($this);
         $this->decrypt         = new Decrypt($this);
+        $this->phone           = new Phone($this);
         $this->shipping        = new Shipping($this);
         $this->security        = new Security($this);
         $this->urlLink         = new UrlLink($this);
@@ -218,6 +221,14 @@ final readonly class WechatApp implements AppInterface
     public function decrypt(): Decrypt
     {
         return $this->decrypt;
+    }
+
+    /**
+     * 手机号快速验证（新版 code 换手机号，无需 session_key）
+     */
+    public function phone(): Phone
+    {
+        return $this->phone;
     }
 
     public function shipping(): Shipping

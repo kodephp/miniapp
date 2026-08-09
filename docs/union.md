@@ -355,6 +355,70 @@ $manager->forget($openId);                // 用户注销 / session 失效时清
 
 > 端到端测试：`tests/Providers/{Wechat,Douyin,Qq,Baidu}/DecryptTest.php`（各端真实 AES round-trip、手机号、watermark 校验失败、错误密钥、非法 base64 / 长度，以及 `dataByUser/phoneByUser` 一站式解密 + 未托管抛错）、`tests/Providers/Lark/DecryptTest.php`（飞书 hex 变体：`session_key`/`iv` 为 hex 编码、密文 base64、明文无 watermark，覆盖手机号 / 用户信息 / 错误密钥 / 非法 hex / 长度非法 / `ByUser` 一站式）、`tests/Providers/WechatWork/DecryptTest.php`（企业微信：corpId 作为 watermark.appid 校验、手机号 / 资料 / 错误密钥 / 非法 base64 / 长度非法 / `ByUser` 一站式 + 未托管抛错）、`tests/Providers/{Wechat,Baidu}/AuthSessionKeyStoreTest.php`（登录自动托管 session_key）、`tests/Providers/Lark/AuthSessionKeyStoreTest.php`（飞书登录 `app_access_token` + `tokenLoginValidate` 自动托管 session_key）、`tests/Providers/WechatWork/AuthSessionKeyStoreTest.php`（企业微信 `gettoken` + `jscode2session` 自动托管 session_key、缺失不写入）、`tests/Core/SessionKeyManagerTest.php`（store/get/forget/TTL/关闭托管/配置解析）、`tests/Providers/Alipay/DecryptTest.php`（真实 AES-128-CBC + 全零 IV round-trip、缺 mobile、`aes_key` 非法、RSA2 验签成功 / 失败、公钥缺失）、`tests/Union/DecryptTest.php`（微信 / 抖音 / QQ / 百度 / 飞书 / 企业微信 / 支付宝分派成功 + `decryptByUser` 一站式 + 不支持渠道抛错）。加密向量均采用与官方完全一致的算法生成，即是对「真实对接」的端到端验证。
 
+## 手机号快速验证（新版 code 换手机号）
+
+微信自基础库 **2.21.2** 起对获取手机号做了安全升级：`<button open-type="getPhoneNumber">` 回调不再返回 `encryptedData` + `iv`，而是返回**动态令牌 `code`**，由服务端消费 code 直接换取手机号，**不再需要 `wx.login`，也不依赖 `session_key`**。
+
+与上一节的 `Union::decrypt()`（旧版 encryptedData 解密）互为两条并行路径，旧方式仍可用，官方建议改用新方式。
+
+| 渠道 | Union 入口 | 直接模块 |
+| --- | --- | --- |
+| 微信小程序 | `Union::phoneByCode(Channel::WechatMini, $code)` | `WechatApp::phone()` |
+
+```php
+use Kode\MiniApp\Union\Channel;
+
+// 前端：e.detail.code 回传服务端
+$info = $kernel->union()->phoneByCode(Channel::WechatMini, $code);
+
+$info['phoneNumber'];      // +8613800138000（带区号）
+$info['purePhoneNumber'];  // 13800138000（不带区号）
+$info['countryCode'];      // 86
+$info['watermark'];        // ['timestamp' => ..., 'appid' => ...]
+```
+
+也可直接使用模块访问器，并提供两个便捷方法：
+
+```php
+$phone = $kernel->wechat()->app()->phone();
+
+$phone->byCode($code);                  // 完整 phone_info 数组
+$phone->byCode($code, $openId);         // 可选透传 openid（官方选填参数）
+$phone->numberByCode($code);            // '+8613800138000'
+$phone->pureNumberByCode($code);        // '13800138000'
+```
+
+底层调用 `POST https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=...`，`access_token` 由 `Auth::token()` 自动获取并复用缓存。
+
+**约束与注意事项**
+
+- 每个 `code` **仅可消费一次**，有效期 **5 分钟**。
+- `getPhoneNumber` 的 code 与 `wx.login` 的 code **作用不同、不可混用**（混用报 `40029`）。
+- 该能力仅对**非个人主体且已认证**的小程序开放，且**按次计费**（政府 / 非营利组织等主体可免费）。
+- 请求 appid 与获取 code 的小程序 appid 不匹配会报 `40013`。
+
+**覆盖范围说明**
+
+| 平台 | 是否支持 code 换手机号 | 说明 |
+| --- | --- | --- |
+| 微信小程序 | ✅ 已支持 | `wxa/business/getuserphonenumber`，返回明文 `phone_info` |
+| 抖音小程序 | ⚠️ 暂不纳入 | 有同类接口 `get_phonenumber_info`，但返回 **RSA 非对称加密密文**，需开发者在开放平台配置应用公钥、并以应用私钥解密，属另一套凭证体系 |
+| 百度 / QQ 小程序 | ❌ 无此范式 | 仍只提供 `encryptedData` + `session_key` 解密，见上一节 |
+| 支付宝 | ❌ 无此范式 | 走 `response` + `sign` / RSA2，见上一节 |
+
+对不支持的渠道调用 `Union::phoneByCode()` 会抛出 `InvalidArgumentException`。
+
+**失败语义（统一抛 ApiException）**
+
+| 场景 | 行为 |
+| --- | --- |
+| `code` 为空字符串 / 纯空白 | 抛 `ApiException`（请求前拦截，不浪费配额） |
+| 接口返回 `errcode` 非 0（如 40029 code 无效） | 抛 `ApiException` |
+| 响应缺少 `phone_info` 节点 | 抛 `ApiException` |
+| `phone_info` 缺少 `phoneNumber` / `purePhoneNumber` / `countryCode` | 抛 `ApiException` |
+
+> 端到端测试：`tests/Providers/Wechat/PhoneTest.php`（成功换取、命中官方接口并携带 access_token、openid 透传 / 空 openid 不下发、两个便捷方法、空 code 前置拦截、errcode 非 0、缺 `phone_info`、字段不完整）、`tests/Union/PhoneByCodeTest.php`（微信分派成功 + openid 透传 + 百度 / 抖音等不支持渠道抛错）。
+
 ## 自定义适配器（业务扩展）
 
 ```php

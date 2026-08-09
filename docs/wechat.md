@@ -141,6 +141,33 @@ $userInfo = $app->user()->info($openid);
 $app->user()->remark($openid, 'VIP用户');
 ```
 
+### 手机号快速验证（code 换手机号）
+
+自基础库 **2.21.2** 起，`<button open-type="getPhoneNumber">` 回调返回的是**动态令牌 code**（不再是 `encryptedData` + `iv`），由服务端消费 code 换取手机号，**无需 `wx.login`、不依赖 `session_key`**。
+
+```php
+// 前端：e.detail.code 回传服务端
+$info = $app->phone()->byCode($code);
+
+$info['phoneNumber'];      // +8613800138000（带区号）
+$info['purePhoneNumber'];  // 13800138000（不带区号）
+$info['countryCode'];      // 86
+$info['watermark'];        // ['timestamp' => ..., 'appid' => ...]
+
+// 可选透传 openid（官方选填参数）
+$app->phone()->byCode($code, $openid);
+
+// 便捷方法：直接拿字符串
+$app->phone()->numberByCode($code);      // '+8613800138000'
+$app->phone()->pureNumberByCode($code);  // '13800138000'
+```
+
+底层调用 `POST /wxa/business/getuserphonenumber?access_token=...`，`access_token` 自动获取并复用缓存。
+
+> 约束：每个 code 仅可消费一次、有效期 5 分钟；与 `wx.login` 的 code 不可混用（混用报 `40029`）；该能力仅对非个人主体且已认证的小程序开放并按次计费。
+>
+> 旧版 `encryptedData` 解密方式见 `$app->decrypt()->phone(...)`，两条路径可并行使用。统一入口见 [union.md](union.md) 的 `Union::phoneByCode()`。
+
 ---
 
 ## 素材管理

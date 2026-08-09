@@ -246,6 +246,46 @@ final class Union
     }
 
     /**
+     * 手机号快速验证：用前端动态令牌 code 换取手机号（新版方式，无需 session_key）
+     *
+     * 与 {@see decrypt()} / {@see decryptByUser()}（旧版 encryptedData + session_key 解密）
+     * 互为两条并行路径。微信自基础库 2.21.2 起，`<button open-type="getPhoneNumber">`
+     * 回调返回的是动态令牌 code，官方建议改用本方式。
+     *
+     * 业务侧用法：
+     *   $info = $kernel->union()->phoneByCode(Channel::WechatMini, $code);
+     *   $info['phoneNumber'];      // 带区号
+     *   $info['purePhoneNumber'];  // 不带区号
+     *
+     * 目前仅微信小程序支持该范式；抖音虽有同类接口但返回 RSA 密文（需应用私钥），
+     * 百度 / QQ 仍只提供 encryptedData 解密，故均不在本方法覆盖范围内。
+     *
+     * @param string      $code   前端 bindgetphonenumber 回调中的动态令牌（5 分钟内有效、仅可消费一次）
+     * @param string|null $openId 可选，用户 openid
+     *
+     * @throws InvalidArgumentException 渠道不支持 code 换手机号
+     * @return array<string, mixed>
+     */
+    public function phoneByCode(Channel $channel, string $code, ?string $openId = null): array
+    {
+        [$providerKey, $appClass] = match ($channel) {
+            Channel::WechatMini => ['wechat', WechatApp::class],
+            default => throw new InvalidArgumentException(
+                "渠道 [{$channel->value}] 暂不支持 code 换取手机号",
+            ),
+        };
+
+        /** @var PlatformInterface $provider */
+        $provider = $this->kernelProvider($providerKey);
+        $app      = $provider->app();
+        if (!$app instanceof $appClass) {
+            throw new \RuntimeException("[{$providerKey}] Provider 实例类型异常，无法换取手机号");
+        }
+
+        return $app->phone()->byCode($code, $openId);
+    }
+
+    /**
      * 获取支付适配器
      */
     public function pay(Channel $channel): PayAdapter
