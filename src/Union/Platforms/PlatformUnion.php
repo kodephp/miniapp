@@ -164,6 +164,10 @@ abstract class PlatformUnion
 
     /**
      * 统一支付适配器
+     *
+     * ⚠️ 软移交说明：支付能力建议统一交由 kode/pays 承载（下单 / 订单 / 对账 / 退款）。
+     * 本包支付适配器为历史保留实现，仅与登录 / 用户共用凭证配置，请勿在新代码中依赖。
+     * 详见 {@see \Kode\MiniApp\Union\Contracts\PayAdapter}。
      */
     public function pay(?string $scene = null): PayAdapter
     {

@@ -693,6 +693,25 @@ $info  = Union::userInfoObjectForUser($user, $encryptedData, $iv); // 同样免�
 - **飞书 profile 必须拍平**：见 §2 注。
 - **raw 包封层级三种**：`array('data')` / `array('result')` / `array('alipay_..._response')` / `toArray()`（混入 `errcode`/`ret`/`msg` 等协议噪声），遍历 `raw` 时需留意。
 
+## 支付能力归属说明（软移交）
+
+本包内置了各端支付适配器（`Providers/{wechat,qq,alipay,douyin,baidu}/Modules/Pay.php`、`Union/Channels/*/PayAdapter.php`、`PlatformUnion::pay()/unifiedOrder()/notify()`），可独立完成小程序 / 公众号 / App 的下单与回调适配。
+
+但按整体架构规划，**支付能力（下单、订单、对账、退款等）建议统一交由 [kode/pays](https://github.com/kode-lab/pays) 承载**：
+
+- 本包支付适配器属于**向后兼容的历史保留实现**，与登录 / 用户体系共用同一套各平台 `appid` / `appsecret` 凭证配置；
+- 新项目、新代码**不应再依赖本包支付接口**，请直接使用 `kode/pays`；
+- 本包支付代码当前**不做删除**（避免功能缺失），后续随 `kode/pays` 能力完备可能标记为 `@deprecated` 并最终移交；
+- `composer.json` 的 `suggest.kode/pays` 已更新为推荐说明（仍保持 `suggest` 软依赖，未设为 `require`，以免在包未发布 / 不可解析时破坏 `composer install`）。
+
+```php
+// 历史保留用法（向后兼容，不推荐新项目使用）
+$order = $kernel->union()->wechat()->pay()->unifiedOrder([/* ... */]);
+
+// 推荐：支付能力统一走 kode/pays
+// 详见 https://github.com/kode-lab/pays
+```
+
 ## 自定义适配器（业务扩展）
 
 ```php

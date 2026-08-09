@@ -167,40 +167,123 @@ class PhoneObjectTest extends TestCase
                         public function __construct(private array $body)
                         {
                         }
-                        public function getProtocolVersion(): string { return '1.1'; }
-                        public function withProtocolVersion($v): self { return $this; }
-                        public function getHeaders(): array { return []; }
-                        public function hasHeader($n): bool { return false; }
-                        public function getHeader($n): array { return []; }
-                        public function getHeaderLine($n): string { return ''; }
-                        public function withHeader($n, $v): self { return $this; }
-                        public function withAddedHeader($n, $v): self { return $this; }
-                        public function withoutHeader($n): self { return $this; }
+                        public function getProtocolVersion(): string
+                        {
+                            return '1.1';
+                        }
+                        public function withProtocolVersion($v): self
+                        {
+                            return $this;
+                        }
+                        public function getHeaders(): array
+                        {
+                            return [];
+                        }
+                        public function hasHeader($n): bool
+                        {
+                            return false;
+                        }
+                        public function getHeader($n): array
+                        {
+                            return [];
+                        }
+                        public function getHeaderLine($n): string
+                        {
+                            return '';
+                        }
+                        public function withHeader($n, $v): self
+                        {
+                            return $this;
+                        }
+                        public function withAddedHeader($n, $v): self
+                        {
+                            return $this;
+                        }
+                        public function withoutHeader($n): self
+                        {
+                            return $this;
+                        }
                         public function getBody(): \Psr\Http\Message\StreamInterface
                         {
                             return new class ((string) json_encode($this->body)) implements \Psr\Http\Message\StreamInterface {
-                                public function __construct(private string $c) {}
-                                public function __toString(): string { return $this->c; }
-                                public function close(): void {}
-                                public function detach() { return null; }
-                                public function getSize(): ?int { return null; }
-                                public function tell(): int { return 0; }
-                                public function eof(): bool { return true; }
-                                public function isSeekable(): bool { return false; }
-                                public function seek($o, $w = SEEK_SET): void {}
-                                public function rewind(): void {}
-                                public function isWritable(): bool { return false; }
-                                public function write($s): int { return 0; }
-                                public function isReadable(): bool { return true; }
-                                public function read($l): string { return ''; }
-                                public function getContents(): string { return $this->c; }
-                                public function getMetadata($k = null) { return null; }
+                                public function __construct(private string $c)
+                                {
+                                }
+                                public function __toString(): string
+                                {
+                                    return $this->c;
+                                }
+                                public function close(): void
+                                {
+                                }
+                                public function detach()
+                                {
+                                    return null;
+                                }
+                                public function getSize(): ?int
+                                {
+                                    return null;
+                                }
+                                public function tell(): int
+                                {
+                                    return 0;
+                                }
+                                public function eof(): bool
+                                {
+                                    return true;
+                                }
+                                public function isSeekable(): bool
+                                {
+                                    return false;
+                                }
+                                public function seek($o, $w = SEEK_SET): void
+                                {
+                                }
+                                public function rewind(): void
+                                {
+                                }
+                                public function isWritable(): bool
+                                {
+                                    return false;
+                                }
+                                public function write($s): int
+                                {
+                                    return 0;
+                                }
+                                public function isReadable(): bool
+                                {
+                                    return true;
+                                }
+                                public function read($l): string
+                                {
+                                    return '';
+                                }
+                                public function getContents(): string
+                                {
+                                    return $this->c;
+                                }
+                                public function getMetadata($k = null)
+                                {
+                                    return null;
+                                }
                             };
                         }
-                        public function withBody(\Psr\Http\Message\StreamInterface $b): self { return $this; }
-                        public function getStatusCode(): int { return 200; }
-                        public function withStatus($c, $r = ''): self { return $this; }
-                        public function getReasonPhrase(): string { return 'OK'; }
+                        public function withBody(\Psr\Http\Message\StreamInterface $b): self
+                        {
+                            return $this;
+                        }
+                        public function getStatusCode(): int
+                        {
+                            return 200;
+                        }
+                        public function withStatus($c, $r = ''): self
+                        {
+                            return $this;
+                        }
+                        public function getReasonPhrase(): string
+                        {
+                            return 'OK';
+                        }
                     };
                 }
             },

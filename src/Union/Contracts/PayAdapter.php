@@ -11,6 +11,12 @@ use Kode\MiniApp\Union\Channel;
  *
  * 统一封装各平台（小程序支付、公众号支付、APP 支付等）下单流程，
  * 业务侧不需要关心不同平台下单参数差异。
+ *
+ * ⚠️ 支付能力归属说明（软移交）：本包内的支付适配器属于「历史保留实现」，
+ * 与登录 / 用户体系共用同一套各平台 appid / appsecret 凭证配置。
+ * 新项目建议统一使用 {@see https://github.com/kode-lab/pays kode/pays}（企业级多平台聚合支付 SDK）
+ * 承载下单、订单、对账、退款等支付能力；本包支付适配器仅作向后兼容保留，
+ * 后续可能标记为 deprecated 并最终移交，请勿在新代码中依赖本接口。
  */
 interface PayAdapter
 {

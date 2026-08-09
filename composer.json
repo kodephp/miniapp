@@ -19,7 +19,7 @@
     ],
     "homepage": "https://github.com/kode-lab/miniapp",
     "license": "Apache-2.0",
-    "version": "1.39.0",
+    "version": "1.40.0",
     "authors": [
         {
             "name": "Kode Lab",
@@ -43,7 +43,7 @@
         "mockery/mockery": "^1.6"
     },
     "suggest": {
-        "kode/pays": "企业级多平台聚合支付 SDK，支持微信、支付宝、云闪付、抖音支付等国内外主流支付渠道",
+        "kode/pays": "推荐用于承载支付能力（下单/订单/对账/退款等）的企业级多平台聚合支付 SDK，支持微信、支付宝、云闪付、抖音支付等国内外主流渠道。本包内支付适配器为向后兼容的历史保留实现",
         "kode/tools": "PHP 通用工具包，包含消息体、加解密、二维码、数组/字符串/时间处理等",
         "kode/exception": "统一的异常处理组件，支持异常码体系、异常转换、异常上报",
         "kode/cache": "高性能缓存组件，支持文件、Redis、Memcached、APCu 等多种驱动",
