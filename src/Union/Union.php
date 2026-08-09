@@ -12,6 +12,7 @@ use Kode\MiniApp\Providers\Douyin\DouyinApp;
 use Kode\MiniApp\Providers\Lark\LarkApp;
 use Kode\MiniApp\Providers\Qq\QqApp;
 use Kode\MiniApp\Providers\Wechat\WechatApp;
+use Kode\MiniApp\Providers\WechatWork\WechatWorkApp;
 use Kode\MiniApp\Session\SessionManager;
 use Kode\MiniApp\Union\Contracts\LoginAdapter;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
@@ -192,6 +193,7 @@ final class Union
             Channel::BaiduMini => ['baidu', BaiduApp::class],
             Channel::Lark => ['lark', LarkApp::class],
             Channel::Qq => ['qq', QqApp::class],
+            Channel::WechatWork => ['wechat_work', WechatWorkApp::class],
             default => throw new InvalidArgumentException(
                 "渠道 [{$channel->value}] 暂不支持客户端敏感数据解密",
             ),
@@ -227,6 +229,7 @@ final class Union
             Channel::BaiduMini => ['baidu', BaiduApp::class],
             Channel::Lark => ['lark', LarkApp::class],
             Channel::Qq => ['qq', QqApp::class],
+            Channel::WechatWork => ['wechat_work', WechatWorkApp::class],
             default => throw new InvalidArgumentException(
                 "渠道 [{$channel->value}] 暂不支持客户端敏感数据解密",
             ),

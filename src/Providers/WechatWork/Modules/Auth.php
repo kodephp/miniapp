@@ -6,6 +6,7 @@ namespace Kode\MiniApp\Providers\WechatWork\Modules;
 
 use Kode\MiniApp\Contracts\Platform;
 use Kode\MiniApp\Core\ApiResponse;
+use Kode\MiniApp\Core\SessionKeyManager;
 use Kode\MiniApp\Core\TokenManager;
 use Kode\MiniApp\Core\TokenResult;
 use Kode\MiniApp\Providers\WechatWork\WechatWorkApp;
@@ -20,6 +21,7 @@ readonly class Auth
 {
     private const string BASE_URL    = 'https://qyapi.weixin.qq.com/cgi-bin';
     private const string TOKEN_SCOPE = 'access_token';
+    private const string SESSION_URL = 'https://qyapi.weixin.qq.com/cgi-bin/miniprogram/jscode2session';
 
     public function __construct(
         private WechatWorkApp $app,
@@ -89,6 +91,41 @@ readonly class Auth
         return ApiResponse::fromPsr($response, Platform::WechatWork)
             ->throwIfFailed('获取用户详情')
             ->toArray();
+    }
+
+    /**
+     * 小程序登录（企业微信小程序 jscode2session）
+     *
+     * 与「企业内部应用」的 {@see self::user()} 不同：本方法面向企业微信小程序，
+     * 用 code 换取 session_key（用于解密客户端回传的 encryptedData），同时返回 openid / userid。
+     * 登录成功后会自动把 session_key 按 openid 托管到 SessionKeyManager，供后续一站式解密复用。
+     *
+     * @return array<string, mixed> 含 session_key / openid / userid / expires_in
+     */
+    public function session(string $code): array
+    {
+        $config = $this->app->config();
+        $token  = $this->token();
+
+        $response = $this->app->http()->get(self::SESSION_URL, [
+            'query' => [
+                'access_token' => $token,
+                'js_code'      => $code,
+                'grant_type'   => 'authorization_code',
+            ],
+        ]);
+
+        $result = ApiResponse::fromPsr($response, Platform::WechatWork)
+            ->throwIfFailed('企业微信小程序登录')
+            ->toArray();
+
+        $openId     = (string) ($result['openid'] ?? '');
+        $sessionKey = (string) ($result['session_key'] ?? '');
+        if ($openId !== '' && $sessionKey !== '') {
+            SessionKeyManager::for($config)->store($openId, $sessionKey);
+        }
+
+        return $result;
     }
 
     private function identity(): string

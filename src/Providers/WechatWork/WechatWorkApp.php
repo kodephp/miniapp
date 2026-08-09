@@ -14,6 +14,7 @@ use Kode\MiniApp\Providers\WechatWork\Modules\Auth;
 use Kode\MiniApp\Providers\WechatWork\Modules\Collect;
 use Kode\MiniApp\Providers\WechatWork\Modules\Contact;
 use Kode\MiniApp\Providers\WechatWork\Modules\CorpGroup;
+use Kode\MiniApp\Providers\WechatWork\Modules\Decrypt;
 use Kode\MiniApp\Providers\WechatWork\Modules\Customer;
 use Kode\MiniApp\Providers\WechatWork\Modules\Department;
 use Kode\MiniApp\Providers\WechatWork\Modules\Dial;
@@ -37,6 +38,7 @@ final readonly class WechatWorkApp implements AppInterface
 {
     private Auth $auth;
     private Contact $contact;
+    private Decrypt $decrypt;
     private Message $message;
     private Approval $approval;
     private Customer $customer;
@@ -62,6 +64,7 @@ final readonly class WechatWorkApp implements AppInterface
     ) {
         $this->auth          = new Auth($this);
         $this->contact       = new Contact($this);
+        $this->decrypt       = new Decrypt($this);
         $this->message       = new Message($this);
         $this->approval      = new Approval($this);
         $this->customer      = new Customer($this);
@@ -107,6 +110,14 @@ final readonly class WechatWorkApp implements AppInterface
     public function auth(): Auth
     {
         return $this->auth;
+    }
+
+    /**
+     * 客户端敏感数据解密（encryptedData + session_key）
+     */
+    public function decrypt(): Decrypt
+    {
+        return $this->decrypt;
     }
 
     public function contact(): Contact

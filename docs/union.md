@@ -241,11 +241,14 @@ try {
 | QQ 小程序 | `Union::decrypt(Channel::Qq, $encryptedData, $sessionKey, $iv)` | `QqApp::decrypt()` |
 | 百度小程序 | `Union::decrypt(Channel::BaiduMini, $encryptedData, $sessionKey, $iv)` | `BaiduApp::decrypt()` |
 | 飞书小程序 | `Union::decrypt(Channel::Lark, $encryptedData, $sessionKey, $iv)` | `LarkApp::decrypt()` |
+| 企业微信小程序 | `Union::decrypt(Channel::WechatWork, $encryptedData, $sessionKey, $iv)` | `WechatWorkApp::decrypt()` |
 | 支付宝小程序 / 生活号 / App | `Union::alipay()->decrypt()->phone($response, $sign)` | `AlipayApp::decrypt()` |
 
 > 支付宝解密算法无 `session_key` / `iv`，与通用 4 参 `Union::decrypt()` 签名不兼容，故**不并入** `Union::decrypt()`（对其调用 `Channel::AlipayMini` 仍抛 `InvalidArgumentException`），改由 `Union::alipay()->decrypt()` 访问，与其他平台一致的 `decrypt()` 访问器。
 
 > 飞书底层同为 AES-128-CBC，但其 `session_key` / `iv` 采用 **hex 编码**（微信系为 base64），明文**不含 watermark**。统一解密工具 `Core\Crypto\Aes128CbcPkcs7` 通过 `$encoding = 'hex'` 参数兼容该变体，`LarkApp::decrypt()` 默认 `verifyAppId = false`（跳过 watermark 校验）。钉钉登录走 `user/getuserinfo` by code，无小程序 `session_key` 托管与客户端解密场景，故**不在**统一解密覆盖范围内。
+
+> 企业微信小程序与微信同属 AES-128-CBC + PKCS#7，但明文 `watermark.appid` 实为**企业 corpid**（而非小程序 appId），故 `WechatWorkApp::decrypt()` 以 `config->corpId()` 校验 watermark。其 `Auth::session($code)` 调 `miniprogram/jscode2session`（需先取 `access_token`），返回 `session_key` / `openid` / `userid` 并自动托管 session_key；注意这与「企业内部应用」的 `Auth::user($code)`（code→userid）是两套独立流程，互不干扰。
 
 ### 用法一：通过 Union 统一入口
 
@@ -350,7 +353,7 @@ $manager->forget($openId);                // 用户注销 / session 失效时清
 | 支付宝解密结果缺少 `mobile` 字段 | 抛 `ApiException` |
 | 支付宝 `verifySign` 但 `public_key` 未配置 | 抛 `ApiException` |
 
-> 端到端测试：`tests/Providers/{Wechat,Douyin,Qq,Baidu}/DecryptTest.php`（各端真实 AES round-trip、手机号、watermark 校验失败、错误密钥、非法 base64 / 长度，以及 `dataByUser/phoneByUser` 一站式解密 + 未托管抛错）、`tests/Providers/Lark/DecryptTest.php`（飞书 hex 变体：`session_key`/`iv` 为 hex 编码、密文 base64、明文无 watermark，覆盖手机号 / 用户信息 / 错误密钥 / 非法 hex / 长度非法 / `ByUser` 一站式）、`tests/Providers/{Wechat,Baidu}/AuthSessionKeyStoreTest.php`（登录自动托管 session_key）、`tests/Providers/Lark/AuthSessionKeyStoreTest.php`（飞书登录 `app_access_token` + `tokenLoginValidate` 自动托管 session_key）、`tests/Core/SessionKeyManagerTest.php`（store/get/forget/TTL/关闭托管/配置解析）、`tests/Providers/Alipay/DecryptTest.php`（真实 AES-128-CBC + 全零 IV round-trip、缺 mobile、`aes_key` 非法、RSA2 验签成功 / 失败、公钥缺失）、`tests/Union/DecryptTest.php`（微信 / 抖音 / QQ / 百度 / 飞书 / 支付宝分派成功 + `decryptByUser` 一站式 + 不支持渠道抛错）。加密向量均采用与官方完全一致的算法生成，即是对「真实对接」的端到端验证。
+> 端到端测试：`tests/Providers/{Wechat,Douyin,Qq,Baidu}/DecryptTest.php`（各端真实 AES round-trip、手机号、watermark 校验失败、错误密钥、非法 base64 / 长度，以及 `dataByUser/phoneByUser` 一站式解密 + 未托管抛错）、`tests/Providers/Lark/DecryptTest.php`（飞书 hex 变体：`session_key`/`iv` 为 hex 编码、密文 base64、明文无 watermark，覆盖手机号 / 用户信息 / 错误密钥 / 非法 hex / 长度非法 / `ByUser` 一站式）、`tests/Providers/WechatWork/DecryptTest.php`（企业微信：corpId 作为 watermark.appid 校验、手机号 / 资料 / 错误密钥 / 非法 base64 / 长度非法 / `ByUser` 一站式 + 未托管抛错）、`tests/Providers/{Wechat,Baidu}/AuthSessionKeyStoreTest.php`（登录自动托管 session_key）、`tests/Providers/Lark/AuthSessionKeyStoreTest.php`（飞书登录 `app_access_token` + `tokenLoginValidate` 自动托管 session_key）、`tests/Providers/WechatWork/AuthSessionKeyStoreTest.php`（企业微信 `gettoken` + `jscode2session` 自动托管 session_key、缺失不写入）、`tests/Core/SessionKeyManagerTest.php`（store/get/forget/TTL/关闭托管/配置解析）、`tests/Providers/Alipay/DecryptTest.php`（真实 AES-128-CBC + 全零 IV round-trip、缺 mobile、`aes_key` 非法、RSA2 验签成功 / 失败、公钥缺失）、`tests/Union/DecryptTest.php`（微信 / 抖音 / QQ / 百度 / 飞书 / 企业微信 / 支付宝分派成功 + `decryptByUser` 一站式 + 不支持渠道抛错）。加密向量均采用与官方完全一致的算法生成，即是对「真实对接」的端到端验证。
 
 ## 自定义适配器（业务扩展）
 

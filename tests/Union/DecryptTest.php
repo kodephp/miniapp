@@ -13,6 +13,7 @@ use Kode\MiniApp\Providers\Douyin\DouyinApp;
 use Kode\MiniApp\Providers\Lark\LarkApp;
 use Kode\MiniApp\Providers\Qq\QqApp;
 use Kode\MiniApp\Providers\Wechat\WechatApp;
+use Kode\MiniApp\Providers\WechatWork\WechatWorkApp;
 use Kode\MiniApp\Tests\TestCase;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Union;
@@ -46,6 +47,11 @@ class DecryptTest extends TestCase
             'lark' => [
                 'app_id'     => self::APP_ID,
                 'app_secret' => 'app-secret',
+            ],
+            'wechat_work' => [
+                'corp_id'  => self::APP_ID,
+                'secret'   => 'app-secret',
+                'agent_id' => '1000002',
             ],
             'alipay' => [
                 'app_id' => self::APP_ID,
@@ -204,6 +210,22 @@ class DecryptTest extends TestCase
         self::assertSame('13800138000', $data['phoneNumber']);
     }
 
+    public function testUnionDecryptWechatWork(): void
+    {
+        $union = $this->makeUnion();
+
+        // 企业微信 watermark.appid 实为 corpid，与本测试 corp_id（= APP_ID）一致
+        $payload = [
+            'nickName'  => 'WorkUser',
+            'watermark' => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
+        ];
+
+        [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
+        $data = $union->decrypt(Channel::WechatWork, $encrypted, $sessionKey, $iv);
+
+        self::assertSame('WorkUser', $data['nickName']);
+    }
+
     public function testUnionAlipayDecryptPhone(): void
     {
         $aesKey  = random_bytes(16);
@@ -247,6 +269,12 @@ class DecryptTest extends TestCase
             'qq'     => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
             'baidu'  => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
             'lark'   => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
+            'wechat_work' => [
+                'corp_id' => self::APP_ID,
+                'secret' => 'app-secret',
+                'agent_id' => '1000002',
+                'cache' => $cache,
+            ],
         ]);
         $union = $kernel->union();
 
@@ -289,6 +317,13 @@ class DecryptTest extends TestCase
         \assert($lkApp instanceof LarkApp);
         SessionKeyManager::for($lkApp->config())->store('openid-lk', $lkSk);
         self::assertSame('Band', $union->decryptByUser(Channel::Lark, $lkEnc, $lkIv, 'openid-lk')['nickName']);
+
+        // 企业微信（watermark.appid = corpid）
+        [$wkEnc, $wkSk, $wkIv] = $this->encrypt($payload);
+        $wkApp = $kernel->wechatWork()->app();
+        \assert($wkApp instanceof WechatWorkApp);
+        SessionKeyManager::for($wkApp->config())->store('openid-wk', $wkSk);
+        self::assertSame('Band', $union->decryptByUser(Channel::WechatWork, $wkEnc, $wkIv, 'openid-wk')['nickName']);
     }
 
     public function testUnionDecryptByUserMissingCacheThrows(): void
