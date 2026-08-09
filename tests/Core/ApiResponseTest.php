@@ -38,6 +38,44 @@ class ApiResponseTest extends TestCase
         self::assertSame('bad', $fail->errorMessage());
     }
 
+    public function testDouyinOpenPlatformNestedErrorCode(): void
+    {
+        // 开放平台（open.douyin.com）错误码挂在 data 节点下，顶层不带 err_no，
+        // 此前未被识别会把失败判定为成功（静默失败）。
+        $ok = ApiResponse::fromArray([
+            'data' => ['access_token' => 'clt.x', 'expires_in' => 7200, 'error_code' => 0],
+        ], Platform::Douyin);
+        self::assertTrue($ok->isSuccessful());
+        self::assertNull($ok->errorCode());
+
+        $fail = ApiResponse::fromArray([
+            'data' => ['error_code' => 10004, 'description' => 'client_key 不合法'],
+        ], Platform::Douyin);
+        self::assertFalse($fail->isSuccessful());
+        self::assertSame(10004, $fail->errorCode());
+        self::assertSame('client_key 不合法', $fail->errorMessage());
+    }
+
+    public function testDouyinErrMsgFallback(): void
+    {
+        $fail = ApiResponse::fromArray(['err_no' => 40001, 'err_msg' => '令牌无效'], Platform::Douyin);
+
+        self::assertSame(40001, $fail->errorCode());
+        self::assertSame('令牌无效', $fail->errorMessage());
+    }
+
+    public function testDouyinStringDataDoesNotBreakErrorDetection(): void
+    {
+        // get_phonenumber_info 的 data 是字符串密文，不能因遍历 data.error_code 而误判
+        $ok = ApiResponse::fromArray(
+            ['data' => 'BASE64CIPHER', 'err_no' => 0, 'err_tips' => 'success'],
+            Platform::Douyin,
+        );
+
+        self::assertTrue($ok->isSuccessful());
+        self::assertSame('BASE64CIPHER', $ok->string('data'));
+    }
+
     public function testBaiduErrorField(): void
     {
         $ok = ApiResponse::fromArray(['errno' => 0, 'errmsg' => 'ok'], Platform::Baidu);

@@ -257,19 +257,21 @@ final class Union
      *   $info['phoneNumber'];      // 带区号
      *   $info['purePhoneNumber'];  // 不带区号
      *
-     * 目前仅微信小程序支持该范式；抖音虽有同类接口但返回 RSA 密文（需应用私钥），
-     * 百度 / QQ 仍只提供 encryptedData 解密，故均不在本方法覆盖范围内。
+     * 覆盖范围：微信小程序（返回明文 phone_info）、抖音小程序（返回 RSA 密文，
+     * 由 SDK 用配置的 `app_private_key` 自动解密，业务侧拿到的同样是明文数组）。
+     * 百度 / QQ 仍只提供 encryptedData 解密，不在本方法覆盖范围内。
      *
      * @param string      $code   前端 bindgetphonenumber 回调中的动态令牌（5 分钟内有效、仅可消费一次）
-     * @param string|null $openId 可选，用户 openid
+     * @param string|null $openId 可选，用户 openid（仅微信接受该选填参数，抖音接口不需要）
      *
      * @throws InvalidArgumentException 渠道不支持 code 换手机号
      * @return array<string, mixed>
      */
     public function phoneByCode(Channel $channel, string $code, ?string $openId = null): array
     {
-        [$providerKey, $appClass] = match ($channel) {
-            Channel::WechatMini => ['wechat', WechatApp::class],
+        [$providerKey, $appClass, $acceptsOpenId] = match ($channel) {
+            Channel::WechatMini => ['wechat', WechatApp::class, true],
+            Channel::DouyinMini => ['douyin', DouyinApp::class, false],
             default => throw new InvalidArgumentException(
                 "渠道 [{$channel->value}] 暂不支持 code 换取手机号",
             ),
@@ -282,7 +284,9 @@ final class Union
             throw new \RuntimeException("[{$providerKey}] Provider 实例类型异常，无法换取手机号");
         }
 
-        return $app->phone()->byCode($code, $openId);
+        return $acceptsOpenId
+            ? $app->phone()->byCode($code, $openId)
+            : $app->phone()->byCode($code);
     }
 
     /**

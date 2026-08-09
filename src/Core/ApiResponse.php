@@ -156,6 +156,13 @@ final readonly class ApiResponse implements ArrayAccess, JsonSerializable, \Stri
             }
         }
 
+        // 抖音开放平台（open.douyin.com）错误码挂在 data 节点下，顶层不带 err_no，
+        // 不识别会把失败响应判定为成功（静默失败）。
+        $nested = $this->get('data.error_code');
+        if (is_numeric($nested)) {
+            return (int) $nested === 0 ? null : (int) $nested;
+        }
+
         return $this->statusCode >= 400 ? $this->statusCode : null;
     }
 
@@ -200,6 +207,12 @@ final readonly class ApiResponse implements ArrayAccess, JsonSerializable, \Stri
             if (is_scalar($msg) && (string) $msg !== '') {
                 return (string) $msg;
             }
+        }
+
+        // 抖音开放平台部分接口的错误信息字段为 err_msg（小程序侧为 err_tips）
+        $altMsg = $this->data['err_msg'] ?? null;
+        if (is_string($altMsg) && $altMsg !== '') {
+            return $altMsg;
         }
 
         // 抖音部分接口错误信息挂在 data 节点下

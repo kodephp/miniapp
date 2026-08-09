@@ -364,6 +364,9 @@ $manager->forget($openId);                // 用户注销 / session 失效时清
 | 渠道 | Union 入口 | 直接模块 |
 | --- | --- | --- |
 | 微信小程序 | `Union::phoneByCode(Channel::WechatMini, $code)` | `WechatApp::phone()` |
+| 抖音小程序 | `Union::phoneByCode(Channel::DouyinMini, $code)` | `DouyinApp::phone()` |
+
+两端返回的数组字段结构一致（`phoneNumber` / `purePhoneNumber` / `countryCode` / `watermark`），差异（微信返回明文、抖音返回 RSA 密文）由 SDK 内部消化，业务侧无需感知。
 
 ```php
 use Kode\MiniApp\Union\Channel;
@@ -390,19 +393,59 @@ $phone->pureNumberByCode($code);        // '13800138000'
 
 底层调用 `POST https://api.weixin.qq.com/wxa/business/getuserphonenumber?access_token=...`，`access_token` 由 `Auth::token()` 自动获取并复用缓存。
 
+### 抖音小程序（RSA 密文变体）
+
+抖音自基础库 **3.51.0** 起提供同类能力，但返回的是**用应用公钥 RSA 加密的密文**而非明文，需由 SDK 用应用私钥解密。使用前必须完成两步配置：
+
+1. 在「抖音开放平台 - 控制台 - 开发 - 开发配置 - 应用公钥」录入自行生成的 RSA **公钥**；
+2. 把对应的**私钥**写入 SDK 配置项 `app_private_key`。
+
+```php
+$kernel = new Kernel([
+    'douyin' => [
+        'app_id'          => 'tt...',
+        'app_secret'      => '...',
+        // 应用私钥：支持完整 PEM / 纯 Base64 / PKCS#1 / PKCS#8 四种写法
+        'app_private_key' => file_get_contents('/path/to/douyin_app_private_key.pem'),
+    ],
+]);
+
+$info = $kernel->union()->phoneByCode(Channel::DouyinMini, $code);
+
+// 或直接使用模块访问器
+$phone = $kernel->douyin()->app()->phone();
+$phone->byCode($code);            // 解密后的完整数组
+$phone->numberByCode($code);      // '+8613800138000'
+$phone->pureNumberByCode($code);  // '13800138000'
+```
+
+与微信的三点差异：
+
+| 维度 | 微信 | 抖音 |
+| --- | --- | --- |
+| 凭证 | 小程序 `access_token` | 开放平台 `client_token`（`open.douyin.com/oauth/client_token/`，与 `access_token` 是两套独立凭证，SDK 自动获取并缓存） |
+| 返回 | 明文 `phone_info` | base64(RSA-PKCS#1v15 密文)，SDK 用 `app_private_key` 自动解密 |
+| `openid` 参数 | 支持选填 | 接口不接受，传入会被忽略 |
+
+解密由共享工具 `Core\Crypto\RsaPkcs1` 完成（支持超长明文分段解密），与对称族的 `Core\Crypto\Aes128CbcPkcs7` 并列。解密后同样会校验 `watermark.appid` 与当前小程序一致，防止跨应用重放。
+
+> 平台更新应用公钥后会**立即**改用新公钥加密，须同步更新 `app_private_key`，否则解密失败。应用私钥属最高级敏感凭证，严禁写入日志或下发客户端。
+>
+> 手动管理 client_token：`$phone->clientToken()` / `refreshClientToken()` / `forgetClientToken()`。
+
 **约束与注意事项**
 
-- 每个 `code` **仅可消费一次**，有效期 **5 分钟**。
-- `getPhoneNumber` 的 code 与 `wx.login` 的 code **作用不同、不可混用**（混用报 `40029`）。
-- 该能力仅对**非个人主体且已认证**的小程序开放，且**按次计费**（政府 / 非营利组织等主体可免费）。
-- 请求 appid 与获取 code 的小程序 appid 不匹配会报 `40013`。
+- 每个 `code` **仅可消费一次**；微信有效期 **5 分钟**，抖音过期报 `28005187`。
+- 该 code 与登录 code（`wx.login` / `tt.login`）**作用不同、不可混用**（微信混用报 `40029`）。
+- 微信侧该能力仅对**非个人主体且已认证**的小程序开放，且**按次计费**（政府 / 非营利组织等主体可免费）。
+- 请求 appid 与获取 code 的小程序 appid 不匹配，微信报 `40013`；抖音则在 watermark 校验环节被 SDK 拦截。
 
 **覆盖范围说明**
 
 | 平台 | 是否支持 code 换手机号 | 说明 |
 | --- | --- | --- |
 | 微信小程序 | ✅ 已支持 | `wxa/business/getuserphonenumber`，返回明文 `phone_info` |
-| 抖音小程序 | ⚠️ 暂不纳入 | 有同类接口 `get_phonenumber_info`，但返回 **RSA 非对称加密密文**，需开发者在开放平台配置应用公钥、并以应用私钥解密，属另一套凭证体系 |
+| 抖音小程序 | ✅ 已支持 | `api/apps/v1/get_phonenumber_info/`，返回 RSA 密文，SDK 用 `app_private_key` 自动解密 |
 | 百度 / QQ 小程序 | ❌ 无此范式 | 仍只提供 `encryptedData` + `session_key` 解密，见上一节 |
 | 支付宝 | ❌ 无此范式 | 走 `response` + `sign` / RSA2，见上一节 |
 
@@ -413,11 +456,14 @@ $phone->pureNumberByCode($code);        // '13800138000'
 | 场景 | 行为 |
 | --- | --- |
 | `code` 为空字符串 / 纯空白 | 抛 `ApiException`（请求前拦截，不浪费配额） |
-| 接口返回 `errcode` 非 0（如 40029 code 无效） | 抛 `ApiException` |
-| 响应缺少 `phone_info` 节点 | 抛 `ApiException` |
-| `phone_info` 缺少 `phoneNumber` / `purePhoneNumber` / `countryCode` | 抛 `ApiException` |
+| 接口返回错误码非 0（微信 `errcode` / 抖音 `err_no`） | 抛 `ApiException` |
+| 响应缺少数据节点（微信 `phone_info` / 抖音密文 `data`） | 抛 `ApiException` |
+| 结果缺少 `phoneNumber` / `purePhoneNumber` / `countryCode` | 抛 `ApiException` |
+| 抖音未配置 `app_private_key` | 抛 `ApiException`（请求前拦截） |
+| 抖音私钥无效、密文非法 base64、长度不匹配或解密失败 | 抛 `ApiException` |
+| 抖音 `watermark.appid` 与当前小程序不符 | 抛 `ApiException` |
 
-> 端到端测试：`tests/Providers/Wechat/PhoneTest.php`（成功换取、命中官方接口并携带 access_token、openid 透传 / 空 openid 不下发、两个便捷方法、空 code 前置拦截、errcode 非 0、缺 `phone_info`、字段不完整）、`tests/Union/PhoneByCodeTest.php`（微信分派成功 + openid 透传 + 百度 / 抖音等不支持渠道抛错）。
+> 端到端测试：`tests/Providers/Wechat/PhoneTest.php`（成功换取、命中官方接口并携带 access_token、openid 透传 / 空 openid 不下发、两个便捷方法、空 code 前置拦截、errcode 非 0、缺 `phone_info`、字段不完整）、`tests/Providers/Douyin/PhoneTest.php`（现场生成 RSA 密钥对造真实密文：解密成功、命中官方接口并携带 `access-token`、client_token 用 `client_credential` 且命中缓存 / 清缓存后重取、两个便捷方法、空 code、未配私钥、`err_no` 非 0、空密文、watermark 不符 / 缺失、字段不完整、私钥不匹配）、`tests/Core/Crypto/RsaPkcs1Test.php`（真实密钥对 round-trip、多块分段、纯 Base64 私钥、空 / 非法私钥、非法 base64、长度不匹配、异密钥对、非 JSON 明文）、`tests/Union/PhoneByCodeTest.php`（微信 / 抖音分派成功 + openid 透传与忽略 + 不支持渠道抛错）。
 
 ## 自定义适配器（业务扩展）
 
