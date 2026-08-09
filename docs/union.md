@@ -456,6 +456,32 @@ $phone->pureNumberByCode($code);  // '13800138000'
 
 对不支持的渠道调用 `Union::phoneByCode()` 会抛出 `InvalidArgumentException`。
 
+### 统一加密手机号入口（encryptedData，旧版路径）
+
+若前端回传的是 `encryptedData` + `iv`（旧版 `<button open-type="getPhoneNumber">` 回调，或飞书等以加密数据返回手机号的端），可用与 `phoneByCode()` 对称的统一入口：
+
+| 渠道 | Union 入口 | 说明 |
+| --- | --- | --- |
+| 微信 / 抖音 / QQ / 百度 / 飞书 / 企业微信 | `Union::phoneByDecrypt($channel, $encryptedData, $sessionKey, $iv)` | 显式传入 `session_key` 解密 |
+| 同上 | `Union::phoneByUser($channel, $encryptedData, $iv, $openId)` | 自动取用登录阶段托管的 `session_key`，无需手动传入 |
+
+两方法返回结构均经 `Core\PhoneNormalizer` 归一化为 `phoneNumber` / `purePhoneNumber` / `countryCode`（原字段全部保留）。支付宝不在覆盖范围内（其手机号走 `response` + `sign`，无 `encryptedData` / `session_key`），调用会抛 `InvalidArgumentException`。
+
+```php
+// 显式 session_key
+$info = $kernel->union()->phoneByDecrypt(
+    Channel::WechatMini, $encryptedData, $sessionKey, $iv
+);
+$info['phoneNumber'];     // 13800138000
+
+// 缓存 session_key（登录时已 Union::wechat()->mini($code) 托管）
+$info = $kernel->union()->phoneByUser(
+    Channel::WechatMini, $encryptedData, $iv, $openId
+);
+```
+
+> 飞书小程序的手机号即走此路径：`tt.getPhoneNumber` 返回 `encryptedData` + `iv`（hex 编码的 `session_key`），SDK 内部自动兼容，无需也不支持 code 换手机号。
+
 **失败语义（统一抛 ApiException）**
 
 | 场景 | 行为 |
