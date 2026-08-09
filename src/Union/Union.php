@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Core\PhoneNormalizer;
+use Kode\MiniApp\Providers\Alipay\AlipayApp;
 use Kode\MiniApp\Providers\Baidu\BaiduApp;
 use Kode\MiniApp\Providers\Douyin\DouyinApp;
 use Kode\MiniApp\Providers\Lark\LarkApp;
@@ -316,8 +317,8 @@ final class Union
      *
      * 与 {@see phoneByCode()}（新版 code 换手机号，仅微信 / 抖音）互为两条并行路径，
      * 本方法对应旧版 encryptedData + session_key 解密路径，覆盖微信 / 抖音 / QQ / 百度 /
-     * 飞书 / 企业微信 六个端（支付宝走 `Union::alipay()->decrypt()->phone()`，
-     * 因其为 response + sign 而非 encryptedData，不在本方法范围内）。
+     * 飞书 / 企业微信 六个端（支付宝走 {@see phoneByResponse()}，因其为 response + sign
+     * 而非 encryptedData，不在本方法范围内）。
      *
      * 返回经 {@see PhoneNormalizer} 归一化的统一结构（原字段全部保留）。
      *
@@ -378,6 +379,52 @@ final class Union
         $info = $app->decrypt()->phoneByUser($encryptedData, $iv, $openId);
 
         return array_merge($info, PhoneNormalizer::normalize($info));
+    }
+
+    /**
+     * 统一「支付宝 response + sign 换取手机号」入口（打破原设计 fence）
+     *
+     * 支付宝小程序 `my.getPhoneNumber` 前端回传的是加密 `response`（AES-128-CBC，全零 IV，
+     * key = base64_decode(aes_key)）与 RSA2 `sign`，既无 code 也无 encryptedData / session_key，
+     * 因此其手机号获取与微信 / 抖音（code）及 QQ / 百度 / 飞书 / 企业微信（encryptedData）
+     * 的输入形态都不同，此前只能走 `Union::alipay()->decrypt()->phone()` 这一底层入口。
+     *
+     * 本方法把支付宝也纳入 `Union` 的统一手机号家族，使三族入口形态一致：
+     *   - 微信 / 抖音：`phoneByCode($code, $openId)`
+     *   - QQ / 百度 / 飞书 / 企业微信：`phoneByDecrypt()` / `phoneByUser()`
+     *   - 支付宝：`phoneByResponse($response, $sign)`
+     *
+     * 传入 `sign` 时会先做 RSA2 验签（防中间人篡改），验签失败直接抛 `ApiException`；
+     * 不传 `sign` 则跳过验签（仍完成解密，仅失去篡改防护，不推荐生产环境）。
+     * 返回数组经支付宝侧归一化，含 `mobile` / `countryCode` 及统一的
+     * `phoneNumber` / `purePhoneNumber` / `countryCode`。
+     *
+     * @param string      $response 前端回传的加密 response（base64）
+     * @param string|null $sign     可选，前端回传的 RSA2 签名（强烈建议传入）
+     *
+     * @throws InvalidArgumentException 渠道不是支付宝（仅支付宝使用 response + sign 方式）
+     * @return array<string, mixed>
+     */
+    public function phoneByResponse(Channel $channel, string $response, ?string $sign = null): array
+    {
+        if (
+            $channel !== Channel::AlipayMini
+            && $channel !== Channel::AlipayMp
+            && $channel !== Channel::AlipayApp
+        ) {
+            throw new InvalidArgumentException(
+                "渠道 [{$channel->value}] 暂不支持 response + sign 换取手机号（仅支付宝使用此方式）",
+            );
+        }
+
+        /** @var PlatformInterface $provider */
+        $provider = $this->kernelProvider('alipay');
+        $app      = $provider->app();
+        if (!$app instanceof AlipayApp) {
+            throw new \RuntimeException('[alipay] Provider 实例类型异常，无法解密手机号');
+        }
+
+        return $app->decrypt()->phone($response, $sign);
     }
 
     /**

@@ -369,8 +369,8 @@ $manager->forget($openId);                // 用户注销 / session 失效时清
 两端返回的数组字段结构一致（`phoneNumber` / `purePhoneNumber` / `countryCode` / `watermark`），差异（微信返回明文、抖音返回 RSA 密文）由 SDK 内部消化，业务侧无需感知。
 
 > **输出归一化**：各端字段命名并不完全一致（支付宝解密结果为 `mobile` 而非 `phoneNumber`）。为此 SDK 提供 `Core\PhoneNormalizer`：
-> - `Union::phoneByCode()` 返回已通过归一化兜底为 `phoneNumber` / `purePhoneNumber` / `countryCode`（原字段全部保留）；
-> - 支付宝 `Union::alipay()->decrypt()->phone()` 在保留 `mobile` 的同时，追加上述三元组，与其余端一致；
+> - `Union::phoneByCode()` / `Union::phoneByDecrypt()` / `Union::phoneByUser()` 返回已通过归一化兜底为 `phoneNumber` / `purePhoneNumber` / `countryCode`（原字段全部保留）；
+> - 支付宝 `Union::phoneByResponse()`（统一入口，推荐）在保留 `mobile` 的同时，追加上述三元组，与其余端一致；底层等价写法是 `Union::alipay()->decrypt()->phone()`；
 > - 对任意原始数组，可主动调用静态方法 `Union::normalizePhone($raw)` 得到统一结构（`phoneNumber` / `purePhoneNumber` / `countryCode`），缺失字段以空字符串填充，绝不抛异常。
 
 ```php
@@ -452,7 +452,7 @@ $phone->pureNumberByCode($code);  // '13800138000'
 | 微信小程序 | ✅ 已支持 | `wxa/business/getuserphonenumber`，返回明文 `phone_info` |
 | 抖音小程序 | ✅ 已支持 | `api/apps/v1/get_phonenumber_info/`，返回 RSA 密文，SDK 用 `app_private_key` 自动解密 |
 | 百度 / QQ 小程序 | ❌ 无此范式 | 仍只提供 `encryptedData` + `session_key` 解密，见上一节 |
-| 支付宝 | ❌ 无此范式 | 走 `response` + `sign` / RSA2，见上一节 |
+| 支付宝 | ✅ 已支持（独立范式） | 走 `response` + `sign` / RSA2，经 `Union::phoneByResponse()`，见下方独立小节 |
 
 对不支持的渠道调用 `Union::phoneByCode()` 会抛出 `InvalidArgumentException`。
 
@@ -482,6 +482,28 @@ $info = $kernel->union()->phoneByUser(
 
 > 飞书小程序的手机号即走此路径：`tt.getPhoneNumber` 返回 `encryptedData` + `iv`（hex 编码的 `session_key`），SDK 内部自动兼容，无需也不支持 code 换手机号。
 
+### 统一支付宝手机号入口（response + sign）
+
+支付宝小程序 `my.getPhoneNumber` 前端回传的是加密 `response`（AES-128-CBC，全零 IV，`key = base64_decode(aes_key)`）与 RSA2 `sign`，**既无 code 也无 encryptedData / session_key**，输入形态与微信 / 抖音（code）、QQ / 百度 / 飞书 / 企业微信（encryptedData）都不同。v1.33.0 起将其也纳入 `Union` 的统一手机号家族（打破原设计 fence）：
+
+| 渠道 | Union 入口 | 说明 |
+| --- | --- | --- |
+| 支付宝小程序 / 生活号 / APP | `Union::phoneByResponse($channel, $response, $sign)` | `$sign` 可选，传入则先做 RSA2 验签 |
+
+```php
+$info = $kernel->union()->phoneByResponse(
+    Channel::AlipayMini, $response, $sign
+);
+$info['mobile'];          // 13800138000
+$info['phoneNumber'];     // 13800138000（已归一化）
+$info['countryCode'];     // 86
+```
+
+- 传入 `$sign` 时先用 `config.public_key` 做 RSA2 验签，验签失败直接抛 `ApiException`（防中间人篡改，生产环境强烈建议传）；
+- 不传 `$sign` 则跳过验签，仅完成解密（失去篡改防护，不推荐）；
+- 非支付宝渠道调用抛 `InvalidArgumentException`。
+- 返回结构经归一化，含 `mobile` / `countryCode` 及统一三元组 `phoneNumber` / `purePhoneNumber` / `countryCode`。
+
 **失败语义（统一抛 ApiException）**
 
 | 场景 | 行为 |
@@ -494,7 +516,7 @@ $info = $kernel->union()->phoneByUser(
 | 抖音私钥无效、密文非法 base64、长度不匹配或解密失败 | 抛 `ApiException` |
 | 抖音 `watermark.appid` 与当前小程序不符 | 抛 `ApiException` |
 
-> 端到端测试：`tests/Providers/Wechat/PhoneTest.php`（成功换取、命中官方接口并携带 access_token、openid 透传 / 空 openid 不下发、两个便捷方法、空 code 前置拦截、errcode 非 0、缺 `phone_info`、字段不完整）、`tests/Providers/Douyin/PhoneTest.php`（现场生成 RSA 密钥对造真实密文：解密成功、命中官方接口并携带 `access-token`、client_token 用 `client_credential` 且命中缓存 / 清缓存后重取、两个便捷方法、空 code、未配私钥、`err_no` 非 0、空密文、watermark 不符 / 缺失、字段不完整、私钥不匹配）、`tests/Core/Crypto/RsaPkcs1Test.php`（真实密钥对 round-trip、多块分段、纯 Base64 私钥、空 / 非法私钥、非法 base64、长度不匹配、异密钥对、非 JSON 明文）、`tests/Union/PhoneByCodeTest.php`（微信 / 抖音分派成功 + openid 透传与忽略 + 不支持渠道抛错）、`tests/Union/PhoneByDecryptTest.php`（微信 / 飞书 / 企业微信 / 抖音分派成功 + 归一化结构 + 缓存 session_key 一站式 + 支付宝两入口抛错）。
+> 端到端测试：`tests/Providers/Wechat/PhoneTest.php`（成功换取、命中官方接口并携带 access_token、openid 透传 / 空 openid 不下发、两个便捷方法、空 code 前置拦截、errcode 非 0、缺 `phone_info`、字段不完整）、`tests/Providers/Douyin/PhoneTest.php`（现场生成 RSA 密钥对造真实密文：解密成功、命中官方接口并携带 `access-token`、client_token 用 `client_credential` 且命中缓存 / 清缓存后重取、两个便捷方法、空 code、未配私钥、`err_no` 非 0、空密文、watermark 不符 / 缺失、字段不完整、私钥不匹配）、`tests/Core/Crypto/RsaPkcs1Test.php`（真实密钥对 round-trip、多块分段、纯 Base64 私钥、空 / 非法私钥、非法 base64、长度不匹配、异密钥对、非 JSON 明文）、`tests/Union/PhoneByCodeTest.php`（微信 / 抖音分派成功 + openid 透传与忽略 + 不支持渠道抛错）、`tests/Union/PhoneByDecryptTest.php`（微信 / 飞书 / 企业微信 / 抖音分派成功 + 归一化结构 + 缓存 session_key 一站式 + 支付宝两入口抛错）、`tests/Union/PhoneByResponseTest.php`（支付宝 mini / mp / app 真实 AES 解密 + 验签通过 + 错误 sign 抛 ApiException + 非支付宝渠道抛 InvalidArgumentException）。
 
 ### 统一加密用户资料入口（encryptedData，旧版路径）
 
