@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Union;
 
+use Kode\MiniApp\Core\UserInfoNormalizer;
+
 /**
  * 统一用户数据模型
  *
@@ -111,6 +113,70 @@ final readonly class UnionUser
             raw:      $raw,
             extra:    $extra,
         );
+    }
+
+    /**
+     * 从「客户端加密用户资料」解密结果构造 UnionUser（与 profile / 登录链路同一对象）
+     *
+     * 把 {@see \Kode\MiniApp\Core\UserInfoNormalizer} 归一化后的 encryptedData 用户资料
+     * （兼容微信 getUserInfo 的 nickName / avatarUrl / gender / city / province / country / language）
+     * 收敛到与登录 / profile 链路完全相同的 UnionUser 对象，业务侧无需再手写字段映射。
+     *
+     * 与 {@see fromRaw()} 的差异（关键）：本方法对 gender 仅做「透传 + 类型归一化」，
+     * **不做** 0/1/2 → male/female 的枚举映射（各端 gender 编码不一致，臆测会导致错误，
+     * 参见 v1.34.0 的设计取舍）。openId / unionId 在加密用户资料明文里并不存在
+     * （它们来自登录 code2session），故由调用方显式传入，缺失时留空字符串。
+     *
+     * @param array<string, mixed> $info      userInfoByDecrypt / userInfoByUser 返回的用户资料数组
+     *                                          （原始字段 + snake_case canonical 键均可）
+     * @param string|null          $openId    可选，加密资料对应的用户 openId（来自登录）
+     * @param string|null          $unionId   可选，跨平台 unionId（来自开放平台）
+     */
+    public static function fromDecryptedUserInfo(
+        Channel $channel,
+        array $info,
+        ?string $openId = null,
+        ?string $unionId = null,
+    ): self {
+        $data = UserInfoNormalizer::normalize($info);
+
+        $gender = self::normalizeGender($data['gender']);
+
+        return new self(
+            unionId:  $unionId ?? '',
+            openId:   $openId ?? '',
+            channel:  $channel,
+            nickname: self::nullIfEmpty($data['nickname']),
+            avatar:   self::nullIfEmpty($data['avatar']),
+            gender:   $gender,
+            country:  self::nullIfEmpty($data['country']),
+            province: self::nullIfEmpty($data['province']),
+            city:     self::nullIfEmpty($data['city']),
+            raw:      $info,
+        );
+    }
+
+    /**
+     * gender 透传 + 类型归一化：仅非空字符串原样保留，int / float 转字符串以契合 ?string，
+     * 其余（缺字段、空串、bool、null 等）统一为 null。绝不枚举映射。
+     */
+    private static function normalizeGender(mixed $gender): ?string
+    {
+        if (is_string($gender)) {
+            return $gender === '' ? null : $gender;
+        }
+        if (is_int($gender) || is_float($gender)) {
+            return (string) $gender;
+        }
+        return null;
+    }
+
+    /**
+     * 空字符串归一化为 null（UnionUser 字段语义：null 表示未知 / 未提供）
+     */
+    private static function nullIfEmpty(string $value): ?string
+    {
+        return $value === '' ? null : $value;
     }
 
     /**

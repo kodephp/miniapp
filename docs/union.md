@@ -543,7 +543,30 @@ $profile = $kernel->union()->userInfoByUser(
 );
 ```
 
-> 端到端测试：`tests/Union/UserInfoByDecryptTest.php`（微信 / 飞书 / 企业微信 / 抖音分派成功 + 原始字段保留 + 归一化 canonical 键 + 缓存 session_key 一站式 + 支付宝两入口抛错）、`tests/Core/UserInfoNormalizerTest.php`（nickName/avatarUrl → nickname/avatar 归一化、snake_case 键兼容、缺失填空串 / gender 缺失为 null、gender 值原样透传）。
+### 加密用户资料收敛为 UnionUser 对象
+
+若业务侧希望直接拿到与登录 / profile 链路**完全相同的 `UnionUser` 对象**（而非数组），可使用下列入口——它们在解密 + 归一化之后进一步收敛为对象，省去手写字段映射：
+
+| 渠道 | Union 入口 | 说明 |
+| --- | --- | --- |
+| 微信 / 抖音 / QQ / 百度 / 飞书 / 企业微信 | `Union::userInfoObjectByDecrypt($channel, $encryptedData, $sessionKey, $iv, ?$openId, ?$unionId)` | 显式 `session_key`，返回 `UnionUser` |
+| 同上 | `Union::userInfoObjectByUser($channel, $encryptedData, $iv, $openId, ?$unionId)` | 自动取用托管 `session_key`，返回 `UnionUser` |
+
+```php
+$user = $kernel->union()->userInfoObjectByDecrypt(
+    Channel::WechatMini, $encryptedData, $sessionKey, $iv,
+    $openId,   // 来自登录 code2session（加密资料明文不含 openid / unionid）
+    $unionId,  // 来自开放平台（可选）
+);
+$user->nickname;  // TestUser
+$user->avatar;    // https://...
+$user->gender;    // '1'（透传，不做 male/female 枚举映射）
+$user->toArray(); // 统一结构，与 Union::profile() 结果一致
+```
+
+> ⚠️ **gender 仅透传**：`UnionUser::fromDecryptedUserInfo()` 对 `gender` 只做「透传 + 类型归一化（int → 字符串）」，**不做** `0/1/2 → male/female` 枚举映射。各端 gender 编码并不一致，臆测映射会导致错误（参见 v1.34.0 设计取舍）。这与登录 / profile 链路的 `UnionUser::fromRaw()`（会把 int 映射成 male/female）行为不同，属有意为之。openId / unionId 加密资料明文里不存在，须由调用方显式传入。
+
+> 端到端测试：`tests/Union/UserInfoByDecryptTest.php`（微信 / 飞书 / 企业微信 / 抖音分派成功 + 原始字段保留 + 归一化 canonical 键 + 缓存 session_key 一站式 + 支付宝两入口抛错）、`tests/Union/UserInfoObjectByDecryptTest.php`（两对象入口返回 `UnionUser` + 字段归一化 + 支付宝抛错）、`tests/Union/UnionUserFromDecryptedTest.php`（工厂：字段映射 / gender 透传 / 缺失 null / 空串 null / canonical 键兼容）、`tests/Core/UserInfoNormalizerTest.php`（nickName/avatarUrl → nickname/avatar 归一化、snake_case 键兼容、缺失填空串 / gender 缺失为 null、gender 值原样透传）。
 
 ## 自定义适配器（业务扩展）
 

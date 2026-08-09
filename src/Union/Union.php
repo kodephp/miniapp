@@ -18,6 +18,7 @@ use Kode\MiniApp\Providers\Wechat\WechatApp;
 use Kode\MiniApp\Providers\WechatWork\WechatWorkApp;
 use Kode\MiniApp\Session\SessionManager;
 use Kode\MiniApp\Union\Contracts\LoginAdapter;
+use Kode\MiniApp\Union\UnionUser;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
 use Kode\MiniApp\Union\Contracts\UserAdapter;
@@ -514,6 +515,64 @@ final class Union
         $info = $app->decrypt()->userInfoByUser($encryptedData, $iv, $openId);
 
         return array_merge($info, UserInfoNormalizer::normalize($info));
+    }
+
+    /**
+     * 统一「encryptedData 解密获取用户资料」入口，并直接收敛为 UnionUser 对象
+     *
+     * 与 {@see userInfoByDecrypt()}（返回数组）的唯一区别：在解密 + 归一化之后，
+     * 进一步把结果收敛为与登录 / profile 链路完全相同的 {@see UnionUser} 对象，
+     * 业务侧无需再手写字段映射即可统一消费。分派逻辑、覆盖范围、不支持渠道抛错
+     * 行为均与 {@see userInfoByDecrypt()} 一致（底层复用之）。
+     *
+     * openId / unionId 在加密用户资料明文里并不存在（来自登录 code2session / 开放平台），
+     * 故由调用方按需传入，缺失时留空。gender 仅透传、不做枚举映射。
+     *
+     * @param string      $encryptedData 客户端回传的加密数据
+     * @param string      $sessionKey    会话密钥（与加密时一致）
+     * @param string      $iv            加密初始向量
+     * @param string|null $openId        可选，用户 openid（来自登录）
+     * @param string|null $unionId       可选，跨平台 unionId（来自开放平台）
+     *
+     * @throws InvalidArgumentException 渠道不支持 encryptedData 解密获取用户资料
+     */
+    public function userInfoObjectByDecrypt(
+        Channel $channel,
+        string $encryptedData,
+        string $sessionKey,
+        string $iv,
+        ?string $openId = null,
+        ?string $unionId = null,
+    ): UnionUser {
+        $info = $this->userInfoByDecrypt($channel, $encryptedData, $sessionKey, $iv);
+
+        return UnionUser::fromDecryptedUserInfo($channel, $info, $openId, $unionId);
+    }
+
+    /**
+     * 统一「encryptedData 解密获取用户资料」入口（自动取用登录托管的 session_key），收敛为 UnionUser
+     *
+     * 与 {@see userInfoObjectByDecrypt()} 的区别：无需手动传 session_key，只要该用户此前已通过
+     * 登录接口（code2session）缓存过 session_key，传入其 openid 即可自动取回密钥完成解密，
+     * 随后收敛为 {@see UnionUser} 对象。其余行为同 {@see userInfoObjectByDecrypt()}。
+     *
+     * @param string      $encryptedData 客户端回传的加密数据
+     * @param string      $iv            加密初始向量
+     * @param string      $openId        用户 openid（用于取回托管的 session_key）
+     * @param string|null $unionId       可选，跨平台 unionId（来自开放平台）
+     *
+     * @throws InvalidArgumentException 渠道不支持 encryptedData 解密获取用户资料
+     */
+    public function userInfoObjectByUser(
+        Channel $channel,
+        string $encryptedData,
+        string $iv,
+        string $openId,
+        ?string $unionId = null,
+    ): UnionUser {
+        $info = $this->userInfoByUser($channel, $encryptedData, $iv, $openId);
+
+        return UnionUser::fromDecryptedUserInfo($channel, $info, $openId, $unionId);
     }
 
     /**
