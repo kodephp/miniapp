@@ -13,12 +13,12 @@ use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Union;
 
 /**
- * Union 层统一「encryptedData 解密获取手机号」入口测试
+ * Union 层统一「encryptedData 解密获取用户资料」入口测试
  *
- * 覆盖 phoneByDecrypt（显式 session_key）与 phoneByUser（缓存 session_key 一站式），
- * 验证返回结构经 PhoneNormalizer 归一化且原字段保留；支付宝不在覆盖范围内，应抛错。
+ * 覆盖 userInfoByDecrypt（显式 session_key）与 userInfoByUser（缓存 session_key 一站式），
+ * 验证返回各端原始用户资料数组；支付宝不在覆盖范围内，应抛错。
  */
-class PhoneByDecryptTest extends TestCase
+class UserInfoByDecryptTest extends TestCase
 {
     private const APP_ID = 'wxapp0000000000';
 
@@ -98,66 +98,43 @@ class PhoneByDecryptTest extends TestCase
         return [base64_encode($cipher), $sessionKey, $iv];
     }
 
-    public function testPhoneByDecryptWechatReturnsNormalized(): void
+    public function testUserInfoByDecryptWechatReturnsProfile(): void
     {
         $union = $this->makeUnion();
 
         $payload = [
-            'phoneNumber'     => '13800138000',
-            'purePhoneNumber' => '13800138000',
-            'countryCode'     => '86',
-            'watermark'       => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
+            'nickName'  => 'TestUser',
+            'avatarUrl' => 'https://example.com/a.png',
+            'gender'    => 1,
+            'watermark' => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
         ];
 
         [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
-        $info = $union->phoneByDecrypt(Channel::WechatMini, $encrypted, $sessionKey, $iv);
+        $info = $union->userInfoByDecrypt(Channel::WechatMini, $encrypted, $sessionKey, $iv);
 
-        self::assertSame('13800138000', $info['phoneNumber']);
-        self::assertSame('13800138000', $info['purePhoneNumber']);
-        self::assertSame('86', $info['countryCode']);
-        // 原字段保留
+        self::assertSame('TestUser', $info['nickName']);
+        self::assertSame('https://example.com/a.png', $info['avatarUrl']);
         self::assertSame(self::APP_ID, $info['watermark']['appid']);
     }
 
-    public function testPhoneByDecryptLarkHexEncoding(): void
+    public function testUserInfoByDecryptLarkHexEncoding(): void
     {
         $union = $this->makeUnion();
 
         $payload = [
-            'phoneNumber' => '13800138000',
-            'countryCode' => '86',
+            'nickName'  => 'LarkUser',
+            'avatarUrl' => 'https://example.com/l.png',
         ];
 
         [$encrypted, $sessionKey, $iv] = $this->encryptLark($payload);
-        $info = $union->phoneByDecrypt(Channel::Lark, $encrypted, $sessionKey, $iv);
+        $info = $union->userInfoByDecrypt(Channel::Lark, $encrypted, $sessionKey, $iv);
 
-        self::assertSame('13800138000', $info['phoneNumber']);
-        self::assertSame('86', $info['countryCode']);
-        // Lark 明文无 purePhoneNumber / watermark，归一化兜底推导
-        self::assertSame('13800138000', $info['purePhoneNumber']);
+        self::assertSame('LarkUser', $info['nickName']);
     }
 
-    public function testPhoneByDecryptWechatWorkUsesAppIdWatermark(): void
+    public function testUserInfoByUserWechatCachedSessionKey(): void
     {
-        $union = $this->makeUnion();
-
-        $payload = [
-            'phoneNumber'     => '13800138000',
-            'purePhoneNumber' => '13800138000',
-            'countryCode'     => '86',
-            'watermark'       => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
-        ];
-
-        [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
-        $info = $union->phoneByDecrypt(Channel::WechatWork, $encrypted, $sessionKey, $iv);
-
-        self::assertSame('13800138000', $info['phoneNumber']);
-        self::assertSame('86', $info['countryCode']);
-    }
-
-    public function testPhoneByUserWechatCachedSessionKey(): void
-    {
-        $kernel = new \Kode\MiniApp\Kernel([
+        $kernel = new Kernel([
             'wechat' => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret'],
         ]);
         $union = $kernel->union();
@@ -165,53 +142,48 @@ class PhoneByDecryptTest extends TestCase
         \assert($wxApp instanceof WechatApp);
 
         $payload = [
-            'phoneNumber'     => '13800138000',
-            'purePhoneNumber' => '13800138000',
-            'countryCode'     => '86',
-            'watermark'       => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
+            'nickName'  => 'CachedUser',
+            'watermark' => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
         ];
 
         [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
         SessionKeyManager::for($wxApp->config())->store('openid-wx', $sessionKey);
 
-        $info = $union->phoneByUser(Channel::WechatMini, $encrypted, $iv, 'openid-wx');
+        $info = $union->userInfoByUser(Channel::WechatMini, $encrypted, $iv, 'openid-wx');
 
-        self::assertSame('13800138000', $info['phoneNumber']);
-        self::assertSame('86', $info['countryCode']);
+        self::assertSame('CachedUser', $info['nickName']);
     }
 
-    public function testPhoneByDecryptAlipayThrows(): void
+    public function testUserInfoByDecryptAlipayThrows(): void
     {
         $union = $this->makeUnion();
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('暂不支持 encryptedData 解密（手机号 / 用户资料）');
-        $union->phoneByDecrypt(Channel::AlipayMini, 'enc', 'sk', 'iv');
+        $union->userInfoByDecrypt(Channel::AlipayMini, 'enc', 'sk', 'iv');
     }
 
-    public function testPhoneByUserAlipayThrows(): void
+    public function testUserInfoByUserAlipayThrows(): void
     {
         $union = $this->makeUnion();
 
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('暂不支持 encryptedData 解密（手机号 / 用户资料）');
-        $union->phoneByUser(Channel::AlipayMini, 'enc', 'iv', 'openid');
+        $union->userInfoByUser(Channel::AlipayMini, 'enc', 'iv', 'openid');
     }
 
-    public function testPhoneByDecryptDouyin(): void
+    public function testUserInfoByDecryptDouyin(): void
     {
         $union = $this->makeUnion();
 
         $payload = [
-            'phoneNumber'     => '13800138000',
-            'purePhoneNumber' => '13800138000',
-            'countryCode'     => '86',
-            'watermark'       => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
+            'nickName'  => 'DouyinUser',
+            'watermark' => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
         ];
 
         [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
-        $info = $union->phoneByDecrypt(Channel::DouyinMini, $encrypted, $sessionKey, $iv);
+        $info = $union->userInfoByDecrypt(Channel::DouyinMini, $encrypted, $sessionKey, $iv);
 
-        self::assertSame('13800138000', $info['phoneNumber']);
+        self::assertSame('DouyinUser', $info['nickName']);
     }
 }

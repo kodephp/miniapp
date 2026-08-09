@@ -334,7 +334,7 @@ final class Union
         string $sessionKey,
         string $iv,
     ): array {
-        [$providerKey, $appClass] = $this->phoneDecryptChannel($channel);
+        [$providerKey, $appClass] = $this->decryptChannel($channel);
 
         /** @var PlatformInterface $provider */
         $provider = $this->kernelProvider($providerKey);
@@ -365,7 +365,7 @@ final class Union
      */
     public function phoneByUser(Channel $channel, string $encryptedData, string $iv, string $openId): array
     {
-        [$providerKey, $appClass] = $this->phoneDecryptChannel($channel);
+        [$providerKey, $appClass] = $this->decryptChannel($channel);
 
         /** @var PlatformInterface $provider */
         $provider = $this->kernelProvider($providerKey);
@@ -381,9 +381,72 @@ final class Union
     }
 
     /**
+     * 统一「encryptedData 解密获取用户资料」入口（显式 session_key）
+     *
+     * 与 {@see phoneByDecrypt()}（手机号）、{@see decrypt()}（通用 data）互为同族，
+     * 覆盖微信 / 抖音 / QQ / 百度 / 飞书 / 企业微信 六个端；支付宝走 `Union::alipay()->decrypt()->data()`
+     * （response + sign，无 encryptedData），不在本方法范围内。
+     *
+     * 返回各端原始用户资料数组（本路径返回资料而非手机号，故不做手机号归一化）。
+     *
+     * @param string $encryptedData 客户端回传的加密数据
+     * @param string $sessionKey    会话密钥（与加密时一致）
+     * @param string $iv            加密初始向量
+     *
+     * @throws InvalidArgumentException 渠道不支持 encryptedData 解密获取用户资料
+     * @return array<string, mixed>
+     */
+    public function userInfoByDecrypt(
+        Channel $channel,
+        string $encryptedData,
+        string $sessionKey,
+        string $iv,
+    ): array {
+        [$providerKey, $appClass] = $this->decryptChannel($channel);
+
+        /** @var PlatformInterface $provider */
+        $provider = $this->kernelProvider($providerKey);
+        $app      = $provider->app();
+        if (!$app instanceof $appClass) {
+            throw new \RuntimeException("[{$providerKey}] Provider 实例类型异常，无法解密用户资料");
+        }
+
+        return $app->decrypt()->userInfo($encryptedData, $sessionKey, $iv);
+    }
+
+    /**
+     * 统一「encryptedData 解密获取用户资料」入口（自动取用登录托管的 session_key）
+     *
+     * 与 {@see userInfoByDecrypt()} 的区别：无需手动传 session_key，只要该用户此前已通过
+     * 登录接口（code2session）缓存过 session_key，传入其 openid 即可自动取回密钥完成解密。
+     *
+     * @param string $encryptedData 客户端回传的加密数据
+     * @param string $iv            加密初始向量
+     * @param string $openId        用户 openid（用于取回托管的 session_key）
+     *
+     * @throws InvalidArgumentException 渠道不支持 encryptedData 解密获取用户资料
+     * @return array<string, mixed>
+     */
+    public function userInfoByUser(Channel $channel, string $encryptedData, string $iv, string $openId): array
+    {
+        [$providerKey, $appClass] = $this->decryptChannel($channel);
+
+        /** @var PlatformInterface $provider */
+        $provider = $this->kernelProvider($providerKey);
+        $app      = $provider->app();
+        if (!$app instanceof $appClass) {
+            throw new \RuntimeException("[{$providerKey}] Provider 实例类型异常，无法解密用户资料");
+        }
+
+        return $app->decrypt()->userInfoByUser($encryptedData, $iv, $openId);
+    }
+
+    /**
+     * 统一「encryptedData 解密」分派（data / phone / userInfo 共用）
+     *
      * @return array{0:string, 1:class-string<WechatApp>|class-string<DouyinApp>|class-string<BaiduApp>|class-string<LarkApp>|class-string<QqApp>|class-string<WechatWorkApp>}
      */
-    private function phoneDecryptChannel(Channel $channel): array
+    private function decryptChannel(Channel $channel): array
     {
         return match ($channel) {
             Channel::WechatMini, Channel::WechatMp, Channel::WechatApp => ['wechat', WechatApp::class],
@@ -393,7 +456,7 @@ final class Union
             Channel::Qq => ['qq', QqApp::class],
             Channel::WechatWork => ['wechat_work', WechatWorkApp::class],
             default => throw new InvalidArgumentException(
-                "渠道 [{$channel->value}] 暂不支持 encryptedData 解密获取手机号",
+                "渠道 [{$channel->value}] 暂不支持 encryptedData 解密（手机号 / 用户资料）",
             ),
         };
     }

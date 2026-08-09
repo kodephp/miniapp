@@ -494,7 +494,33 @@ $info = $kernel->union()->phoneByUser(
 | 抖音私钥无效、密文非法 base64、长度不匹配或解密失败 | 抛 `ApiException` |
 | 抖音 `watermark.appid` 与当前小程序不符 | 抛 `ApiException` |
 
-> 端到端测试：`tests/Providers/Wechat/PhoneTest.php`（成功换取、命中官方接口并携带 access_token、openid 透传 / 空 openid 不下发、两个便捷方法、空 code 前置拦截、errcode 非 0、缺 `phone_info`、字段不完整）、`tests/Providers/Douyin/PhoneTest.php`（现场生成 RSA 密钥对造真实密文：解密成功、命中官方接口并携带 `access-token`、client_token 用 `client_credential` 且命中缓存 / 清缓存后重取、两个便捷方法、空 code、未配私钥、`err_no` 非 0、空密文、watermark 不符 / 缺失、字段不完整、私钥不匹配）、`tests/Core/Crypto/RsaPkcs1Test.php`（真实密钥对 round-trip、多块分段、纯 Base64 私钥、空 / 非法私钥、非法 base64、长度不匹配、异密钥对、非 JSON 明文）、`tests/Union/PhoneByCodeTest.php`（微信 / 抖音分派成功 + openid 透传与忽略 + 不支持渠道抛错）。
+> 端到端测试：`tests/Providers/Wechat/PhoneTest.php`（成功换取、命中官方接口并携带 access_token、openid 透传 / 空 openid 不下发、两个便捷方法、空 code 前置拦截、errcode 非 0、缺 `phone_info`、字段不完整）、`tests/Providers/Douyin/PhoneTest.php`（现场生成 RSA 密钥对造真实密文：解密成功、命中官方接口并携带 `access-token`、client_token 用 `client_credential` 且命中缓存 / 清缓存后重取、两个便捷方法、空 code、未配私钥、`err_no` 非 0、空密文、watermark 不符 / 缺失、字段不完整、私钥不匹配）、`tests/Core/Crypto/RsaPkcs1Test.php`（真实密钥对 round-trip、多块分段、纯 Base64 私钥、空 / 非法私钥、非法 base64、长度不匹配、异密钥对、非 JSON 明文）、`tests/Union/PhoneByCodeTest.php`（微信 / 抖音分派成功 + openid 透传与忽略 + 不支持渠道抛错）、`tests/Union/PhoneByDecryptTest.php`（微信 / 飞书 / 企业微信 / 抖音分派成功 + 归一化结构 + 缓存 session_key 一站式 + 支付宝两入口抛错）。
+
+### 统一加密用户资料入口（encryptedData，旧版路径）
+
+若前端回传的是 `encryptedData` + `iv`（`<button open-type="getUserProfile">` 或 `getUserInfo` 回调的加密资料），可用与 `phoneByDecrypt()` 对称的统一入口：
+
+| 渠道 | Union 入口 | 说明 |
+| --- | --- | --- |
+| 微信 / 抖音 / QQ / 百度 / 飞书 / 企业微信 | `Union::userInfoByDecrypt($channel, $encryptedData, $sessionKey, $iv)` | 显式传入 `session_key` 解密 |
+| 同上 | `Union::userInfoByUser($channel, $encryptedData, $iv, $openId)` | 自动取用登录阶段托管的 `session_key`，无需手动传入 |
+
+两方法返回各端**原始用户资料数组**（昵称 / 头像 / 性别等），不做手机号归一化（与 `decrypt()` 的 data 路径同族）。支付宝不在覆盖范围内（其无 `encryptedData` / `session_key`），调用会抛 `InvalidArgumentException`。
+
+```php
+// 显式 session_key
+$profile = $kernel->union()->userInfoByDecrypt(
+    Channel::WechatMini, $encryptedData, $sessionKey, $iv
+);
+$profile['nickName'];   // TestUser
+
+// 缓存 session_key（登录时已托管）
+$profile = $kernel->union()->userInfoByUser(
+    Channel::WechatMini, $encryptedData, $iv, $openId
+);
+```
+
+> 端到端测试：`tests/Union/UserInfoByDecryptTest.php`（微信 / 飞书 / 企业微信 / 抖音分派成功 + 原始字段保留 + 缓存 session_key 一站式 + 支付宝两入口抛错）。
 
 ## 自定义适配器（业务扩展）
 
