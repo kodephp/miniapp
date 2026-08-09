@@ -709,8 +709,52 @@ $info  = Union::userInfoObjectForUser($user, $encryptedData, $iv); // 同样免�
 $order = $kernel->union()->wechat()->pay()->unifiedOrder([/* ... */]);
 
 // 推荐：支付能力统一走 kode/pays
-// 详见 https://github.com/kode-lab/pays
+// 详见 https://github.com/kodephp/pays
 ```
+
+### kode/pays 桥接（可选、健壮支付）
+
+如果既想保留 miniapp 的统一入口，又想直接获得 `kode/pays` 的健壮能力（V3 签名、回调验签 `verifyNotify`、退款 `RefundPlugin`、对账、沙箱、事件），可以用**桥接适配器**——它实现与 `PayAdapter` 完全相同的 `unifiedOrder(array):array` 契约，返回平台原始数组，因此**业务侧调用方式零改动**。
+
+> ⚠️ `kode/pays` 为**可选依赖**：本包不强制 `require`。未安装时桥接适配器会在调用时抛出清晰异常，回退到上面的基础支付适配器即可。
+
+```php
+// 1) 一行切换：用 Kernel 中已配置的凭证自动拼装 kode/pays config
+//    需要先在业务项目 composer require kode/pays
+$order = $kernel->union()->wechat()->payViaPays()->unifiedOrder([
+    'out_trade_no' => 'ORDER_' . time(),
+    'body'         => '商品',
+    'total_fee'    => 100,      // 分
+    'openid'       => 'USER_OPENID',
+]);
+
+// 2) 自定义凭证来源（单独维护 kode/pays config 时）
+use Kode\MiniApp\Union\Bridge\PaysBridge;
+use Kode\MiniApp\Union\Channel;
+
+$pay = PaysBridge::adapter(Channel::WechatMini, static fn () => [
+    'app_id'  => 'wx...',
+    'mch_id'  => '...',
+    'api_key' => '...',         // 微信 v2 商户密钥
+]);
+$order = $pay->unifiedOrder([/* ... */]);
+
+// 运行时判断 kode/pays 是否就绪
+if (PaysBridge::available()) {
+    $pay = $kernel->union()->wechat()->payViaPays();
+}
+```
+
+桥接器做的关键字段映射（默认 `kernelResolver`）：
+
+| miniapp 字段 | kode/pays 字段 | 说明 |
+| --- | --- | --- |
+| `app_id` / `mch_id` | `app_id` / `mch_id` | 同名透传 |
+| `key` | `api_key` | 微信 v2 商户密钥，字段名不同 |
+| `api_v3_key` / `cert_path` / `key_path` | 同名 | 仅非空时透传 |
+| `app_id` / `private_key` / `public_key` / `sandbox` | 同名 | 支付宝 |
+
+覆盖渠道：默认 resolver 支持**微信 / 支付宝**（kode/pays 文档已确认 `Pay::wechat()` / `Pay::alipay()`）；抖音 / QQ 的 kode/pays 配置字段尚未经源码核实，请使用 `PaysBridge::adapter()` 注入自定义 resolver。
 
 ## 自定义适配器（业务扩展）
 

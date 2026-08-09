@@ -12,6 +12,7 @@ use Kode\MiniApp\Session\SessionManager;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\LoginAdapter;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
+use Kode\MiniApp\Union\Bridge\PaysBridge;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
 use Kode\MiniApp\Union\Contracts\UserAdapter;
 use Kode\MiniApp\Union\Union;
@@ -186,6 +187,23 @@ abstract class PlatformUnion
     public function unifiedOrder(array $order, ?string $scene = null): array
     {
         return $this->pay($scene)->unifiedOrder($order);
+    }
+
+    /**
+     * 统一支付适配器（kode/pays 桥接 / 健壮支付）
+     *
+     * 委托企业级聚合支付 SDK kode/pays 完成下单。需 `composer require kode/pays`；
+     * 未安装时调用会抛清晰异常，可回退到 {@see self::pay()}（基础支付适配器）。
+     * 返回结构与 {@see self::pay()} 一致（平台原始数组）。
+     *
+     * @see \Kode\MiniApp\Union\Bridge\PaysBridge
+     */
+    public function payViaPays(?string $scene = null): PayAdapter
+    {
+        $channel = $scene !== null
+            ? $this->channelForScene($scene)
+            : $this->defaultPayChannel();
+        return $this->union->payViaPays($channel);
     }
 
     /**

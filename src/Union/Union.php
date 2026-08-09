@@ -21,6 +21,7 @@ use Kode\MiniApp\Union\Contracts\LoginAdapter;
 use Kode\MiniApp\Union\UnionPhone;
 use Kode\MiniApp\Union\UnionUser;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
+use Kode\MiniApp\Union\Bridge\PaysBridge;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
 use Kode\MiniApp\Union\Contracts\UserAdapter;
 use Kode\MiniApp\Union\Platforms\AlipayUnion;
@@ -690,6 +691,20 @@ final class Union
     public function pay(Channel $channel): PayAdapter
     {
         return $this->payAdapter($channel);
+    }
+
+    /**
+     * 获取「kode/pays 桥接」支付适配器（健壮支付）
+     *
+     * 委托企业级聚合支付 SDK kode/pays 完成下单（V3 签名、回调验签、退款、对账、沙箱、事件等）。
+     * 需要 `composer require kode/pays`；未安装时适配器调用会抛清晰异常，回退到 {@see self::pay()} 即可。
+     * 返回结构与 {@see self::pay()} 一致（平台原始数组），业务侧无需改动。
+     *
+     * @see \Kode\MiniApp\Union\Bridge\PaysBridge
+     */
+    public function payViaPays(Channel $channel): PayAdapter
+    {
+        return PaysBridge::adapterForKernel($channel, $this->kernel);
     }
 
     /**
