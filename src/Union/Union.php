@@ -993,6 +993,7 @@ final class Union
             Channel::AlipayApp    => "{$namespace}\\Alipay\\AlipayPayAdapter",
             Channel::DouyinMini   => "{$namespace}\\Douyin\\DouyinPayAdapter",
             Channel::BaiduMini    => "{$namespace}\\Baidu\\BaiduPayAdapter",
+            Channel::Qq           => "{$namespace}\\Qq\\QqPayAdapter",
             default               => throw new InvalidArgumentException(
                 "渠道 [{$channel->label()}] 不支持支付"
             ),
