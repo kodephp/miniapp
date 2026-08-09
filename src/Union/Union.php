@@ -9,6 +9,7 @@ use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Providers\Baidu\BaiduApp;
 use Kode\MiniApp\Providers\Douyin\DouyinApp;
+use Kode\MiniApp\Providers\Lark\LarkApp;
 use Kode\MiniApp\Providers\Qq\QqApp;
 use Kode\MiniApp\Providers\Wechat\WechatApp;
 use Kode\MiniApp\Session\SessionManager;
@@ -189,6 +190,7 @@ final class Union
             Channel::WechatMini, Channel::WechatMp, Channel::WechatApp => ['wechat', WechatApp::class],
             Channel::DouyinMini, Channel::DouyinMp => ['douyin', DouyinApp::class],
             Channel::BaiduMini => ['baidu', BaiduApp::class],
+            Channel::Lark => ['lark', LarkApp::class],
             Channel::Qq => ['qq', QqApp::class],
             default => throw new InvalidArgumentException(
                 "渠道 [{$channel->value}] 暂不支持客户端敏感数据解密",
@@ -223,6 +225,7 @@ final class Union
             Channel::WechatMini, Channel::WechatMp, Channel::WechatApp => ['wechat', WechatApp::class],
             Channel::DouyinMini, Channel::DouyinMp => ['douyin', DouyinApp::class],
             Channel::BaiduMini => ['baidu', BaiduApp::class],
+            Channel::Lark => ['lark', LarkApp::class],
             Channel::Qq => ['qq', QqApp::class],
             default => throw new InvalidArgumentException(
                 "渠道 [{$channel->value}] 暂不支持客户端敏感数据解密",

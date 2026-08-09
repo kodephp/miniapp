@@ -14,6 +14,7 @@ use Kode\MiniApp\Providers\Lark\Modules\Auth;
 use Kode\MiniApp\Providers\Lark\Modules\Bitable;
 use Kode\MiniApp\Providers\Lark\Modules\Calendar;
 use Kode\MiniApp\Providers\Lark\Modules\Contact;
+use Kode\MiniApp\Providers\Lark\Modules\Decrypt;
 use Kode\MiniApp\Providers\Lark\Modules\Doc;
 use Kode\MiniApp\Providers\Lark\Modules\Mail;
 use Kode\MiniApp\Providers\Lark\Modules\Message;
@@ -36,6 +37,7 @@ final readonly class LarkApp implements AppInterface
     private Wiki $wiki;
     private ApprovalDef $approvalDef;
     private Mail $mail;
+    private Decrypt $decrypt;
 
     public function __construct(
         private string $name,
@@ -54,6 +56,7 @@ final readonly class LarkApp implements AppInterface
         $this->wiki     = new Wiki($this);
         $this->approvalDef = new ApprovalDef($this);
         $this->mail     = new Mail($this);
+        $this->decrypt  = new Decrypt($this);
     }
 
     #[\Override]
@@ -133,5 +136,16 @@ final readonly class LarkApp implements AppInterface
     public function mail(): Mail
     {
         return $this->mail;
+    }
+
+    /**
+     * 客户端敏感数据解密（encryptedData + session_key）
+     *
+     * 适用于 tt.getPhoneNumber 返回的加密数据。
+     * 飞书 session_key / iv 采用 hex 编码，且解密结果不含 watermark（默认关闭 appid 校验）。
+     */
+    public function decrypt(): Decrypt
+    {
+        return $this->decrypt;
     }
 }

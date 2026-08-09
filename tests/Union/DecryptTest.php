@@ -10,6 +10,7 @@ use Kode\MiniApp\Core\SessionKeyManager;
 use Kode\MiniApp\Kernel;
 use Kode\MiniApp\Providers\Baidu\BaiduApp;
 use Kode\MiniApp\Providers\Douyin\DouyinApp;
+use Kode\MiniApp\Providers\Lark\LarkApp;
 use Kode\MiniApp\Providers\Qq\QqApp;
 use Kode\MiniApp\Providers\Wechat\WechatApp;
 use Kode\MiniApp\Tests\TestCase;
@@ -39,6 +40,10 @@ class DecryptTest extends TestCase
                 'app_secret' => 'app-secret',
             ],
             'baidu' => [
+                'app_id'     => self::APP_ID,
+                'app_secret' => 'app-secret',
+            ],
+            'lark' => [
                 'app_id'     => self::APP_ID,
                 'app_secret' => 'app-secret',
             ],
@@ -77,6 +82,28 @@ class DecryptTest extends TestCase
         $iv         = base64_encode(random_bytes(16));
         $key        = base64_decode($sessionKey, true);
         $vec        = base64_decode($iv, true);
+        \assert(is_string($key) && is_string($vec));
+
+        $plain  = json_encode($payload);
+        \assert(is_string($plain));
+        $cipher = openssl_encrypt($plain, 'aes-128-cbc', $key, OPENSSL_RAW_DATA, $vec);
+        \assert(is_string($cipher));
+
+        return [base64_encode($cipher), $sessionKey, $iv];
+    }
+
+    /**
+     * 按飞书官方算法生成一段 encryptedData（session_key / iv 为 hex 编码）
+     *
+     * @param array<string, mixed> $payload
+     * @return array{0:string,1:string,2:string}
+     */
+    private function encryptLark(array $payload): array
+    {
+        $sessionKey = bin2hex(random_bytes(16));
+        $iv         = bin2hex(random_bytes(16));
+        $key        = hex2bin($sessionKey);
+        $vec        = hex2bin($iv);
         \assert(is_string($key) && is_string($vec));
 
         $plain  = json_encode($payload);
@@ -162,6 +189,21 @@ class DecryptTest extends TestCase
         self::assertSame('BaiduUser', $data['nickName']);
     }
 
+    public function testUnionDecryptLark(): void
+    {
+        $union = $this->makeUnion();
+
+        $payload = [
+            'phoneNumber' => '13800138000',
+            'countryCode' => '86',
+        ];
+
+        [$encrypted, $sessionKey, $iv] = $this->encryptLark($payload);
+        $data = $union->decrypt(Channel::Lark, $encrypted, $sessionKey, $iv);
+
+        self::assertSame('13800138000', $data['phoneNumber']);
+    }
+
     public function testUnionAlipayDecryptPhone(): void
     {
         $aesKey  = random_bytes(16);
@@ -204,6 +246,7 @@ class DecryptTest extends TestCase
             'douyin' => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
             'qq'     => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
             'baidu'  => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
+            'lark'   => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
         ]);
         $union = $kernel->union();
 
@@ -239,6 +282,13 @@ class DecryptTest extends TestCase
         \assert($bdApp instanceof BaiduApp);
         SessionKeyManager::for($bdApp->config())->store('openid-bd', $bdSk);
         self::assertSame('Band', $union->decryptByUser(Channel::BaiduMini, $bdEnc, $bdIv, 'openid-bd')['nickName']);
+
+        // 飞书（hex 编码的 session_key）
+        [$lkEnc, $lkSk, $lkIv] = $this->encryptLark($payload);
+        $lkApp = $kernel->lark()->app();
+        \assert($lkApp instanceof LarkApp);
+        SessionKeyManager::for($lkApp->config())->store('openid-lk', $lkSk);
+        self::assertSame('Band', $union->decryptByUser(Channel::Lark, $lkEnc, $lkIv, 'openid-lk')['nickName']);
     }
 
     public function testUnionDecryptByUserMissingCacheThrows(): void
