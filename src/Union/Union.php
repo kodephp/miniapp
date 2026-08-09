@@ -18,6 +18,7 @@ use Kode\MiniApp\Providers\Wechat\WechatApp;
 use Kode\MiniApp\Providers\WechatWork\WechatWorkApp;
 use Kode\MiniApp\Session\SessionManager;
 use Kode\MiniApp\Union\Contracts\LoginAdapter;
+use Kode\MiniApp\Union\UnionPhone;
 use Kode\MiniApp\Union\UnionUser;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
@@ -445,6 +446,78 @@ final class Union
         }
 
         return $app->decrypt()->phone($response, $sign);
+    }
+
+    /**
+     * 手机号快速验证：code 换手机号，并直接收敛为 UnionPhone 对象
+     *
+     * 与 {@see phoneByCode()}（返回数组）的唯一区别：在换取 + 归一化之后，进一步把结果
+     * 收敛为与 {@see UnionPhone} 强类型值对象，业务侧无需再手写数组取值。
+     * 分派逻辑、覆盖范围、不支持渠道抛错行为均与 {@see phoneByCode()} 一致（底层复用之）。
+     *
+     * @param string      $code   前端动态令牌（5 分钟内有效、仅可消费一次）
+     * @param string|null $openId 可选，用户 openid（仅微信接受该选填参数，抖音接口不需要）
+     *
+     * @throws InvalidArgumentException 渠道不支持 code 换手机号
+     */
+    public function phoneObjectByCode(Channel $channel, string $code, ?string $openId = null): UnionPhone
+    {
+        return UnionPhone::fromArray($this->phoneByCode($channel, $code, $openId));
+    }
+
+    /**
+     * 统一「encryptedData 解密获取手机号」入口，并直接收敛为 UnionPhone 对象
+     *
+     * 与 {@see phoneByDecrypt()}（返回数组）的唯一区别：收敛为 {@see UnionPhone} 值对象。
+     * 分派逻辑、覆盖范围、不支持渠道抛错行为均与 {@see phoneByDecrypt()} 一致（底层复用之）。
+     *
+     * @param string $encryptedData 客户端回传的加密数据
+     * @param string $sessionKey    会话密钥（与加密时一致）
+     * @param string $iv            加密初始向量
+     *
+     * @throws InvalidArgumentException 渠道不支持 encryptedData 解密获取手机号
+     */
+    public function phoneObjectByDecrypt(
+        Channel $channel,
+        string $encryptedData,
+        string $sessionKey,
+        string $iv,
+    ): UnionPhone {
+        return UnionPhone::fromArray($this->phoneByDecrypt($channel, $encryptedData, $sessionKey, $iv));
+    }
+
+    /**
+     * 统一「encryptedData 解密获取手机号」入口（自动取用登录托管的 session_key），收敛为 UnionPhone
+     *
+     * 与 {@see phoneObjectByDecrypt()} 的区别：无需手动传 session_key，只要该用户此前已通过
+     * 登录接口（code2session）缓存过 session_key，传入其 openid 即可自动取回密钥完成解密，
+     * 随后收敛为 {@see UnionPhone} 值对象。其余行为同 {@see phoneObjectByDecrypt()}。
+     *
+     * @param string $encryptedData 客户端回传的加密数据
+     * @param string $iv            加密初始向量
+     * @param string $openId        用户 openid（用于取回托管的 session_key）
+     *
+     * @throws InvalidArgumentException 渠道不支持 encryptedData 解密获取手机号
+     */
+    public function phoneObjectByUser(Channel $channel, string $encryptedData, string $iv, string $openId): UnionPhone
+    {
+        return UnionPhone::fromArray($this->phoneByUser($channel, $encryptedData, $iv, $openId));
+    }
+
+    /**
+     * 统一「支付宝 response + sign 换取手机号」入口，并直接收敛为 UnionPhone 对象
+     *
+     * 与 {@see phoneByResponse()}（返回数组）的唯一区别：收敛为 {@see UnionPhone} 值对象。
+     * 验签（传入 sign 时）/ 解密 / 覆盖范围 / 抛错行为均与 {@see phoneByResponse()} 一致（底层复用之）。
+     *
+     * @param string      $response 前端回传的加密 response（base64）
+     * @param string|null $sign     可选，前端回传的 RSA2 签名（强烈建议传入）
+     *
+     * @throws InvalidArgumentException 渠道不是支付宝（仅支付宝使用 response + sign 方式）
+     */
+    public function phoneObjectByResponse(Channel $channel, string $response, ?string $sign = null): UnionPhone
+    {
+        return UnionPhone::fromArray($this->phoneByResponse($channel, $response, $sign));
     }
 
     /**

@@ -518,6 +518,31 @@ $info['countryCode'];     // 86
 
 > 端到端测试：`tests/Providers/Wechat/PhoneTest.php`（成功换取、命中官方接口并携带 access_token、openid 透传 / 空 openid 不下发、两个便捷方法、空 code 前置拦截、errcode 非 0、缺 `phone_info`、字段不完整）、`tests/Providers/Douyin/PhoneTest.php`（现场生成 RSA 密钥对造真实密文：解密成功、命中官方接口并携带 `access-token`、client_token 用 `client_credential` 且命中缓存 / 清缓存后重取、两个便捷方法、空 code、未配私钥、`err_no` 非 0、空密文、watermark 不符 / 缺失、字段不完整、私钥不匹配）、`tests/Core/Crypto/RsaPkcs1Test.php`（真实密钥对 round-trip、多块分段、纯 Base64 私钥、空 / 非法私钥、非法 base64、长度不匹配、异密钥对、非 JSON 明文）、`tests/Union/PhoneByCodeTest.php`（微信 / 抖音分派成功 + openid 透传与忽略 + 不支持渠道抛错）、`tests/Union/PhoneByDecryptTest.php`（微信 / 飞书 / 企业微信 / 抖音分派成功 + 归一化结构 + 缓存 session_key 一站式 + 支付宝两入口抛错）、`tests/Union/PhoneByResponseTest.php`（支付宝 mini / mp / app 真实 AES 解密 + 验签通过 + 错误 sign 抛 ApiException + 非支付宝渠道抛 InvalidArgumentException）。
 
+### 手机号收敛为 UnionPhone 值对象
+
+若业务侧希望直接拿到强类型手机号对象（而非数组），可使用下列入口——它们与 `phoneByCode / phoneByDecrypt / phoneByUser / phoneByResponse` 一一对应，在「换取 + 归一化」之后进一步收敛为 `UnionPhone` 值对象，省去手写数组取值：
+
+| 入口 | 对应数组入口 | 说明 |
+| --- | --- | --- |
+| `Union::phoneObjectByCode($channel, $code, ?$openId)` | `phoneByCode` | 微信 / 抖音 code 换手机号 |
+| `Union::phoneObjectByDecrypt($channel, $encryptedData, $sessionKey, $iv)` | `phoneByDecrypt` | 显式 session_key 解密 |
+| `Union::phoneObjectByUser($channel, $encryptedData, $iv, $openId)` | `phoneByUser` | 缓存 session_key 一站式解密 |
+| `Union::phoneObjectByResponse($channel, $response, ?$sign)` | `phoneByResponse` | 支付宝 response + sign |
+
+```php
+$phone = $kernel->union()->phoneObjectByDecrypt(
+    Channel::WechatMini, $encryptedData, $sessionKey, $iv
+);
+$phone->phoneNumber;     // 13800138000
+$phone->purePhoneNumber; // 13800138000
+$phone->countryCode;    // 86
+$phone->toArray();      // ['phoneNumber' => ..., 'purePhoneNumber' => ..., 'countryCode' => ...]
+```
+
+> `UnionPhone` 与 {@see UnionUser}（用户资料）对称，是「统一敏感数据」三族（data / phone / userInfo）中 phone 路径的强类型收口。缺失字段兜底为空字符串，绝不抛异常。
+
+
+
 ### 统一加密用户资料入口（encryptedData，旧版路径）
 
 若前端回传的是 `encryptedData` + `iv`（`<button open-type="getUserProfile">` 或 `getUserInfo` 回调的加密资料），可用与 `phoneByDecrypt()` 对称的统一入口：
