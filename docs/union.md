@@ -625,6 +625,74 @@ $info  = Union::userInfoObjectForUser($user, $encryptedData, $iv); // 同样免�
 
 > 端到端测试：`tests/Union/UnionUserBridgeTest.php`（phone / userInfo 一键解密 + unionId 透传 + 不支持渠道抛错）。
 
+## 各端 userInfo 字段差异对照表
+
+「用户资料」有两条独立链路，字段语义**并不相同**，业务侧需按数据来源区分消费：
+
+- **encryptedData 解密链路**：客户端回传加密密文，服务端用 `session_key` 解密。6 个对称端（微信 / 抖音 / QQ / 百度 / 飞书 / 企业微信）的 `Decrypt::userInfo()` 均为**纯透传**，明文结构完全由客户端上报内容决定。支付宝无此入口（`Union::userInfoByDecrypt()` 对其抛 `InvalidArgumentException`）。
+- **profile 拉取链路**：服务端调各端真实接口拿资料，经 `UnionUser::fromRaw()` 归一化。各端接口字段命名天差地别（camelCase / snake_case / 下划线 / 嵌套对象）。
+
+### 1. encryptedData 解密：明文 raw 字段对照
+
+| 字段 | 微信 | 企业微信 | 百度 | QQ | 抖音 | 飞书 |
+| --- | :--: | :--: | :--: | :--: | :--: | :--: |
+| `nickName` | ✅ | ✅ | ✅ | ✅ | ✅ | —（用 `name`） |
+| `avatarUrl` | ✅ | ✅ | ✅ | ✅ | ✅ | — |
+| `gender`（int） | ✅ `1` | ✅ `1` | ✅ `1` | ✅ `1` | ✅ `1` | — |
+| `language` | ✅ | ✅ | ✅ | — | — | — |
+| `city` / `province` / `country` | ✅ | ✅ | ✅ | — | — | — |
+| `watermark{appid,timestamp}` | ✅ | ✅（appId 非 corpid） | ✅ | ✅ | ✅ | —（无） |
+| `name` / `openId`（独有） | — | — | — | — | — | ✅ `name`+`openId` |
+
+> - 微信 / 企业微信 / 百度逐字段一致（除语言 / 地区），均兼容微信 `getUserInfo`。QQ / 抖音仅含 `nickName` / `avatarUrl` / `gender` / `watermark`。
+> - **飞书是异类**：key/iv 用 hex 编码、无 `watermark`、明文是 `name`+`openId`（无头像 / 性别 / 地区）。
+> - **企业微信** `watermark.appid` 是**小程序 appId 而非 corpid**（v1.30.0 修过 bug，用 corpid 校验会误判）。
+
+### 2. profile 拉取：raw → canonical 映射对照
+
+| 平台 | 昵称 raw | 头像 raw | gender raw | unionId 来源 | raw 包封层级 |
+| --- | --- | --- | --- | --- | --- |
+| 微信 mp / h5 / app / pc | `nickname` | `headimgurl` | `sex`(int)→`male` | `unionid` | `toArray()`（含协议噪声） |
+| 微信小程序 | `unionId` / `unionid`（客户端 raw） | `avatarUrl` | — | 客户端 raw | 直接 raw |
+| 抖音 | `nick_name` | `avatar` | `gender`(`男`) | `union_id` | `array('data')` |
+| QQ | `nickname` | `figureurl_qq_2` | `gender`(`男`) | —（硬编码空） | `toArray()` |
+| 百度 | `nickname` | `headimgurl` | `sex`(int)→`male` | —（硬编码空） | `array('data')` |
+| 企业微信 | `name` | `avatar` | — | —（硬编码空） | `toArray()` |
+| 支付宝 | `nick_name` | `avatar` | — | —（硬编码空） | `array('alipay_user_info_share_response')` |
+| 钉钉 | `name` | `avatar` | — | raw 有但被丢弃 | `array('result')` |
+| 飞书 | `name.zh_cn`（嵌套拍平为 `nick_name`） | `avatar.avatar_origin`（拍平为 `avatar_url`） | — | `union_id` | `array('data')` |
+
+> 飞书是唯一需 `normalize()` 拍平嵌套对象的端（`contact/v3/users` 返回 `name{zh_cn,en_us}` / `avatar{origin,240,72}`）；若不拍平，昵称与头像会被 `str()` 因「非字符串」静默跳过而全丢。
+
+### 3. gender 两条链路结果不一致（重点坑）
+
+| 场景 | 输入 | profile 链路 `fromRaw()` | decrypt 链路 `fromDecryptedUserInfo()` |
+| --- | --- | --- | --- |
+| 百度 / 微信 profile `sex=1` | `1`（int） | `'male'` | — |
+| decrypt `gender=1` | `1`（int） | — | `'1'` |
+| 字符串 `'1'` | `'1'` | `'1'`（不映射） | `'1'` |
+
+> 同一份 `gender=1` 走两条链路得到 `'male'` 与 `'1'`，这是**设计取舍而非 bug**：profile 链路 `UnionUser::str()` 对 int 枚举映射；decrypt 链路 `normalizeGender()` 仅「透传 + int→string」，**绝不**枚举映射（避免臆测各端 gender 编码，参见 v1.34.0）。消费时务必按数据来源区分。
+
+### 4. unionId 供给能力
+
+| 平台 | 能否拿到 unionId | 备注 |
+| --- | :--: | --- |
+| 微信全系 | ✅ | raw `unionid` / 小程序 raw `unionId` |
+| 抖音 | ✅ | `union_id` |
+| 飞书 | ✅ | `union_id` |
+| QQ / 百度 / 支付宝 / 企业微信 | ❌ | 接口本不返回，硬编码空 |
+| 钉钉 | ⚠️ 接口返回但被丢弃 | raw 含 `unionid`，`DingtalkUserAdapter` 写死 `''`，需从 `$user->raw['unionid']` 取 |
+
+### 5. 已知差异 / 坑汇总
+
+- **`language` 对象链路丢失**：decrypt 数组入口（`userInfoByDecrypt`）返回含 `language`，但对象入口（`userInfoObjectByDecrypt` → `UnionUser`）因 `UnionUser` 无该属性而**丢弃**，只能从 `$user->raw['language']` 取。
+- **钉钉 `unionid` 静默丢弃**（见上表）。
+- **`sex` 优先于 `gender`**：映射列表 `['sex','gender']`，若 raw 同时含两键，`sex` 胜出。
+- **字符串型数字不映射**：raw 为 `'1'`（字符串）时直接透传，拿不到 `'male'`。企业微信 `/user/get` 真实 gender 即字符串 `"1"`/`"2"`，一旦补该字段会走「字符串透传」，与微信 int 映射结果不同。
+- **飞书 profile 必须拍平**：见 §2 注。
+- **raw 包封层级三种**：`array('data')` / `array('result')` / `array('alipay_..._response')` / `toArray()`（混入 `errcode`/`ret`/`msg` 等协议噪声），遍历 `raw` 时需留意。
+
 ## 自定义适配器（业务扩展）
 
 ```php
