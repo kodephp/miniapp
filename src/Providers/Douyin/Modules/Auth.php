@@ -6,6 +6,7 @@ namespace Kode\MiniApp\Providers\Douyin\Modules;
 
 use Kode\MiniApp\Contracts\Platform;
 use Kode\MiniApp\Core\ApiResponse;
+use Kode\MiniApp\Core\SessionKeyManager;
 use Kode\MiniApp\Core\TokenManager;
 use Kode\MiniApp\Core\TokenResult;
 use Kode\MiniApp\Providers\Douyin\DouyinApp;
@@ -45,9 +46,17 @@ readonly class Auth
         ]);
 
         /** @var array<string, mixed> */
-        return ApiResponse::fromPsr($response, Platform::Douyin)
+        $data = ApiResponse::fromPsr($response, Platform::Douyin)
             ->throwIfFailed('抖音登录')
             ->array('data');
+
+        $openId     = (string) ($data['openid'] ?? '');
+        $sessionKey = (string) ($data['session_key'] ?? '');
+        if ($openId !== '' && $sessionKey !== '') {
+            SessionKeyManager::for($config)->store($openId, $sessionKey);
+        }
+
+        return $data;
     }
 
     /**

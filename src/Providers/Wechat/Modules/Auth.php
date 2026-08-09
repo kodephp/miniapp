@@ -6,6 +6,7 @@ namespace Kode\MiniApp\Providers\Wechat\Modules;
 
 use Kode\MiniApp\Contracts\Platform;
 use Kode\MiniApp\Core\ApiResponse;
+use Kode\MiniApp\Core\SessionKeyManager;
 use Kode\MiniApp\Core\TokenManager;
 use Kode\MiniApp\Core\TokenResult;
 use Kode\MiniApp\Providers\Wechat\WechatApp;
@@ -45,9 +46,17 @@ readonly class Auth
             ],
         ]);
 
-        return ApiResponse::fromPsr($response, Platform::Wechat)
+        $result = ApiResponse::fromPsr($response, Platform::Wechat)
             ->throwIfFailed('微信登录')
             ->toArray();
+
+        $openId     = (string) ($result['openid'] ?? '');
+        $sessionKey = (string) ($result['session_key'] ?? '');
+        if ($openId !== '' && $sessionKey !== '') {
+            SessionKeyManager::for($config)->store($openId, $sessionKey);
+        }
+
+        return $result;
     }
 
     /**

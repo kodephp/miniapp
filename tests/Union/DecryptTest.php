@@ -5,7 +5,12 @@ declare(strict_types=1);
 namespace Kode\MiniApp\Tests\Union;
 
 use InvalidArgumentException;
+use Kode\MiniApp\Core\ArrayCache;
+use Kode\MiniApp\Core\SessionKeyManager;
 use Kode\MiniApp\Kernel;
+use Kode\MiniApp\Providers\Douyin\DouyinApp;
+use Kode\MiniApp\Providers\Qq\QqApp;
+use Kode\MiniApp\Providers\Wechat\WechatApp;
 use Kode\MiniApp\Tests\TestCase;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Union;
@@ -166,5 +171,63 @@ class DecryptTest extends TestCase
         $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('暂不支持客户端敏感数据解密');
         $union->decrypt(Channel::AlipayMini, 'x', 'y', 'z');
+    }
+
+    /**
+     * 一键式解密：登录托管的 session_key 自动取用（微信 / 抖音 / QQ 三端）
+     */
+    public function testUnionDecryptByUser(): void
+    {
+        $cache = new ArrayCache();
+        $kernel = new Kernel([
+            'wechat' => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
+            'douyin' => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
+            'qq'     => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
+        ]);
+        $union = $kernel->union();
+
+        $payload = [
+            'nickName'  => 'Band',
+            'watermark' => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
+        ];
+
+        // 微信
+        [$wxEnc, $wxSk, $wxIv] = $this->encrypt($payload);
+        $wxApp = $kernel->wechat()->app();
+        \assert($wxApp instanceof WechatApp);
+        SessionKeyManager::for($wxApp->config())->store('openid-wx', $wxSk);
+        self::assertSame('Band', $union->decryptByUser(Channel::WechatMini, $wxEnc, $wxIv, 'openid-wx')['nickName']);
+
+        // 抖音
+        [$dyEnc, $dySk, $dyIv] = $this->encrypt($payload);
+        $dyApp = $kernel->douyin()->app();
+        \assert($dyApp instanceof DouyinApp);
+        SessionKeyManager::for($dyApp->config())->store('openid-dy', $dySk);
+        self::assertSame('Band', $union->decryptByUser(Channel::DouyinMini, $dyEnc, $dyIv, 'openid-dy')['nickName']);
+
+        // QQ
+        [$qqEnc, $qqSk, $qqIv] = $this->encrypt($payload);
+        $qqApp = $kernel->qq()->app();
+        \assert($qqApp instanceof QqApp);
+        SessionKeyManager::for($qqApp->config())->store('openid-qq', $qqSk);
+        self::assertSame('Band', $union->decryptByUser(Channel::Qq, $qqEnc, $qqIv, 'openid-qq')['nickName']);
+    }
+
+    public function testUnionDecryptByUserMissingCacheThrows(): void
+    {
+        $cache = new ArrayCache();
+        $kernel = new Kernel([
+            'wechat' => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
+        ]);
+        $union = $kernel->union();
+
+        [$encrypted] = $this->encrypt([
+            'nickName'  => 'Band',
+            'watermark' => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
+        ]);
+
+        $this->expectException(\Kode\MiniApp\Exceptions\ApiException::class);
+        $this->expectExceptionMessage('未找到用户');
+        $union->decryptByUser(Channel::WechatMini, $encrypted, base64_encode(random_bytes(16)), 'unknown');
     }
 }

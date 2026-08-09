@@ -204,6 +204,39 @@ final class Union
     }
 
     /**
+     * 一站式解密客户端敏感数据（自动取用登录托管的 session_key）
+     *
+     * 与 {@see self::decrypt()} 的区别：无需手动传 session_key，只要该用户此前
+     * 已通过登录接口（code2session）缓存过 session_key，传入其 openid 即可自动取回密钥。
+     *
+     * 业务侧典型用法：
+     *   $user  = Union::wechat()->mini($code);                                  // 登录即托管 session_key
+     *   $phone = Union::decryptByUser(Channel::WechatMini, $encryptedData, $iv, $user->openId);
+     *
+     * @return array<string, mixed>
+     */
+    public function decryptByUser(Channel $channel, string $encryptedData, string $iv, string $openId): array
+    {
+        [$providerKey, $appClass] = match ($channel) {
+            Channel::WechatMini, Channel::WechatMp, Channel::WechatApp => ['wechat', WechatApp::class],
+            Channel::DouyinMini, Channel::DouyinMp => ['douyin', DouyinApp::class],
+            Channel::Qq => ['qq', QqApp::class],
+            default => throw new InvalidArgumentException(
+                "渠道 [{$channel->value}] 暂不支持客户端敏感数据解密",
+            ),
+        };
+
+        /** @var PlatformInterface $provider */
+        $provider = $this->kernelProvider($providerKey);
+        $app      = $provider->app();
+        if (!$app instanceof $appClass) {
+            throw new \RuntimeException("[{$providerKey}] Provider 实例类型异常，无法解密客户端数据");
+        }
+
+        return $app->decrypt()->dataByUser($encryptedData, $iv, $openId);
+    }
+
+    /**
      * 获取支付适配器
      */
     public function pay(Channel $channel): PayAdapter

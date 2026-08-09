@@ -282,6 +282,55 @@ $phone = $alipay->decrypt()->phone($response, $sign); // sign 可空，传则先
 
 抖音 / QQ 的 `Decrypt` 模块提供完全一致的 `data()` / `userInfo()` / `phone()` 三方法；支付宝 `Decrypt` 提供 `data($response)` / `phone($response, ?$sign)` / `verifySign($response, $sign)`。
 
+### session_key 托管 + 一站式解密（登录即缓存）
+
+微信 / 抖音 / QQ 解密必须持有 `session_key`，而它只在登录（`code2session`）时一次性返回。手动在登录与解密之间传递 `session_key` 既繁琐又易出错。SDK 提供 `Core\SessionKeyManager` 自动托管：
+
+- **登录即缓存**：`Auth::session()` 登录成功后，自动把 `session_key` 按 `openid` 存入 PSR-16 缓存（与 `access_token` 共用同一套缓存配置），无需任何额外代码。
+- **一站式解密**：解密时不再需要传 `session_key`，只需传 `openid`，SDK 自动取回该用户托管的密钥。
+
+```php
+use Kode\MiniApp\Union\Channel;
+use Kode\MiniApp\Union\Union;
+
+// 1) 登录：session_key 已在底层自动托管（按 openid 缓存）
+$user  = Union::wechat()->mini($code);
+// $user->openId 即缓存键
+
+// 2) 解密：只传 encryptedData + iv + openId，session_key 自动取用
+$phone = Union::decryptByUser(Channel::WechatMini, $encryptedData, $iv, $user->openId);
+// 等价地，直接走 App 模块：
+$phone = (new Kernel([...])->wechat()->app())
+    ->decrypt()->phoneByUser($encryptedData, $iv, $user->openId);
+
+// 抖音 / QQ 完全一致：
+Union::decryptByUser(Channel::DouyinMini, $encryptedData, $iv, $openId);
+Union::decryptByUser(Channel::Qq, $encryptedData, $iv, $openId);
+```
+
+各端 `Decrypt` 配套提供 `dataByUser()` / `phoneByUser()` / `userInfoByUser()`（签名：`($encryptedData, $iv, $openId)`）；`Union` 提供 `decryptByUser(Channel, $encryptedData, $iv, $openId)`。若对应 `openid` 未托管 `session_key`，则抛 `ApiException`（提示先登录或手动托管）。
+
+**缓存配置**（写在平台配置数组中，与 `access_token` 配置约定一致）：
+
+| 配置项 | 默认值 | 说明 |
+| --- | --- | --- |
+| `cache` | `Cache::getInstance()` | PSR-16 实例（生产建议 Redis / Memcached，保证多 worker 共享） |
+| `session_key_cache` | `true` | 设为 `false` 关闭托管（调试 / 不想落缓存时） |
+| `session_key_ttl` | `null` | 缓存秒数；`null` 表示不过期，重新登录会覆盖旧值 |
+
+手动托管 / 取回 / 清除：
+
+```php
+use Kode\MiniApp\Core\SessionKeyManager;
+
+$manager = SessionKeyManager::for($app->config());
+$manager->store($openId, $sessionKey);   // 手动托管
+$sk      = $manager->get($openId);        // 取回（未托管 / 过期返回 null）
+$manager->forget($openId);                // 用户注销 / session 失效时清除
+```
+
+> 注意：支付宝解密走 `aes_key` + `sign`，无 `session_key`，因此**不参与**此托管机制（仍用 `Union::alipay()->decrypt()`）。
+
 ### 失败语义（统一抛 ApiException）
 
 | 场景 | 行为 |
@@ -297,7 +346,7 @@ $phone = $alipay->decrypt()->phone($response, $sign); // sign 可空，传则先
 | 支付宝解密结果缺少 `mobile` 字段 | 抛 `ApiException` |
 | 支付宝 `verifySign` 但 `public_key` 未配置 | 抛 `ApiException` |
 
-> 端到端测试：`tests/Providers/{Wechat,Douyin,Qq}/DecryptTest.php`（各端真实 AES round-trip、手机号、watermark 校验失败、错误密钥、非法 base64 / 长度）、`tests/Providers/Alipay/DecryptTest.php`（真实 AES-128-CBC + 全零 IV round-trip、缺 mobile、`aes_key` 非法、RSA2 验签成功 / 失败、公钥缺失）、`tests/Union/DecryptTest.php`（微信 / 抖音 / QQ / 支付宝分派成功 + 不支持渠道抛错）。加密向量均采用与官方完全一致的算法生成，即是对「真实对接」的端到端验证。
+> 端到端测试：`tests/Providers/{Wechat,Douyin,Qq}/DecryptTest.php`（各端真实 AES round-trip、手机号、watermark 校验失败、错误密钥、非法 base64 / 长度，以及 `dataByUser/phoneByUser` 一站式解密 + 未托管抛错）、`tests/Providers/Wechat/AuthSessionKeyStoreTest.php`（登录自动托管 session_key）、`tests/Core/SessionKeyManagerTest.php`（store/get/forget/TTL/关闭托管/配置解析）、`tests/Providers/Alipay/DecryptTest.php`（真实 AES-128-CBC + 全零 IV round-trip、缺 mobile、`aes_key` 非法、RSA2 验签成功 / 失败、公钥缺失）、`tests/Union/DecryptTest.php`（微信 / 抖音 / QQ / 支付宝分派成功 + `decryptByUser` 一站式 + 不支持渠道抛错）。加密向量均采用与官方完全一致的算法生成，即是对「真实对接」的端到端验证。
 
 ## 自定义适配器（业务扩展）
 

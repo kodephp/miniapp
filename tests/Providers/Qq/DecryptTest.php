@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Tests\Providers\Qq;
 
+use Kode\MiniApp\Core\ArrayCache;
+use Kode\MiniApp\Core\SessionKeyManager;
 use Kode\MiniApp\Exceptions\ApiException;
 use Kode\MiniApp\Kernel;
 use Kode\MiniApp\Providers\Qq\QqApp;
@@ -50,6 +52,24 @@ final class DecryptTest extends TestCase
         \assert($app instanceof QqApp);
 
         return $app;
+    }
+
+    /**
+     * @return array{0: QqApp, 1: ArrayCache}
+     */
+    private function makeAppWithCache(): array
+    {
+        $cache = new ArrayCache();
+        $app = (new Kernel([
+            'qq' => [
+                'app_id'     => self::APP_ID,
+                'app_secret' => 'app-secret',
+                'cache'      => $cache,
+            ],
+        ]))->qq()->app();
+        \assert($app instanceof QqApp);
+
+        return [$app, $cache];
     }
 
     public function testDecryptUserProfileRoundTrip(): void
@@ -152,5 +172,52 @@ final class DecryptTest extends TestCase
         $this->expectException(ApiException::class);
         $this->expectExceptionMessage('密钥或向量长度非法');
         $app->decrypt()->data(base64_encode(random_bytes(32)), $badKey, base64_encode(random_bytes(16)));
+    }
+
+    public function testDecryptByUserRoundTrip(): void
+    {
+        [$app, $cache] = $this->makeAppWithCache();
+
+        $payload = [
+            'nickName'  => 'QqUser',
+            'watermark' => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
+        ];
+
+        [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
+        SessionKeyManager::for($app->config())->store('user-openid', $sessionKey);
+        self::assertTrue($cache->has(SessionKeyManager::for($app->config())->key('user-openid')));
+
+        self::assertSame($payload, $app->decrypt()->dataByUser($encrypted, $iv, 'user-openid'));
+    }
+
+    public function testPhoneByUserRoundTrip(): void
+    {
+        [$app] = $this->makeAppWithCache();
+
+        $payload = [
+            'phoneNumber'     => '13800138000',
+            'purePhoneNumber' => '13800138000',
+            'countryCode'     => '86',
+            'watermark'       => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
+        ];
+
+        [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
+        SessionKeyManager::for($app->config())->store('user-openid', $sessionKey);
+
+        self::assertSame('13800138000', $app->decrypt()->phoneByUser($encrypted, $iv, 'user-openid')['phoneNumber']);
+    }
+
+    public function testDecryptByUserMissingCacheThrows(): void
+    {
+        [$app] = $this->makeAppWithCache();
+
+        [$encrypted] = $this->encrypt([
+            'nickName'  => 'QqUser',
+            'watermark' => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
+        ]);
+
+        $this->expectException(ApiException::class);
+        $this->expectExceptionMessage('未找到用户');
+        $app->decrypt()->dataByUser($encrypted, base64_encode(random_bytes(16)), 'unknown-openid');
     }
 }
