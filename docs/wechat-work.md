@@ -40,6 +40,7 @@ use Kode\MiniApp\Kernel;
 $kernel = new Kernel([
     'wechat_work' => [
         'corp_id'      => 'wwxxxxxxxxxxxxxxxx',  // 企业 CorpID
+        'app_id'       => 'wwappxxxxxxxxxxxxxx',  // 小程序 AppID（客户端敏感数据 watermark.appid 校验必填）
         'secret'       => 'your-app-secret',      // 应用 Secret
         'agent_id'     => 1000002,                // 应用 AgentID
         'token'        => 'your-server-token',    // 服务端消息校验 Token（可选）

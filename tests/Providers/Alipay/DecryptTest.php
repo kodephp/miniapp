@@ -74,6 +74,9 @@ final class DecryptTest extends TestCase
 
         self::assertSame('13800138000', $result['mobile']);
         self::assertSame('86', $result['countryCode']);
+        // 归一化：补充与其他端一致的 phoneNumber / purePhoneNumber / countryCode
+        self::assertSame('13800138000', $result['phoneNumber']);
+        self::assertSame('13800138000', $result['purePhoneNumber']);
     }
 
     public function testDecryptDataReturnsRawArray(): void

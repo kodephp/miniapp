@@ -50,6 +50,7 @@ class DecryptTest extends TestCase
             ],
             'wechat_work' => [
                 'corp_id'  => self::APP_ID,
+                'app_id'   => self::APP_ID,
                 'secret'   => 'app-secret',
                 'agent_id' => '1000002',
             ],
@@ -214,7 +215,7 @@ class DecryptTest extends TestCase
     {
         $union = $this->makeUnion();
 
-        // 企业微信 watermark.appid 实为 corpid，与本测试 corp_id（= APP_ID）一致
+        // 企业微信 watermark.appid 应为小程序 appId（本测试 app_id = corp_id = APP_ID）
         $payload = [
             'nickName'  => 'WorkUser',
             'watermark' => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
@@ -271,6 +272,7 @@ class DecryptTest extends TestCase
             'lark'   => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
             'wechat_work' => [
                 'corp_id' => self::APP_ID,
+                'app_id' => self::APP_ID,
                 'secret' => 'app-secret',
                 'agent_id' => '1000002',
                 'cache' => $cache,

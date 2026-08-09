@@ -26,6 +26,17 @@ readonly class WechatWorkConfig extends BaseConfig
     }
 
     /**
+     * 获取小程序 appId（企业微信小程序脱敏数据 watermark.appid 校验用）
+     *
+     * 企业微信官方明确：小程序 encryptedData 解密后 watermark.appid 为「小程序 appId」，
+     * **并非**企业 corpid。故客户端敏感数据解密应以本值校验，而非 {@see self::corpId()}。
+     */
+    public function appId(): string
+    {
+        return (string) ($this->all()['app_id'] ?? '');
+    }
+
+    /**
      * 获取应用 AgentId
      */
     public function agentId(): string

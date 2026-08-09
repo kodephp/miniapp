@@ -346,4 +346,17 @@ class PhoneByCodeTest extends TestCase
 
         self::assertSame(['code' => 'phone-code-2'], $capture->data);
     }
+
+    public function testNormalizePhoneUnifiesAcrossPlatforms(): void
+    {
+        // 支付宝原始结构（mobile）归一化后与微信（phoneNumber）一致
+        $fromAlipay = \Kode\MiniApp\Union\Union::normalizePhone(['mobile' => '13800138000', 'countryCode' => '86']);
+        $fromWechat = \Kode\MiniApp\Union\Union::normalizePhone([
+            'phoneNumber' => '13800138000', 'purePhoneNumber' => '13800138000', 'countryCode' => '86',
+        ]);
+
+        self::assertSame($fromWechat, $fromAlipay);
+        self::assertSame('13800138000', $fromAlipay['phoneNumber']);
+        self::assertSame('86', $fromAlipay['countryCode']);
+    }
 }

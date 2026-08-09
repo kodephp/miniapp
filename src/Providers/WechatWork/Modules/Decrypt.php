@@ -12,12 +12,14 @@ use Kode\MiniApp\Providers\WechatWork\WechatWorkApp;
 /**
  * 企业微信小程序客户端敏感数据解密
  *
- * 算法与微信小程序完全一致（AES-128-CBC + PKCS#7 + session_key），
- * 仅明文 watermark.appid 实为「企业 corpid」而非小程序 appId。
- * 底层工具见 {@see Aes128CbcPkcs7}（微信 / 抖音 / QQ / 百度 / 飞书通用）。
+ * 算法与微信小程序完全一致（AES-128-CBC + PKCS#7 + session_key），底层工具见
+ * {@see Aes128CbcPkcs7}（微信 / 抖音 / QQ / 百度 / 飞书通用）。
  *
  * 安全约束：
- *   - 解密后的 watermark.appid 必须与当前企业 corpid 一致，否则视为伪造数据。
+ *   - 解密后的 watermark.appid 必须与「小程序 appId」一致（企业微信官方明确：
+ *     该值即小程序 appId，**并非**企业 corpid），否则视为伪造数据。
+ *   - 故校验使用 {@see \Kode\MiniApp\Providers\WechatWork\WechatWorkConfig::appId()}，
+ *     调用方须在配置中填写 `app_id`；未配置时抛 {@see ApiException} 提示。
  *   - session_key 属敏感凭证，严禁写入日志（LogSanitizer 已覆盖脱敏）。
  */
 final class Decrypt
@@ -32,7 +34,7 @@ final class Decrypt
      *
      * @param bool $verifyAppId 是否校验 watermark.appid（默认开启，生产环境务必保持开启）
      *
-     * @throws ApiException 解密失败、结果非 JSON 或 watermark 校验不通过
+     * @throws ApiException 解密失败、结果非 JSON、app_id 未配置或 watermark 校验不通过
      * @return array<string, mixed>
      */
     public function data(
@@ -41,13 +43,19 @@ final class Decrypt
         string $iv,
         bool $verifyAppId = true,
     ): array {
-        return Aes128CbcPkcs7::decrypt(
-            $this->app->config()->corpId(),
-            $encryptedData,
-            $sessionKey,
-            $iv,
-            $verifyAppId,
-        );
+        if ($verifyAppId) {
+            $appId = $this->app->config()->appId();
+            if ($appId === '') {
+                throw new ApiException(
+                    '企业微信小程序 app_id 未配置，无法校验 watermark.appid（应为小程序 appId，而非 corpid）',
+                    -1,
+                );
+            }
+
+            return Aes128CbcPkcs7::decrypt($appId, $encryptedData, $sessionKey, $iv, true);
+        }
+
+        return Aes128CbcPkcs7::decrypt('', $encryptedData, $sessionKey, $iv, false);
     }
 
     /**

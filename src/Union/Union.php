@@ -7,6 +7,7 @@ namespace Kode\MiniApp\Union;
 use InvalidArgumentException;
 use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
+use Kode\MiniApp\Core\PhoneNormalizer;
 use Kode\MiniApp\Providers\Baidu\BaiduApp;
 use Kode\MiniApp\Providers\Douyin\DouyinApp;
 use Kode\MiniApp\Providers\Lark\LarkApp;
@@ -284,9 +285,30 @@ final class Union
             throw new \RuntimeException("[{$providerKey}] Provider 实例类型异常，无法换取手机号");
         }
 
-        return $acceptsOpenId
+        $info = $acceptsOpenId
             ? $app->phone()->byCode($code, $openId)
             : $app->phone()->byCode($code);
+
+        // 归一化：确保返回结构含统一的 phoneNumber / purePhoneNumber / countryCode
+        // （微信 / 抖音本就以此命名，此处仅做兜底与未来平台兼容；原字段全部保留）。
+        /** @var array<string, mixed> $info */
+        return array_merge($info, PhoneNormalizer::normalize($info));
+    }
+
+    /**
+     * 手机号输出归一化（统一工具）
+     *
+     * 将任意端「手机号获取」的原始数组（微信 / 抖音的 phoneNumber，或支付宝的 mobile 等）
+     * 归一化为一致的三元组 `phoneNumber` / `purePhoneNumber` / `countryCode`，便于业务侧
+     * 以统一结构消费。纯函数，输入缺字段时对应值为空字符串，绝不抛异常。
+     *
+     * @param array<string, mixed> $raw
+     *
+     * @return array{phoneNumber:string, purePhoneNumber:string, countryCode:string}
+     */
+    public static function normalizePhone(array $raw): array
+    {
+        return PhoneNormalizer::normalize($raw);
     }
 
     /**

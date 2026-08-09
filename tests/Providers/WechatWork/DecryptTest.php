@@ -14,18 +14,20 @@ use Kode\MiniApp\Tests\TestCase;
 /**
  * 企业微信小程序客户端敏感数据解密测试
  *
- * 算法与微信完全一致（AES-128-CBC + PKCS#7），仅在明文 watermark.appid 处
- * 使用企业 corpid（而非小程序 appId）。加密向量按官方一致算法生成，即端到端验证。
+ * 算法与微信完全一致（AES-128-CBC + PKCS#7）。企业微信明文 watermark.appid 实为
+ * 「小程序 appId」（而非企业 corpid），故校验须用 app_id。加密向量按官方一致算法生成，即端到端验证。
  */
 class DecryptTest extends TestCase
 {
     private const CORP_ID = 'corp123';
+    private const APP_ID  = 'wwapp123';
 
     private function makeApp(): WechatWorkApp
     {
         $app = (new Kernel([
             'wechat_work' => [
                 'corp_id'  => self::CORP_ID,
+                'app_id'   => self::APP_ID,
                 'secret'   => 'app-secret',
                 'agent_id' => '1000002',
             ],
@@ -46,6 +48,7 @@ class DecryptTest extends TestCase
         $app = (new Kernel([
             'wechat_work' => [
                 'corp_id'  => self::CORP_ID,
+                'app_id'   => self::APP_ID,
                 'secret'   => 'app-secret',
                 'agent_id' => '1000002',
                 'cache'    => $cache,
@@ -90,7 +93,7 @@ class DecryptTest extends TestCase
             'province'   => 'Guangdong',
             'country'    => 'CN',
             'avatarUrl'  => 'https://example.com/a.png',
-            'watermark'  => ['appid' => self::CORP_ID, 'timestamp' => 1495788248],
+            'watermark'  => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
         ];
 
         [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
@@ -107,7 +110,7 @@ class DecryptTest extends TestCase
             'phoneNumber'     => '13800138000',
             'purePhoneNumber' => '13800138000',
             'countryCode'     => '86',
-            'watermark'       => ['appid' => self::CORP_ID, 'timestamp' => 1495788248],
+            'watermark'       => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
         ];
 
         [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
@@ -133,6 +136,52 @@ class DecryptTest extends TestCase
         $app->decrypt()->data($encrypted, $sessionKey, $iv);
     }
 
+    /**
+     * 企业微信官方明确 watermark.appid 应为小程序 appId，而非企业 corpid。
+     * 故用 corpid 充当 watermark 时，解密必须失败（修复 v1.27.0 误用 corpid 校验的问题）。
+     */
+    public function testWatermarkCorpIdNoLongerAccepted(): void
+    {
+        $app = $this->makeApp();
+
+        $payload = [
+            'nickName'  => 'Band',
+            'watermark' => ['appid' => self::CORP_ID, 'timestamp' => 1495788248],
+        ];
+
+        [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
+
+        $this->expectException(ApiException::class);
+        $this->expectExceptionMessage('watermark.appid 校验不通过');
+        $app->decrypt()->data($encrypted, $sessionKey, $iv);
+    }
+
+    /**
+     * 开启 watermark 校验但未配置 app_id 时，应给出清晰可操作的错误，而非误判。
+     */
+    public function testMissingAppIdConfigThrows(): void
+    {
+        $app = (new Kernel([
+            'wechat_work' => [
+                'corp_id'  => self::CORP_ID,
+                'secret'   => 'app-secret',
+                'agent_id' => '1000002',
+            ],
+        ]))->wechatWork()->app();
+        \assert($app instanceof WechatWorkApp);
+
+        $payload = [
+            'nickName'  => 'Band',
+            'watermark' => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
+        ];
+
+        [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
+
+        $this->expectException(ApiException::class);
+        $this->expectExceptionMessage('app_id 未配置');
+        $app->decrypt()->data($encrypted, $sessionKey, $iv);
+    }
+
     public function testVerifyAppIdCanBeDisabled(): void
     {
         $app = $this->makeApp();
@@ -154,7 +203,7 @@ class DecryptTest extends TestCase
 
         $payload = [
             'nickName'  => 'Band',
-            'watermark' => ['appid' => self::CORP_ID, 'timestamp' => 1495788248],
+            'watermark' => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
         ];
 
         [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
@@ -191,7 +240,7 @@ class DecryptTest extends TestCase
 
         $payload = [
             'nickName'  => 'Band',
-            'watermark' => ['appid' => self::CORP_ID, 'timestamp' => 1495788248],
+            'watermark' => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
         ];
 
         [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
@@ -212,7 +261,7 @@ class DecryptTest extends TestCase
             'phoneNumber'     => '13800138000',
             'purePhoneNumber' => '13800138000',
             'countryCode'     => '86',
-            'watermark'       => ['appid' => self::CORP_ID, 'timestamp' => 1495788248],
+            'watermark'       => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
         ];
 
         [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
@@ -230,7 +279,7 @@ class DecryptTest extends TestCase
 
         $payload = [
             'nickName'  => 'Band',
-            'watermark' => ['appid' => self::CORP_ID, 'timestamp' => 1495788248],
+            'watermark' => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
         ];
 
         [$encrypted] = $this->encrypt($payload);

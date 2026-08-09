@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Providers\Alipay\Modules;
 
+use Kode\MiniApp\Core\PhoneNormalizer;
 use Kode\MiniApp\Exceptions\ApiException;
 use Kode\MiniApp\Providers\Alipay\AlipayApp;
 use Kode\MiniApp\Utils\Sign;
@@ -85,7 +86,9 @@ final class Decrypt
             throw new ApiException('支付宝手机号解密结果缺少字段：mobile', -1);
         }
 
-        return $data;
+        // 归一化：在保留原始 mobile 字段的同时，补充与其他端一致的
+        // phoneNumber / purePhoneNumber / countryCode，便于业务侧统一消费。
+        return array_merge($data, PhoneNormalizer::normalize($data));
     }
 
     /**
