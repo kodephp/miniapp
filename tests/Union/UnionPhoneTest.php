@@ -52,4 +52,22 @@ class UnionPhoneTest extends TestCase
             $phone->toArray(),
         );
     }
+
+    public function testJsonSerializeEqualsToArray(): void
+    {
+        $phone = UnionPhone::fromArray([
+            'phoneNumber'     => '+86 13800138000',
+            'purePhoneNumber' => '13800138000',
+            'countryCode'     => '86',
+            'mobile'          => '13800138000',
+        ]);
+
+        // 直接 json_encode 可用，且结果等价于 toArray（仅核心三元组，不含 raw）
+        $json = json_encode($phone);
+        self::assertIsString($json);
+        self::assertSame(
+            ['phoneNumber' => '+86 13800138000', 'purePhoneNumber' => '13800138000', 'countryCode' => '86'],
+            json_decode($json, true),
+        );
+    }
 }

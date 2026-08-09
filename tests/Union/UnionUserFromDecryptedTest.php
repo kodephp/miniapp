@@ -89,4 +89,24 @@ class UnionUserFromDecryptedTest extends TestCase
         self::assertSame('W', $user->nickname);
         self::assertSame('https://x/y.png', $user->avatar);
     }
+
+    public function testJsonSerializeEqualsToArray(): void
+    {
+        $user = UnionUser::fromDecryptedUserInfo(
+            Channel::WechatMini,
+            ['nickName' => 'TestUser', 'avatarUrl' => 'https://example.com/a.png', 'gender' => 1],
+            'openid-1',
+            'union-1',
+        );
+
+        // 直接 json_encode 可用，且结果等价于 toArray（不含 raw 原始字段）
+        $json = json_encode($user);
+        self::assertIsString($json);
+        $decoded = json_decode($json, true);
+        self::assertArrayHasKey('open_id', $decoded);
+        self::assertSame('openid-1', $decoded['open_id']);
+        self::assertSame('union-1', $decoded['union_id']);
+        self::assertSame('TestUser', $decoded['nickname']);
+        self::assertArrayNotHasKey('raw', $decoded);
+    }
 }

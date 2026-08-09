@@ -591,7 +591,22 @@ $user->toArray(); // 统一结构，与 Union::profile() 结果一致
 
 > ⚠️ **gender 仅透传**：`UnionUser::fromDecryptedUserInfo()` 对 `gender` 只做「透传 + 类型归一化（int → 字符串）」，**不做** `0/1/2 → male/female` 枚举映射。各端 gender 编码并不一致，臆测映射会导致错误（参见 v1.34.0 设计取舍）。这与登录 / profile 链路的 `UnionUser::fromRaw()`（会把 int 映射成 male/female）行为不同，属有意为之。openId / unionId 加密资料明文里不存在，须由调用方显式传入。
 
-> 端到端测试：`tests/Union/UserInfoByDecryptTest.php`（微信 / 飞书 / 企业微信 / 抖音分派成功 + 原始字段保留 + 归一化 canonical 键 + 缓存 session_key 一站式 + 支付宝两入口抛错）、`tests/Union/UserInfoObjectByDecryptTest.php`（两对象入口返回 `UnionUser` + 字段归一化 + 支付宝抛错）、`tests/Union/UnionUserFromDecryptedTest.php`（工厂：字段映射 / gender 透传 / 缺失 null / 空串 null / canonical 键兼容）、`tests/Core/UserInfoNormalizerTest.php`（nickName/avatarUrl → nickname/avatar 归一化、snake_case 键兼容、缺失填空串 / gender 缺失为 null、gender 值原样透传）。
+> 端到端测试：`tests/Union/UserInfoByDecryptTest.php`（微信 / 飞书 / 企业微信 / 抖音分派成功 + 原始字段保留 + 归一化 canonical 键 + 缓存 session_key 一站式 + 支付宝两入口抛错）、`tests/Union/UserInfoObjectByDecryptTest.php`（两对象入口返回 `UnionUser` + 字段归一化 + 支付宝抛错）、`tests/Union/UnionUserFromDecryptedTest.php`（工厂：字段映射 / gender 透传 / 缺失 null / 空串 null / canonical 键兼容 / jsonSerialize）、`tests/Core/UserInfoNormalizerTest.php`（nickName/avatarUrl → nickname/avatar 归一化、snake_case 键兼容、缺失填空串 / gender 缺失为 null、gender 值原样透传）。
+
+### 值对象可直接 JSON 序列化
+
+`UnionPhone` 与 `UnionUser` 均实现 `JsonSerializable`，可直接 `json_encode()` 用于 API 响应，序列化结果等价于各自 `toArray()`（`UnionPhone` 仅核心三元组；`UnionUser` 不含 `raw` 原始字段、含 `extra` 扩展信息）：
+
+```php
+$phone = $kernel->union()->phoneObjectByDecrypt(Channel::WechatMini, $encryptedData, $sessionKey, $iv);
+header('Content-Type: application/json');
+echo json_encode(['phone' => $phone]);   // {"phone":{"phoneNumber":"...","purePhoneNumber":"...","countryCode":"..."}}
+
+$user = $kernel->union()->userInfoObjectByDecrypt(Channel::WechatMini, $encryptedData, $sessionKey, $iv, $openId);
+echo json_encode(['user' => $user]);     // 不含 raw，可直接下发前端（注意 extra 可能含敏感令牌，按需裁剪）
+```
+
+> 端到端测试：`tests/Union/UnionPhoneTest.php`（fromArray / 缺失兜底 / toArray / jsonSerialize）、`tests/Union/UnionUserFromDecryptedTest.php`（含 jsonSerialize 断言）。
 
 ## 自定义适配器（业务扩展）
 

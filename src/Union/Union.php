@@ -192,17 +192,7 @@ final class Union
         string $sessionKey,
         string $iv,
     ): array {
-        [$providerKey, $appClass] = match ($channel) {
-            Channel::WechatMini, Channel::WechatMp, Channel::WechatApp => ['wechat', WechatApp::class],
-            Channel::DouyinMini, Channel::DouyinMp => ['douyin', DouyinApp::class],
-            Channel::BaiduMini => ['baidu', BaiduApp::class],
-            Channel::Lark => ['lark', LarkApp::class],
-            Channel::Qq => ['qq', QqApp::class],
-            Channel::WechatWork => ['wechat_work', WechatWorkApp::class],
-            default => throw new InvalidArgumentException(
-                "渠道 [{$channel->value}] 暂不支持客户端敏感数据解密",
-            ),
-        };
+        [$providerKey, $appClass] = $this->decryptChannel($channel);
 
         /** @var PlatformInterface $provider */
         $provider = $this->kernelProvider($providerKey);
@@ -228,17 +218,7 @@ final class Union
      */
     public function decryptByUser(Channel $channel, string $encryptedData, string $iv, string $openId): array
     {
-        [$providerKey, $appClass] = match ($channel) {
-            Channel::WechatMini, Channel::WechatMp, Channel::WechatApp => ['wechat', WechatApp::class],
-            Channel::DouyinMini, Channel::DouyinMp => ['douyin', DouyinApp::class],
-            Channel::BaiduMini => ['baidu', BaiduApp::class],
-            Channel::Lark => ['lark', LarkApp::class],
-            Channel::Qq => ['qq', QqApp::class],
-            Channel::WechatWork => ['wechat_work', WechatWorkApp::class],
-            default => throw new InvalidArgumentException(
-                "渠道 [{$channel->value}] 暂不支持客户端敏感数据解密",
-            ),
-        };
+        [$providerKey, $appClass] = $this->decryptChannel($channel);
 
         /** @var PlatformInterface $provider */
         $provider = $this->kernelProvider($providerKey);

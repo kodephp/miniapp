@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Union;
 
+use JsonSerializable;
 use Kode\MiniApp\Core\UserInfoNormalizer;
 
 /**
@@ -17,8 +18,11 @@ use Kode\MiniApp\Core\UserInfoNormalizer;
  *  - openId：平台内唯一 OpenID
  *  - channel：来源渠道（Channel 枚举）
  *  - nickname / avatar / ...：标准化的用户基本信息
+ *
+ * 实现 {@see JsonSerializable}：可直接 `json_encode($user)` 用于 API 响应，
+ * 序列化结果等价于 {@see self::toArray()}（不含 raw 原始字段，含 extra 扩展信息）。
  */
-final readonly class UnionUser
+final readonly class UnionUser implements JsonSerializable
 {
     /**
      * @param array<string, mixed> $raw 平台原始响应数据
@@ -70,6 +74,16 @@ final readonly class UnionUser
             'city'     => $this->city,
             'extra'    => $this->extra,
         ];
+    }
+
+    /**
+     * JSON 序列化（等价于 {@see toArray()}）
+     *
+     * @return array<string, mixed>
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 
     /**

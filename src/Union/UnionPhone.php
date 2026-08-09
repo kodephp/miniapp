@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Union;
 
+use JsonSerializable;
+
 /**
  * 统一手机号数据模型
  *
@@ -15,8 +17,11 @@ namespace Kode\MiniApp\Union;
  *  - phoneNumber：带区号的完整号码（如 +86 13800138000）
  *  - purePhoneNumber：去区号的纯号码（如 13800138000）
  *  - countryCode：国家/地区码（如 86）
+ *
+ * 实现 {@see JsonSerializable}：可直接 `json_encode($phone)` 用于 API 响应，
+ * 序列化结果等价于 {@see self::toArray()}（仅核心三元组，不含 raw 原始字段）。
  */
-final readonly class UnionPhone
+final readonly class UnionPhone implements JsonSerializable
 {
     /**
      * @param array<string, mixed> $raw 原始手机号数组（含 phoneNumber / purePhoneNumber / countryCode 及平台原始字段）
@@ -59,5 +64,15 @@ final readonly class UnionPhone
             'purePhoneNumber' => $this->purePhoneNumber,
             'countryCode'     => $this->countryCode,
         ];
+    }
+
+    /**
+     * JSON 序列化（等价于 {@see toArray()}，仅核心三元组）
+     *
+     * @return array{phoneNumber:string, purePhoneNumber:string, countryCode:string}
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 }

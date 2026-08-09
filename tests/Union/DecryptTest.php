@@ -254,7 +254,7 @@ class DecryptTest extends TestCase
         $union = $this->makeUnion();
 
         $this->expectException(InvalidArgumentException::class);
-        $this->expectExceptionMessage('暂不支持客户端敏感数据解密');
+        $this->expectExceptionMessage('暂不支持 encryptedData 解密（手机号 / 用户资料）');
         $union->decrypt(Channel::AlipayMini, 'x', 'y', 'z');
     }
 
