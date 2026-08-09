@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use Kode\MiniApp\Core\ArrayCache;
 use Kode\MiniApp\Core\SessionKeyManager;
 use Kode\MiniApp\Kernel;
+use Kode\MiniApp\Providers\Baidu\BaiduApp;
 use Kode\MiniApp\Providers\Douyin\DouyinApp;
 use Kode\MiniApp\Providers\Qq\QqApp;
 use Kode\MiniApp\Providers\Wechat\WechatApp;
@@ -34,6 +35,10 @@ class DecryptTest extends TestCase
                 'app_secret' => 'app-secret',
             ],
             'qq' => [
+                'app_id'     => self::APP_ID,
+                'app_secret' => 'app-secret',
+            ],
+            'baidu' => [
                 'app_id'     => self::APP_ID,
                 'app_secret' => 'app-secret',
             ],
@@ -142,6 +147,21 @@ class DecryptTest extends TestCase
         self::assertSame('QqUser', $data['nickName']);
     }
 
+    public function testUnionDecryptBaiduMini(): void
+    {
+        $union = $this->makeUnion();
+
+        $payload = [
+            'nickName'  => 'BaiduUser',
+            'watermark' => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
+        ];
+
+        [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
+        $data = $union->decrypt(Channel::BaiduMini, $encrypted, $sessionKey, $iv);
+
+        self::assertSame('BaiduUser', $data['nickName']);
+    }
+
     public function testUnionAlipayDecryptPhone(): void
     {
         $aesKey  = random_bytes(16);
@@ -183,6 +203,7 @@ class DecryptTest extends TestCase
             'wechat' => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
             'douyin' => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
             'qq'     => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
+            'baidu'  => ['app_id' => self::APP_ID, 'app_secret' => 'app-secret', 'cache' => $cache],
         ]);
         $union = $kernel->union();
 
@@ -211,6 +232,13 @@ class DecryptTest extends TestCase
         \assert($qqApp instanceof QqApp);
         SessionKeyManager::for($qqApp->config())->store('openid-qq', $qqSk);
         self::assertSame('Band', $union->decryptByUser(Channel::Qq, $qqEnc, $qqIv, 'openid-qq')['nickName']);
+
+        // 百度
+        [$bdEnc, $bdSk, $bdIv] = $this->encrypt($payload);
+        $bdApp = $kernel->baidu()->app();
+        \assert($bdApp instanceof BaiduApp);
+        SessionKeyManager::for($bdApp->config())->store('openid-bd', $bdSk);
+        self::assertSame('Band', $union->decryptByUser(Channel::BaiduMini, $bdEnc, $bdIv, 'openid-bd')['nickName']);
     }
 
     public function testUnionDecryptByUserMissingCacheThrows(): void

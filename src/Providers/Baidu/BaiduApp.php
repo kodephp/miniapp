@@ -9,6 +9,7 @@ use Kode\MiniApp\Contracts\ConfigInterface;
 use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Providers\Baidu\Modules\Auth;
+use Kode\MiniApp\Providers\Baidu\Modules\Decrypt;
 use Kode\MiniApp\Providers\Baidu\Modules\Message;
 use Kode\MiniApp\Providers\Baidu\Modules\Pay;
 
@@ -20,6 +21,7 @@ final readonly class BaiduApp implements AppInterface
     private Auth $auth;
     private Pay $pay;
     private Message $message;
+    private Decrypt $decrypt;
 
     public function __construct(
         private string $name,
@@ -30,6 +32,7 @@ final readonly class BaiduApp implements AppInterface
         $this->auth = new Auth($this);
         $this->pay  = new Pay($this);
         $this->message = new Message($this);
+        $this->decrypt = new Decrypt($this);
     }
 
     #[\Override]
@@ -69,5 +72,16 @@ final readonly class BaiduApp implements AppInterface
     public function message(): Message
     {
         return $this->message;
+    }
+
+    /**
+     * 客户端敏感数据解密（encryptedData + session_key）
+     *
+     * 适用于 swan.getPhoneNumber / getUserInfo 返回的加密数据。
+     * 内部自动校验 watermark.appid 与当前小程序 appId 一致。
+     */
+    public function decrypt(): Decrypt
+    {
+        return $this->decrypt;
     }
 }

@@ -239,6 +239,7 @@ try {
 | 微信小程序 / 公众号 / 开放平台 | `Union::decrypt(Channel::WechatMini/Mp/App, $encryptedData, $sessionKey, $iv)` | `WechatApp::decrypt()` |
 | 抖音小程序 / 抖音 PC | `Union::decrypt(Channel::DouyinMini/Mp, $encryptedData, $sessionKey, $iv)` | `DouyinApp::decrypt()` |
 | QQ 小程序 | `Union::decrypt(Channel::Qq, $encryptedData, $sessionKey, $iv)` | `QqApp::decrypt()` |
+| 百度小程序 | `Union::decrypt(Channel::BaiduMini, $encryptedData, $sessionKey, $iv)` | `BaiduApp::decrypt()` |
 | 支付宝小程序 / 生活号 / App | `Union::alipay()->decrypt()->phone($response, $sign)` | `AlipayApp::decrypt()` |
 
 > 支付宝解密算法无 `session_key` / `iv`，与通用 4 参 `Union::decrypt()` 签名不兼容，故**不并入** `Union::decrypt()`（对其调用 `Channel::AlipayMini` 仍抛 `InvalidArgumentException`），改由 `Union::alipay()->decrypt()` 访问，与其他平台一致的 `decrypt()` 访问器。
@@ -346,7 +347,7 @@ $manager->forget($openId);                // 用户注销 / session 失效时清
 | 支付宝解密结果缺少 `mobile` 字段 | 抛 `ApiException` |
 | 支付宝 `verifySign` 但 `public_key` 未配置 | 抛 `ApiException` |
 
-> 端到端测试：`tests/Providers/{Wechat,Douyin,Qq}/DecryptTest.php`（各端真实 AES round-trip、手机号、watermark 校验失败、错误密钥、非法 base64 / 长度，以及 `dataByUser/phoneByUser` 一站式解密 + 未托管抛错）、`tests/Providers/Wechat/AuthSessionKeyStoreTest.php`（登录自动托管 session_key）、`tests/Core/SessionKeyManagerTest.php`（store/get/forget/TTL/关闭托管/配置解析）、`tests/Providers/Alipay/DecryptTest.php`（真实 AES-128-CBC + 全零 IV round-trip、缺 mobile、`aes_key` 非法、RSA2 验签成功 / 失败、公钥缺失）、`tests/Union/DecryptTest.php`（微信 / 抖音 / QQ / 支付宝分派成功 + `decryptByUser` 一站式 + 不支持渠道抛错）。加密向量均采用与官方完全一致的算法生成，即是对「真实对接」的端到端验证。
+> 端到端测试：`tests/Providers/{Wechat,Douyin,Qq,Baidu}/DecryptTest.php`（各端真实 AES round-trip、手机号、watermark 校验失败、错误密钥、非法 base64 / 长度，以及 `dataByUser/phoneByUser` 一站式解密 + 未托管抛错）、`tests/Providers/{Wechat,Baidu}/AuthSessionKeyStoreTest.php`（登录自动托管 session_key）、`tests/Core/SessionKeyManagerTest.php`（store/get/forget/TTL/关闭托管/配置解析）、`tests/Providers/Alipay/DecryptTest.php`（真实 AES-128-CBC + 全零 IV round-trip、缺 mobile、`aes_key` 非法、RSA2 验签成功 / 失败、公钥缺失）、`tests/Union/DecryptTest.php`（微信 / 抖音 / QQ / 百度 / 支付宝分派成功 + `decryptByUser` 一站式 + 不支持渠道抛错）。加密向量均采用与官方完全一致的算法生成，即是对「真实对接」的端到端验证。
 
 ## 自定义适配器（业务扩展）
 

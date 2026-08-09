@@ -6,6 +6,7 @@ namespace Kode\MiniApp\Providers\Baidu\Modules;
 
 use Kode\MiniApp\Contracts\Platform;
 use Kode\MiniApp\Core\ApiResponse;
+use Kode\MiniApp\Core\SessionKeyManager;
 use Kode\MiniApp\Core\TokenManager;
 use Kode\MiniApp\Core\TokenResult;
 use Kode\MiniApp\Exceptions\ApiException;
@@ -44,9 +45,17 @@ readonly class Auth
             ],
         ]);
 
-        return ApiResponse::fromPsr($response, Platform::Baidu)
+        $result = ApiResponse::fromPsr($response, Platform::Baidu)
             ->throwIfFailed('百度登录')
             ->toArray();
+
+        $openId     = (string) ($result['openid'] ?? '');
+        $sessionKey = (string) ($result['session_key'] ?? $result['sessionKey'] ?? '');
+        if ($openId !== '' && $sessionKey !== '') {
+            SessionKeyManager::for($config)->store($openId, $sessionKey);
+        }
+
+        return $result;
     }
 
     /**
