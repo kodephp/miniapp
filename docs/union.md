@@ -223,21 +223,25 @@ try {
 
 ## 客户端敏感数据解密（encryptedData）
 
-小程序端 `getUserProfile` / `getPhoneNumber` 等接口回传的 `encryptedData` 是**AES 加密的 JSON**，必须由服务端用登录阶段 `jscode2session` 拿到的 `session_key` 解密。微信、抖音、QQ 三端采用**同一套对称算法**（`AES-128-CBC` + `PKCS#7` + `watermark`），SDK 统一封装为共享工具 `Core\Crypto\Aes128CbcPkcs7`，三端 `Decrypt` 模块复用，杜绝重复实现。
+小程序端 `getUserProfile` / `getPhoneNumber` 等接口回传的 `encryptedData` 是**AES 加密的 JSON**，必须由服务端解密。微信、抖音、QQ 三端采用**同一套对称算法**（`AES-128-CBC` + `PKCS#7` + `watermark`），SDK 统一封装为共享工具 `Core\Crypto\Aes128CbcPkcs7`，三端 `Decrypt` 模块复用，杜绝重复实现。
 
-- **算法**：`AES-128-CBC`，`key = base64_decode(session_key)`、`iv = base64_decode(iv)`，密文 `base64_decode(encryptedData)`，PKCS#7 由 openssl 自动去填充。
-- **安全约束**：解密结果含 `watermark.appid`，必须与当前小程序 `appId` 一致，否则视为伪造数据并抛 `ApiException`。生产环境务必保持默认开启（`verifyAppId = true`）。
-- **敏感凭证**：`session_key` 属密钥级敏感信息，**切勿下发到前端、切勿写入日志**（`LogSanitizer` 已对 `session_key` 脱敏）。
+**支付宝算法不同**：`my.getPhoneNumber` 回传 `response`（密文）+ `sign`（RSA2 签名），无 `session_key` / `iv`，需用开放平台配置的 **AES 密钥**（config `aes_key`，base64 编码 16 字节）以 `AES-128-CBC` + **全零 IV** 解密，解密后 JSON 含 `mobile` 字段。因此支付宝`Decrypt` 为独立实现（不复用上述共享工具）。
+
+- **通用算法（微信 / 抖音 / QQ）**：`AES-128-CBC`，`key = base64_decode(session_key)`、`iv = base64_decode(iv)`，密文 `base64_decode(encryptedData)`，PKCS#7 由 openssl 自动去填充。
+- **支付宝算法**：`AES-128-CBC`，`key = base64_decode(aes_key)`、`iv = 16 字节全零`，密文 `base64_decode(response)`；`sign` 以 config `public_key` 做 RSA2 验签防篡改。
+- **安全约束（通用）**：解密结果含 `watermark.appid`，必须与当前小程序 `appId` 一致，否则视为伪造数据并抛 `ApiException`。生产环境务必保持默认开启（`verifyAppId = true`）。
+- **敏感凭证**：`session_key` / `aes_key` 属密钥级敏感信息，**切勿下发到前端、切勿写入日志**（`LogSanitizer` 已对二者脱敏）。
 
 ### 支持的渠道
 
 | 渠道 | Union 入口 | 直接模块 |
 | --- | --- | --- |
-| 微信小程序 / 公众号 / 开放平台 | `Channel::WechatMini` / `WechatMp` / `WechatApp` | `WechatApp::decrypt()` |
-| 抖音小程序 / 抖音 PC | `Channel::DouyinMini` / `DouyinMp` | `DouyinApp::decrypt()` |
-| QQ 小程序 | `Channel::Qq` | `QqApp::decrypt()` |
+| 微信小程序 / 公众号 / 开放平台 | `Union::decrypt(Channel::WechatMini/Mp/App, $encryptedData, $sessionKey, $iv)` | `WechatApp::decrypt()` |
+| 抖音小程序 / 抖音 PC | `Union::decrypt(Channel::DouyinMini/Mp, $encryptedData, $sessionKey, $iv)` | `DouyinApp::decrypt()` |
+| QQ 小程序 | `Union::decrypt(Channel::Qq, $encryptedData, $sessionKey, $iv)` | `QqApp::decrypt()` |
+| 支付宝小程序 / 生活号 / App | `Union::alipay()->decrypt()->phone($response, $sign)` | `AlipayApp::decrypt()` |
 
-其余渠道（支付宝 / 百度 / 钉钉 / 飞书等）调用 `decrypt()` 抛 `InvalidArgumentException`。
+> 支付宝解密算法无 `session_key` / `iv`，与通用 4 参 `Union::decrypt()` 签名不兼容，故**不并入** `Union::decrypt()`（对其调用 `Channel::AlipayMini` 仍抛 `InvalidArgumentException`），改由 `Union::alipay()->decrypt()` 访问，与其他平台一致的 `decrypt()` 访问器。
 
 ### 用法一：通过 Union 统一入口
 
@@ -245,18 +249,15 @@ try {
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Union;
 
-// 前端回传：encryptedData、iv、登录阶段缓存的 session_key
+// 微信 / 抖音 / QQ：前端回传 encryptedData、iv、登录阶段缓存的 session_key
 $data = Union::wechat()->decrypt(Channel::WechatMini, $encryptedData, $sessionKey, $iv);
-// 抖音
 $data = Union::douyin()->decrypt(Channel::DouyinMini, $encryptedData, $sessionKey, $iv);
-// QQ
 $data = Union::qq()->decrypt(Channel::Qq, $encryptedData, $sessionKey, $iv);
 // $data['nickName'] / $data['avatarUrl'] / $data['watermark'] ...
 
-// 手机号（getPhoneNumber）更严格的字段校验
-$phone = Union::wechat()->decrypt(Channel::WechatMini, $encryptedData, $sessionKey, $iv)
-    ->phone(...); // 也可用 $app->decrypt()->phone()
-// $phone['phoneNumber'] / $phone['countryCode'] ...
+// 支付宝：前端回传 response（密文）+ sign（RSA2 签名），无 session_key / iv
+$phone = Union::alipay()->decrypt()->phone($response, $sign);
+// $phone['mobile'] / $phone['countryCode'] ...
 ```
 
 ### 用法二：直接走 App 模块
@@ -264,27 +265,39 @@ $phone = Union::wechat()->decrypt(Channel::WechatMini, $encryptedData, $sessionK
 ```php
 use Kode\MiniApp\Kernel;
 
+// 微信
 $app = (new Kernel(['wechat' => ['app_id' => 'wx...', 'app_secret' => '...']]))->wechat()->app();
-
 $raw  = $app->decrypt()->data($encryptedData, $sessionKey, $iv);   // 原始数组（含 watermark 校验）
 $user = $app->decrypt()->userInfo($encryptedData, $sessionKey, $iv); // 同 data()，语义化别名
 $phone = $app->decrypt()->phone($encryptedData, $sessionKey, $iv);  // 手机号，缺字段抛 ApiException
+
+// 支付宝：需配置 aes_key（16 字节 base64）+ public_key（验签）
+$alipay = (new Kernel(['alipay' => [
+    'app_id'     => 'alipay...',
+    'aes_key'    => base64_encode('16字节密钥'),
+    'public_key' => '支付宝公钥（用于验签）',
+]]))->alipay()->app();
+$phone = $alipay->decrypt()->phone($response, $sign); // sign 可空，传则先 RSA2 验签
 ```
 
-抖音 / QQ 的 `Decrypt` 模块提供完全一致的 `data()` / `userInfo()` / `phone()` 三方法。
+抖音 / QQ 的 `Decrypt` 模块提供完全一致的 `data()` / `userInfo()` / `phone()` 三方法；支付宝 `Decrypt` 提供 `data($response)` / `phone($response, ?$sign)` / `verifySign($response, $sign)`。
 
 ### 失败语义（统一抛 ApiException）
 
 | 场景 | 行为 |
 | --- | --- |
-| `watermark.appid` 与当前 `appId` 不一致 | 抛 `ApiException`（伪造数据） |
+| `watermark.appid` 与当前 `appId` 不一致（微信 / 抖音 / QQ） | 抛 `ApiException`（伪造数据） |
 | `session_key` / `iv` / `encryptedData` base64 非法 | 抛 `ApiException` |
 | 密钥或向量长度非 16 字节 | 抛 `ApiException` |
 | `session_key` 错误导致解密出乱码（非 JSON） | 抛 `ApiException` |
 | 手机号密文缺少 `phoneNumber` 等字段 | 抛 `ApiException` |
 | 需临时关闭 appId 校验（verifyAppId=false） | 返回原始数组，不校验（仅特殊场景） |
+| 支付宝 `aes_key` 配置非法（非 16 字节 base64） | 抛 `ApiException` |
+| 支付宝传入 `sign` 但 RSA2 验签不通过 | 抛 `ApiException` |
+| 支付宝解密结果缺少 `mobile` 字段 | 抛 `ApiException` |
+| 支付宝 `verifySign` 但 `public_key` 未配置 | 抛 `ApiException` |
 
-> 端到端测试：`tests/Providers/{Wechat,Douyin,Qq}/DecryptTest.php`（各端真实 AES round-trip、手机号、watermark 校验失败、错误密钥、非法 base64 / 长度）、`tests/Union/DecryptTest.php`（微信 / 抖音 / QQ 分派成功 + 不支持渠道抛错）。加密向量采用与三端官方完全一致的算法生成，即是对「真实对接」的端到端验证。
+> 端到端测试：`tests/Providers/{Wechat,Douyin,Qq}/DecryptTest.php`（各端真实 AES round-trip、手机号、watermark 校验失败、错误密钥、非法 base64 / 长度）、`tests/Providers/Alipay/DecryptTest.php`（真实 AES-128-CBC + 全零 IV round-trip、缺 mobile、`aes_key` 非法、RSA2 验签成功 / 失败、公钥缺失）、`tests/Union/DecryptTest.php`（微信 / 抖音 / QQ / 支付宝分派成功 + 不支持渠道抛错）。加密向量均采用与官方完全一致的算法生成，即是对「真实对接」的端到端验证。
 
 ## 自定义适配器（业务扩展）
 

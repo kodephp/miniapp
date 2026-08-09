@@ -34,6 +34,17 @@ readonly class AlipayConfig extends BaseConfig
     }
 
     /**
+     * 获取 AES 密钥（用于解密 my.getPhoneNumber 等客户端加密数据）
+     *
+     * 该密钥为开放平台「应用 AES 密钥管理」中生成的 16 字节密钥，
+     * 以 base64 编码形式配置（与官方 SDK 约定一致）。
+     */
+    public function aesKey(): string
+    {
+        return (string) ($this->all()['aes_key'] ?? '');
+    }
+
+    /**
      * 获取支付宝根证书
      */
     public function rootCert(): ?string

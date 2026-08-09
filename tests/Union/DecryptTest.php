@@ -32,7 +32,27 @@ class DecryptTest extends TestCase
                 'app_id'     => self::APP_ID,
                 'app_secret' => 'app-secret',
             ],
+            'alipay' => [
+                'app_id' => self::APP_ID,
+                'aes_key' => base64_encode(random_bytes(16)),
+            ],
         ]))->union();
+    }
+
+    /**
+     * 按支付宝官方算法（AES-128-CBC + 全零 IV）加密明文，返回 base64 密文
+     *
+     * @param array<string, mixed> $payload
+     */
+    private function encryptAlipay(array $payload, string $aesKeyRaw): string
+    {
+        $plain = json_encode($payload);
+        \assert(is_string($plain));
+        $iv     = str_repeat("\0", 16);
+        $cipher = openssl_encrypt($plain, 'aes-128-cbc', $aesKeyRaw, OPENSSL_RAW_DATA, $iv);
+        \assert(is_string($cipher));
+
+        return base64_encode($cipher);
     }
 
     /**
@@ -115,6 +135,28 @@ class DecryptTest extends TestCase
         $data = $union->decrypt(Channel::Qq, $encrypted, $sessionKey, $iv);
 
         self::assertSame('QqUser', $data['nickName']);
+    }
+
+    public function testUnionAlipayDecryptPhone(): void
+    {
+        $aesKey  = random_bytes(16);
+        $payload = ['mobile' => '13800138000', 'countryCode' => '86'];
+
+        // 支付宝解密算法无 sessionKey/iv，经 Union::alipay()->decrypt() 访问（与 4 参 decrypt 签名不兼容）
+        $union = (new \Kode\MiniApp\Kernel([
+            'alipay' => [
+                'app_id' => self::APP_ID,
+                'aes_key' => base64_encode($aesKey),
+            ],
+        ]))->union();
+
+        $app     = $union->alipay()->appInstance();
+        \assert($app instanceof \Kode\MiniApp\Providers\Alipay\AlipayApp);
+
+        $response = $this->encryptAlipay($payload, $aesKey);
+        $result   = $app->decrypt()->phone($response);
+
+        self::assertSame('13800138000', $result['mobile']);
     }
 
     public function testUnsupportedChannelThrows(): void
