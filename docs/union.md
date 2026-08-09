@@ -527,14 +527,15 @@ $info['countryCode'];     // 86
 | 微信 / 抖音 / QQ / 百度 / 飞书 / 企业微信 | `Union::userInfoByDecrypt($channel, $encryptedData, $sessionKey, $iv)` | 显式传入 `session_key` 解密 |
 | 同上 | `Union::userInfoByUser($channel, $encryptedData, $iv, $openId)` | 自动取用登录阶段托管的 `session_key`，无需手动传入 |
 
-两方法返回各端**原始用户资料数组**（昵称 / 头像 / 性别等），不做手机号归一化（与 `decrypt()` 的 data 路径同族）。支付宝不在覆盖范围内（其无 `encryptedData` / `session_key`），调用会抛 `InvalidArgumentException`。
+两方法返回各端用户资料数组：**原始字段全部保留**，并追加经 `Core\UserInfoNormalizer` 归一化的 snake_case canonical 键（`nickname` / `avatar` / `gender` / `city` / `province` / `country` / `language`），与登录 / profile 链路的 `UnionUser` 字段命名对齐，便于业务侧以统一结构消费。支付宝不在覆盖范围内（其无 `encryptedData` / `session_key`），调用会抛 `InvalidArgumentException`。
 
 ```php
 // 显式 session_key
 $profile = $kernel->union()->userInfoByDecrypt(
     Channel::WechatMini, $encryptedData, $sessionKey, $iv
 );
-$profile['nickName'];   // TestUser
+$profile['nickName'];   // TestUser（原始字段保留）
+$profile['nickname'];   // TestUser（归一化 canonical 键）
 
 // 缓存 session_key（登录时已托管）
 $profile = $kernel->union()->userInfoByUser(
@@ -542,7 +543,7 @@ $profile = $kernel->union()->userInfoByUser(
 );
 ```
 
-> 端到端测试：`tests/Union/UserInfoByDecryptTest.php`（微信 / 飞书 / 企业微信 / 抖音分派成功 + 原始字段保留 + 缓存 session_key 一站式 + 支付宝两入口抛错）。
+> 端到端测试：`tests/Union/UserInfoByDecryptTest.php`（微信 / 飞书 / 企业微信 / 抖音分派成功 + 原始字段保留 + 归一化 canonical 键 + 缓存 session_key 一站式 + 支付宝两入口抛错）、`tests/Core/UserInfoNormalizerTest.php`（nickName/avatarUrl → nickname/avatar 归一化、snake_case 键兼容、缺失填空串 / gender 缺失为 null、gender 值原样透传）。
 
 ## 自定义适配器（业务扩展）
 

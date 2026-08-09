@@ -8,6 +8,7 @@ use InvalidArgumentException;
 use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Core\PhoneNormalizer;
+use Kode\MiniApp\Core\UserInfoNormalizer;
 use Kode\MiniApp\Providers\Alipay\AlipayApp;
 use Kode\MiniApp\Providers\Baidu\BaiduApp;
 use Kode\MiniApp\Providers\Douyin\DouyinApp;
@@ -313,6 +314,24 @@ final class Union
     }
 
     /**
+     * 用户资料输出归一化（统一工具）
+     *
+     * 将各端 encryptedData 解密出的用户资料原始数组（兼容微信 getUserInfo 的
+     * `nickName` / `avatarUrl` / `gender` / `city` / `province` / `country` / `language`）
+     * 归一化为稳定的 snake_case canonical 键（nickname / avatar / gender / city / province /
+     * country / language），与 {@see \Kode\MiniApp\Union\UnionUser}（登录 / profile 链路）字段命名对齐。
+     * 纯函数，输入缺字符串字段时对应值为空字符串、gender 缺失为 null，绝不抛异常。
+     *
+     * @param array<string, mixed> $raw
+     *
+     * @return array{nickname:string, avatar:string, gender:mixed, city:string, province:string, country:string, language:string}
+     */
+    public static function normalizeUserInfo(array $raw): array
+    {
+        return UserInfoNormalizer::normalize($raw);
+    }
+
+    /**
      * 统一「encryptedData 解密获取手机号」入口（显式 session_key）
      *
      * 与 {@see phoneByCode()}（新版 code 换手机号，仅微信 / 抖音）互为两条并行路径，
@@ -434,7 +453,9 @@ final class Union
      * 覆盖微信 / 抖音 / QQ / 百度 / 飞书 / 企业微信 六个端；支付宝走 `Union::alipay()->decrypt()->data()`
      * （response + sign，无 encryptedData），不在本方法范围内。
      *
-     * 返回各端原始用户资料数组（本路径返回资料而非手机号，故不做手机号归一化）。
+     * 返回各端用户资料数组：保留原始字段，并追加经 {@see UserInfoNormalizer} 归一化的
+     * snake_case canonical 键（nickname / avatar / gender / city / province / country / language），
+     * 与 UnionUser（登录 / profile 链路）字段命名对齐。
      *
      * @param string $encryptedData 客户端回传的加密数据
      * @param string $sessionKey    会话密钥（与加密时一致）
@@ -458,7 +479,12 @@ final class Union
             throw new \RuntimeException("[{$providerKey}] Provider 实例类型异常，无法解密用户资料");
         }
 
-        return $app->decrypt()->userInfo($encryptedData, $sessionKey, $iv);
+        $info = $app->decrypt()->userInfo($encryptedData, $sessionKey, $iv);
+
+        // 归一化：在保留原始字段的同时追加统一的 snake_case canonical 键
+        // （nickname / avatar / gender / city / province / country / language），
+        // 与 UnionUser（登录 / profile 链路）字段命名对齐，便于业务侧统一消费。
+        return array_merge($info, UserInfoNormalizer::normalize($info));
     }
 
     /**
@@ -485,7 +511,9 @@ final class Union
             throw new \RuntimeException("[{$providerKey}] Provider 实例类型异常，无法解密用户资料");
         }
 
-        return $app->decrypt()->userInfoByUser($encryptedData, $iv, $openId);
+        $info = $app->decrypt()->userInfoByUser($encryptedData, $iv, $openId);
+
+        return array_merge($info, UserInfoNormalizer::normalize($info));
     }
 
     /**

@@ -16,7 +16,7 @@ use Kode\MiniApp\Union\Union;
  * Union 层统一「encryptedData 解密获取用户资料」入口测试
  *
  * 覆盖 userInfoByDecrypt（显式 session_key）与 userInfoByUser（缓存 session_key 一站式），
- * 验证返回各端原始用户资料数组；支付宝不在覆盖范围内，应抛错。
+ * 验证返回各端用户资料数组（原始字段保留 + 归一化 canonical 键）；支付宝不在覆盖范围内，应抛错。
  */
 class UserInfoByDecryptTest extends TestCase
 {
@@ -114,6 +114,12 @@ class UserInfoByDecryptTest extends TestCase
 
         self::assertSame('TestUser', $info['nickName']);
         self::assertSame('https://example.com/a.png', $info['avatarUrl']);
+        self::assertSame(self::APP_ID, $info['watermark']['appid']);
+
+        // 归一化：原始字段保留，并追加 snake_case canonical 键（与 UnionUser 命名对齐）
+        self::assertSame('TestUser', $info['nickname']);
+        self::assertSame('https://example.com/a.png', $info['avatar']);
+        self::assertSame(1, $info['gender']);
         self::assertSame(self::APP_ID, $info['watermark']['appid']);
     }
 
