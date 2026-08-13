@@ -231,6 +231,25 @@ abstract class PlatformUnion
     }
 
     /**
+     * 按 unionId 聚合其名下所有渠道的活跃会话（跨端关联展示）
+     *
+     * 微信生态下，同一用户在不同小程序 / 公众号的 unionId 一致，
+     * 可用本方法一次性取出该用户在所有渠道的登录会话，无需自行操作 SessionManager。
+     *
+     * 未挂载 SessionManager 时返回空数组。
+     *
+     * @return array<int, \Kode\MiniApp\Session\Session>
+     */
+    public function sessions(string $unionId): array
+    {
+        if ($this->sessionManager === null) {
+            return [];
+        }
+
+        return $this->sessionManager->listByUnionId($unionId);
+    }
+
+    /**
      * 通过场景名查找对应 Channel
      */
     protected function channelForScene(string $scene): Channel

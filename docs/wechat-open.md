@@ -15,6 +15,7 @@
   - [UnionId - UnionID 机制工具](#unionid---unionid-机制工具)
 - [微信生态互联](#微信生态互联)
 - [多应用注册表（按 appid 路由）](#多应用注册表按-appid-路由)
+- [跨端会话聚合（按 unionId）](#跨端会话聚合按unionid)
 - [完整授权流程示例](#完整授权流程示例)
 - [API 验证对接](#api-验证对接)
 - [常见问题](#常见问题)
@@ -346,6 +347,25 @@ $registry->has('wxc333'); // false
 ```
 
 > 若需要「单个 Kernel 直接管理多个 appid 配置」的核心重构（配置模型变更），属更大范围的架构改造，应单独评估。
+
+## 跨端会话聚合（按 unionId）
+
+微信生态下，同一用户在不同小程序 / 公众号的 unionId 一致。登录后若挂载了 SessionManager，可用平台入口的 `sessions($unionId)` 一次性取出该用户在所有渠道的活跃会话，便于「我的设备 / 多端登录」类关联展示。
+
+```php
+$manager = new SessionManager(new CacheSessionStorage($psr16Cache));
+$kernel->union()->withSession($manager);
+
+// 同一 unionId 在微信小程序、支付宝小程序各登录一次后：
+$sessions = $kernel->union()->wechat()->sessions('union_001');
+foreach ($sessions as $session) {
+    // $session->channel / scene / client / clientId ...
+}
+
+// 未挂载 SessionManager 时返回空数组
+```
+
+> 底层由 `SessionManager::listByUnionId()` 实现，按 unionId 索引聚合跨渠道会话。
 
 ## 完整授权流程示例
 

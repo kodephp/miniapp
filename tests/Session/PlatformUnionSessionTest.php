@@ -92,6 +92,31 @@ class PlatformUnionSessionTest extends TestCase
         self::assertNull($session);
     }
 
+    public function testSessionsAggregateAcrossChannelsByUnionId(): void
+    {
+        $kernel = $this->kernelWithSession();
+        $userWx  = UnionUser::fromRaw(channel: Channel::WechatMini, openId: 'open_wx', unionId: 'union_001');
+        $userAli = UnionUser::fromRaw(channel: Channel::AlipayMini, openId: 'open_ali', unionId: 'union_001');
+
+        $kernel->union()->wechat()->createSession($userWx, scene: 'mini', client: 'ios', clientId: 'd1');
+        $kernel->union()->alipay()->createSession($userAli, scene: 'mini', client: 'android', clientId: 'd2');
+
+        $sessions = $kernel->union()->wechat()->sessions('union_001');
+
+        self::assertCount(2, $sessions);
+        $channels = array_map(static fn (Session $s): string => $s->channel->value, $sessions);
+        self::assertContains(Channel::WechatMini->value, $channels);
+        self::assertContains(Channel::AlipayMini->value, $channels);
+    }
+
+    public function testSessionsReturnsEmptyWhenManagerNotSet(): void
+    {
+        $kernel = new Kernel(['wechat' => ['app_id' => 'wx', 'app_secret' => 's']]);
+        $kernel->union();
+
+        self::assertSame([], $kernel->union()->wechat()->sessions('union_x'));
+    }
+
     public function testSingleAllEnforcedAcrossPlatforms(): void
     {
         $kernel = $this->kernelWithSession(SessionPolicy::SingleAll);
