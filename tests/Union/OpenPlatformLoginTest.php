@@ -453,7 +453,10 @@ class OpenPlatformLoginTest extends TestCase
             'component_access_token' => 'COMP_TOK',
         ]);
 
-        self::assertSame('auth_appid_1', $user->openId);
+        // 第三方平台授权流程返回的是「授权方账号」结果，不是终端用户：
+        // openId 必须为空（authorizer_appid 已在 extra 中），避免与真实用户混淆。
+        self::assertSame('', $user->openId);
+        self::assertSame('auth_appid_1', $user->extra['authorizer_appid'] ?? null);
         self::assertArrayHasKey('authorizer_access_token', $user->extra);
     }
 

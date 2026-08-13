@@ -49,11 +49,17 @@ readonly class Authorizer
     /**
      * 代小程序登录（code2session）
      *
-     * @return array<string, mixed>
+     * 第三方平台代小程序调用，必须携带有效的 component_access_token（由
+     * {@see Component::accessToken()} 换取），缺失会返回 40013 / 40001。
+     *
+     * @param string $componentAccessToken 第三方平台 component_access_token（必填）
+     *
+     * @return array<string, mixed> 含 session_key / openid / unionid（绑定开放平台时）
      */
     public function miniProgramSession(
         string $authorizerAppId,
         string $code,
+        string $componentAccessToken,
     ): array {
         $url = 'https://api.weixin.qq.com/sns/component/jscode2session';
 
@@ -63,7 +69,7 @@ readonly class Authorizer
                 'js_code'                => $code,
                 'grant_type'             => 'authorization_code',
                 'component_appid'        => $this->app->config()->componentAppId(),
-                'component_access_token' => '',
+                'component_access_token' => $componentAccessToken,
             ],
         ]);
 

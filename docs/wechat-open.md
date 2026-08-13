@@ -103,11 +103,13 @@ $authorizers = $component->allAuthorizers($componentAccessToken);
 $authorizer = $app->authorizer();
 $authorizerAccessToken = 'AUTHORIZER_ACCESS_TOKEN';
 
-// 代小程序登录（code2session）
+// 代小程序登录（code2session）—— 必须传 component_access_token
 $session = $authorizer->miniProgramSession(
     authorizerAppId: 'wxd1234567890',
     code: 'JS_CODE_FROM_CLIENT',
+    componentAccessToken: $componentAccessToken,
 );
+// 返回含 session_key / openid / unionid（该小程序绑定开放平台时）
 
 // 代公众号创建自定义菜单
 $authorizer->createMenu(
@@ -235,8 +237,11 @@ $uid = $unionId->fromPayload(['unionid' => 'UID_001']);
 $cacheKey = $unionId->cacheKey('UID_001', scope: 'app');
 // => kode_wechat_unionid_app_UID_001
 
-// 判断是否属于当前开放平台
-$belongs = $unionId->belongsToCurrent(['unionid' => 'UID_001']);
+// 判断是否属于当前开放平台（提供已知授权方 appid 集合做真实归属判定）
+$belongs = $unionId->belongsToCurrent(
+    ['unionid' => 'UID_001', 'authorizer_appid' => 'wxd1234567890'],
+    knownAuthorizerAppIds: ['wxd1234567890', 'wxo0987654321'],
+);
 ```
 
 ## 微信生态互联

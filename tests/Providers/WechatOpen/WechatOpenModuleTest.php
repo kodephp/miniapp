@@ -10,6 +10,8 @@ use Kode\MiniApp\Providers\WechatOpen\Modules\Authorizer;
 use Kode\MiniApp\Providers\WechatOpen\Modules\Component;
 use Kode\MiniApp\Providers\WechatOpen\WechatOpenApp;
 use Kode\MiniApp\Tests\TestCase;
+use Kode\MiniApp\Tests\Fakes\FakeResponse;
+use Kode\MiniApp\Union\Channel;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\StreamInterface;
 
@@ -766,5 +768,170 @@ class WechatOpenModuleTest extends TestCase
         self::assertSame('wx2', $all[1]['appid']);
         self::assertSame('wx3', $all[2]['appid']);
         self::assertSame(2, $stub->callCount);
+    }
+
+    public function testMiniProgramSessionPassesComponentToken(): void
+    {
+        $captured = new \stdClass();
+        $stub = new class ($captured) implements HttpClientInterface {
+            public function __construct(private \stdClass $captured)
+            {
+            }
+
+            public function get(string $uri, array $options = []): ResponseInterface
+            {
+                $this->captured->uri   = $uri;
+                $this->captured->query = $options['query'] ?? [];
+
+                return new FakeResponse(['openid' => 'OID', 'session_key' => 'SK', 'unionid' => 'UID']);
+            }
+
+            public function post(string $uri, array $options = []): ResponseInterface
+            {
+                return new FakeResponse([]);
+            }
+
+            public function put(string $uri, array $options = []): ResponseInterface
+            {
+                return new FakeResponse([]);
+            }
+
+            public function patch(string $uri, array $options = []): ResponseInterface
+            {
+                return new FakeResponse([]);
+            }
+
+            public function delete(string $uri, array $options = []): ResponseInterface
+            {
+                return new FakeResponse([]);
+            }
+
+            public function postJson(string $uri, array $data = [], array $headers = []): ResponseInterface
+            {
+                return new FakeResponse([]);
+            }
+
+            public function upload(string $uri, string $field, string $filePath, array $form = []): ResponseInterface
+            {
+                return new FakeResponse([]);
+            }
+        };
+
+        $kernel = new Kernel([
+            'wechat_open' => [
+                'component_appid'  => 'wxcomp123',
+                'component_secret' => 'comp-secret',
+                'token'            => 't',
+                'encoding_aes_key' => str_repeat('a', 43),
+            ],
+        ], $stub);
+
+        /** @var WechatOpenApp $app */
+        $app     = $kernel->wechatOpen()->app();
+        $session = $app->authorizer()->miniProgramSession('wxd1234567890', 'JS_CODE', 'COMP_TOK_001');
+
+        self::assertSame('OID', $session['openid']);
+        self::assertSame('UID', $session['unionid']);
+        self::assertSame('COMP_TOK_001', $captured->query['component_access_token'] ?? null);
+        self::assertSame('wxcomp123', $captured->query['component_appid'] ?? null);
+        self::assertSame('wxd1234567890', $captured->query['appid'] ?? null);
+    }
+
+    public function testBelongsToCurrentScoped(): void
+    {
+        $kernel = new Kernel([
+            'wechat_open' => [
+                'component_appid'  => 'wxcomp123',
+                'component_secret' => 'comp-secret',
+                'token'            => 't',
+                'encoding_aes_key' => str_repeat('a', 43),
+            ],
+        ]);
+
+        /** @var WechatOpenApp $app */
+        $app  = $kernel->wechatOpen()->app();
+        $uid  = $app->unionId();
+
+        // 未提供授权方集合：退化为「unionid 存在」判断
+        self::assertTrue($uid->belongsToCurrent(['unionid' => 'UID_001']));
+        self::assertFalse($uid->belongsToCurrent(['openid' => 'OID_001']));
+
+        // 提供已知授权方集合：按 authorizer_appid 做真实归属判定
+        $known = ['wxd1234567890', 'wxo0987654321'];
+        self::assertTrue($uid->belongsToCurrent(
+            ['unionid' => 'UID_001', 'authorizer_appid' => 'wxd1234567890'],
+            $known,
+        ));
+        self::assertFalse($uid->belongsToCurrent(
+            ['unionid' => 'UID_001', 'authorizer_appid' => 'wx_other'],
+            $known,
+        ));
+    }
+
+    public function testOpenPlatformLoginReturnsAccountAuthorization(): void
+    {
+        $stub = new class implements HttpClientInterface {
+            public function get(string $uri, array $options = []): ResponseInterface
+            {
+                return new FakeResponse([]);
+            }
+
+            public function post(string $uri, array $options = []): ResponseInterface
+            {
+                return new FakeResponse([]);
+            }
+
+            public function put(string $uri, array $options = []): ResponseInterface
+            {
+                return new FakeResponse([]);
+            }
+
+            public function patch(string $uri, array $options = []): ResponseInterface
+            {
+                return new FakeResponse([]);
+            }
+
+            public function delete(string $uri, array $options = []): ResponseInterface
+            {
+                return new FakeResponse([]);
+            }
+
+            public function postJson(string $uri, array $data = [], array $headers = []): ResponseInterface
+            {
+                return new FakeResponse([
+                    'authorization_info' => [
+                        'authorizer_appid'         => 'wxd1234567890',
+                        'authorizer_access_token'  => 'AUTH_TOK',
+                        'authorizer_refresh_token' => 'REF_TOK',
+                    ],
+                ]);
+            }
+
+            public function upload(string $uri, string $field, string $filePath, array $form = []): ResponseInterface
+            {
+                return new FakeResponse([]);
+            }
+        };
+
+        $kernel = new Kernel([
+            'wechat_open' => [
+                'component_appid'  => 'wxcomp123',
+                'component_secret' => 'comp-secret',
+                'token'            => 't',
+                'encoding_aes_key' => str_repeat('a', 43),
+            ],
+        ], $stub);
+
+        $user = $kernel->union()->openPlatform()->login([
+            'authorization_code'     => 'AUTH_CODE',
+            'component_access_token' => 'COMP_TOK',
+        ]);
+
+        self::assertSame(Channel::WechatOpen, $user->channel);
+        // 这是「账号授权」结果，不是终端用户：openId / unionId 必须为空
+        self::assertSame('', $user->openId);
+        self::assertSame('', $user->unionId);
+        self::assertSame('wxd1234567890', $user->extra['authorizer_appid'] ?? null);
+        self::assertSame('AUTH_TOK', $user->extra['authorizer_access_token'] ?? null);
     }
 }
