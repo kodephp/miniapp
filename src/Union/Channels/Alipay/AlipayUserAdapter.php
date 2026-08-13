@@ -18,11 +18,13 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class AlipayUserAdapter extends BaseAdapter implements UserAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::AlipayMini;
     }
 
+    #[\Override]
     public function profile(string $openId, array $payload = []): UnionUser
     {
         $provider    = $this->provider('alipay');

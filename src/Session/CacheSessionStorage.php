@@ -31,6 +31,7 @@ final class CacheSessionStorage implements SessionStorageInterface
     ) {
     }
 
+    #[\Override]
     public function write(string $sessionId, array $data, int $ttl): void
     {
         $this->cache->set(self::SESSION_PREFIX . $sessionId, $data, $ttl);
@@ -48,12 +49,14 @@ final class CacheSessionStorage implements SessionStorageInterface
         }
     }
 
+    #[\Override]
     public function read(string $sessionId): ?array
     {
         $data = $this->cache->get(self::SESSION_PREFIX . $sessionId);
         return is_array($data) ? $data : null;
     }
 
+    #[\Override]
     public function delete(string $sessionId): void
     {
         $data = $this->read($sessionId);
@@ -76,6 +79,7 @@ final class CacheSessionStorage implements SessionStorageInterface
         }
     }
 
+    #[\Override]
     public function findByIndex(string $indexKey): array
     {
         $set = $this->cache->get(self::INDEX_PREFIX . $indexKey, []);
@@ -85,12 +89,14 @@ final class CacheSessionStorage implements SessionStorageInterface
         return array_keys($set);
     }
 
+    #[\Override]
     public function countByIndex(string $indexKey): int
     {
         $set = $this->cache->get(self::INDEX_PREFIX . $indexKey, []);
         return is_array($set) ? count($set) : 0;
     }
 
+    #[\Override]
     public function cleanExpired(): int
     {
         // PSR-16 的 Cache 通常自带 TTL 过期机制，

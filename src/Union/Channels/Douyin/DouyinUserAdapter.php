@@ -16,11 +16,13 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class DouyinUserAdapter extends BaseAdapter implements UserAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::DouyinMini;
     }
 
+    #[\Override]
     public function profile(string $openId, array $payload = []): UnionUser
     {
         $channel = isset($payload['channel']) && is_string($payload['channel'])

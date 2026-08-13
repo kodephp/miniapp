@@ -28,11 +28,13 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class WechatUserAdapter extends BaseAdapter implements UserAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::WechatMp;
     }
 
+    #[\Override]
     public function profile(string $openId, array $payload = []): UnionUser
     {
         $channel = isset($payload['channel']) && is_string($payload['channel'])

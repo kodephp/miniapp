@@ -32,6 +32,7 @@ final class DouyinProvider extends BaseProvider
         $this->douyinConfig = new DouyinConfig($config);
     }
 
+    #[\Override]
     public function name(): Platform
     {
         return Platform::Douyin;

@@ -26,12 +26,14 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class AlipayLoginAdapter extends BaseAdapter implements LoginAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         // 通过 payload 中的 'channel' 字段动态识别
         return Channel::AlipayMini;
     }
 
+    #[\Override]
     public function authenticate(array $payload): UnionUser
     {
         $code = self::requireString($payload, 'code');

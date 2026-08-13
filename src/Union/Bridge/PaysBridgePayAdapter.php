@@ -39,6 +39,7 @@ final class PaysBridgePayAdapter implements PayAdapter
     ) {
     }
 
+    #[\Override]
     public function channel(): Channel
     {
         return $this->channel;
@@ -50,6 +51,7 @@ final class PaysBridgePayAdapter implements PayAdapter
      * @param array<string, mixed> $order
      * @return array<string, mixed>
      */
+    #[\Override]
     public function unifiedOrder(array $order): array
     {
         $facade = self::PAYS_FACADE;

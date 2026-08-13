@@ -23,11 +23,13 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class WeWorkUserAdapter extends BaseAdapter implements UserAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::WechatWork;
     }
 
+    #[\Override]
     public function profile(string $openId, array $payload = []): UnionUser
     {
         $provider = $this->provider('wechatWork');

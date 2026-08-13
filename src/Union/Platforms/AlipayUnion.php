@@ -21,6 +21,7 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class AlipayUnion extends PlatformUnion
 {
+    #[\Override]
     public function platform(): string
     {
         return 'alipay';
@@ -45,6 +46,7 @@ final class AlipayUnion extends PlatformUnion
     /**
      * 支付宝 App 登录
      */
+    #[\Override]
     public function loginByCode(string $code, ?string $scene = null): UnionUser
     {
         return parent::loginByCode($code, $scene);
@@ -53,6 +55,7 @@ final class AlipayUnion extends PlatformUnion
     /**
      * @return array<string, Channel>
      */
+    #[\Override]
     protected function sceneMap(): array
     {
         return [
@@ -62,11 +65,13 @@ final class AlipayUnion extends PlatformUnion
         ];
     }
 
+    #[\Override]
     protected function defaultChannel(): Channel
     {
         return Channel::AlipayMini;
     }
 
+    #[\Override]
     protected function defaultPayChannel(): Channel
     {
         return Channel::AlipayMini;

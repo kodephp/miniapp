@@ -33,7 +33,7 @@ readonly class Pay
             'nonce_str' => $this->generateNonce(),
         ], $data);
 
-        $params['sign'] = $this->sign($params, $config->get('api_key', ''));
+        $params['sign'] = self::sign($params, $config->get('api_key', ''));
 
         $xml      = $this->toXml($params);
         $response = $this->app->http()->post(
@@ -58,7 +58,7 @@ readonly class Pay
             'out_trade_no' => $outTradeNo,
             'nonce_str'    => $this->generateNonce(),
         ];
-        $params['sign'] = $this->sign($params, $config->get('api_key', ''));
+        $params['sign'] = self::sign($params, $config->get('api_key', ''));
 
         $xml      = $this->toXml($params);
         $response = $this->app->http()->post(
@@ -83,7 +83,7 @@ readonly class Pay
             'out_trade_no' => $outTradeNo,
             'nonce_str'    => $this->generateNonce(),
         ];
-        $params['sign'] = $this->sign($params, $config->get('api_key', ''));
+        $params['sign'] = self::sign($params, $config->get('api_key', ''));
 
         $xml      = $this->toXml($params);
         $response = $this->app->http()->post(
@@ -109,7 +109,7 @@ readonly class Pay
             'nonce_str' => $this->generateNonce(),
         ], $data);
 
-        $params['sign'] = $this->sign($params, $config->get('api_key', ''));
+        $params['sign'] = self::sign($params, $config->get('api_key', ''));
 
         $xml      = $this->toXml($params);
         $response = $this->app->http()->post(
@@ -129,11 +129,13 @@ readonly class Pay
     }
 
     /**
-     * MD5签名
+     * MD5 签名（QQ 小程序支付统一算法，密钥为 api_key）
+     *
+     * 下单与回调验签共用本方法，保证两端签名算法完全一致。
      *
      * @param array<string, mixed> $params
      */
-    private function sign(array $params, string $key): string
+    public static function sign(array $params, string $key): string
     {
         ksort($params);
         $string = '';

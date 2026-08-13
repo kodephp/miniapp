@@ -70,6 +70,29 @@ $user = Union::alipay()->mini('AUTH_CODE');    // 支付宝
 $order = Union::wechat()->pay()->unifiedOrder([...]);
 ```
 
+## 能力支持矩阵
+
+> 标注「✅ 支持 / — 不适用或暂未支持」。本表为 Union 统一入口的能力覆盖总览，与各端 Provider 底层能力一致。
+
+| 平台 | 登录 | 用户资料 | 客户端解密(encryptedData) | 手机号(code 换) | 手机号(encryptedData) | 支付 | 回调通知 |
+|------|------|----------|---------------------------|-----------------|----------------------|------|----------|
+| 微信（小程序 / 公众号 / H5 / PC / App） | ✅ | ✅ | ✅ | ✅ 小程序 | ✅ | ✅ 小程序/公众号/App | ✅ 全场景 |
+| 微信开放平台 | ✅ | ✅ | — | — | — | — | — |
+| 支付宝（小程序 / 生活号 / App） | ✅ | ✅ | ✅ response+sign | — | — | ✅ mini/mp/app | ✅ |
+| 抖音（小程序） | ✅ | ✅ | ✅ | ✅ RSA 密文 | ✅ | ✅ 小程序 | ✅ 小程序 |
+| 百度（小程序） | ✅ | ✅ | ✅ | — | ✅ | ✅ 小程序 | ✅ 小程序 |
+| QQ（小程序） | ✅ | ✅ | ✅ | — | ✅ | ✅ 小程序 | ✅ 小程序 |
+| 企业微信 | ✅ | ✅ | ✅ | — | ✅ | —（经 kode/pays） | ✅ |
+| 钉钉 | ✅ | ✅ | — | — | — | — | — |
+| 飞书 | ✅ | ✅ | ✅ hex 变体 | — | ✅ | — | — |
+
+说明：
+
+- **客户端解密(encryptedData)**：微信 / 抖音 / QQ / 百度 / 飞书 / 企业微信 走统一 `Union::decrypt()` / `decryptByUser()`（AES-128-CBC + watermark，飞书为 hex 变体）；支付宝走 `Union::alipay()->decrypt()`（response+sign / RSA2 验签），不并入统一入口。
+- **手机号(code 换)**：微信小程序 `Union::phoneByCode()`（明文 `phone_info`）；抖音 `Union::phoneByCode()`（RSA 密文，需 `app_private_key`）。
+- **手机号(encryptedData)**：微信 / 抖音 / QQ / 百度 / 飞书 / 企业微信 走 `Union::phoneByDecrypt()` / `phoneByUser()`；支付宝走 `Union::phoneByResponse()`。
+- **支付 / 回调**：B 端平台（钉钉 / 飞书）及微信开放平台（第三方平台）无消费者支付场景，标记为「—」属设计预期。QQ 回调为 XML + MD5（`api_key`）验签，由 `Union::qq()->notify()` 提供。
+
 ## Union 静态门面
 
 通过 `__callStatic` 魔术方法，Union 类把平台方法统一为：

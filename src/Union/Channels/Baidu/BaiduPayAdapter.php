@@ -15,11 +15,13 @@ use Kode\MiniApp\Union\Contracts\PayAdapter;
  */
 final class BaiduPayAdapter extends BaseAdapter implements PayAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::BaiduMini;
     }
 
+    #[\Override]
     public function unifiedOrder(array $order): array
     {
         $provider = $this->provider('baidu');
@@ -29,12 +31,9 @@ final class BaiduPayAdapter extends BaseAdapter implements PayAdapter
         }
 
         $pay = $app->pay();
-        if (!method_exists($pay, 'createOrder')) {
-            throw new \RuntimeException('百度支付模块未提供 createOrder 方法');
-        }
 
         /** @var array<string, mixed> $result */
-        $result = $pay->createOrder($order);
+        $result = $pay->create($order);
         return $result;
     }
 }

@@ -32,6 +32,7 @@ final class LarkProvider extends BaseProvider
         $this->larkConfig = new LarkConfig($config);
     }
 
+    #[\Override]
     public function name(): Platform
     {
         return Platform::Lark;

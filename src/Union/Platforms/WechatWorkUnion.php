@@ -17,6 +17,7 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class WechatWorkUnion extends PlatformUnion
 {
+    #[\Override]
     public function platform(): string
     {
         return 'wechat_work';
@@ -41,6 +42,7 @@ final class WechatWorkUnion extends PlatformUnion
     /**
      * @return array<string, Channel>
      */
+    #[\Override]
     protected function sceneMap(): array
     {
         return [
@@ -49,11 +51,13 @@ final class WechatWorkUnion extends PlatformUnion
         ];
     }
 
+    #[\Override]
     protected function defaultChannel(): Channel
     {
         return Channel::WechatWork;
     }
 
+    #[\Override]
     protected function defaultPayChannel(): Channel
     {
         return Channel::WechatWork;

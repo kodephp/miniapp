@@ -16,6 +16,7 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class DouyinUnion extends PlatformUnion
 {
+    #[\Override]
     public function platform(): string
     {
         return 'douyin';
@@ -40,6 +41,7 @@ final class DouyinUnion extends PlatformUnion
     /**
      * @return array<string, Channel>
      */
+    #[\Override]
     protected function sceneMap(): array
     {
         return [
@@ -48,11 +50,13 @@ final class DouyinUnion extends PlatformUnion
         ];
     }
 
+    #[\Override]
     protected function defaultChannel(): Channel
     {
         return Channel::DouyinMini;
     }
 
+    #[\Override]
     protected function defaultPayChannel(): Channel
     {
         return Channel::DouyinMini;

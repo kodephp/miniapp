@@ -13,11 +13,13 @@ use Kode\MiniApp\Union\Contracts\NotifyAdapter;
  */
 final class DouyinNotifyAdapter extends BaseAdapter implements NotifyAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::DouyinMini;
     }
 
+    #[\Override]
     public function decode(array $payload, array $headers = []): array
     {
         return [

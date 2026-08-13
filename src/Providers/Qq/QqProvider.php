@@ -32,6 +32,7 @@ final class QqProvider extends BaseProvider
         $this->qqConfig = new QqConfig($config);
     }
 
+    #[\Override]
     public function name(): Platform
     {
         return Platform::Qq;

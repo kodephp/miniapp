@@ -15,11 +15,13 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class BaiduUserAdapter extends BaseAdapter implements UserAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::BaiduMini;
     }
 
+    #[\Override]
     public function profile(string $openId, array $payload = []): UnionUser
     {
         $provider = $this->provider('baidu');

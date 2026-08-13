@@ -1025,6 +1025,7 @@ final class Union
             Channel::DouyinMini,
             Channel::DouyinMp      => "{$namespace}\\Douyin\\DouyinNotifyAdapter",
             Channel::BaiduMini     => "{$namespace}\\Baidu\\BaiduNotifyAdapter",
+            Channel::Qq            => "{$namespace}\\Qq\\QqNotifyAdapter",
             default                => throw new InvalidArgumentException(
                 "渠道 [{$channel->label()}] 不支持回调"
             ),

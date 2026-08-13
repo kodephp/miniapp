@@ -22,21 +22,25 @@ readonly class BaseConfig implements ConfigInterface
     ) {
     }
 
+    #[\Override]
     public function platform(): Platform
     {
         return $this->platform;
     }
 
+    #[\Override]
     public function appId(): string
     {
         return (string) ($this->data['app_id'] ?? $this->data['appid'] ?? '');
     }
 
+    #[\Override]
     public function secret(): string
     {
         return (string) ($this->data['secret'] ?? $this->data['app_secret'] ?? '');
     }
 
+    #[\Override]
     public function all(): array
     {
         return $this->data;
@@ -49,6 +53,7 @@ readonly class BaseConfig implements ConfigInterface
      * @param T $default
      * @return T
      */
+    #[\Override]
     public function get(string $key, mixed $default = null): mixed
     {
         return $this->data[$key] ?? $default;

@@ -23,11 +23,13 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class DouyinLoginAdapter extends BaseAdapter implements LoginAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::DouyinMini;
     }
 
+    #[\Override]
     public function authenticate(array $payload): UnionUser
     {
         $code         = self::requireString($payload, 'code');

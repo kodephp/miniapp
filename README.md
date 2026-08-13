@@ -68,6 +68,29 @@ composer require kode/event     # 事件
 | 钉钉 | `dingtalk` | B端 | 认证、通讯录、消息、审批、群机器人、考勤、智能人事、日志、项目、智能工作流 | [查看](docs/dingtalk.md) |
 | 飞书 | `lark` | B端 | 认证、通讯录、消息、审批、审批定义、多维表格、文档、日历、任务、知识库、邮件 | [查看](docs/lark.md) |
 
+## 能力支持矩阵
+
+> 标注「✅ 支持 / — 不适用或暂未支持」。客户端敏感数据解密与手机号获取的算法细节见下文「统一敏感数据」与 [docs/union.md](docs/union.md)。
+
+| 平台 | 登录 | 用户资料 | 客户端解密(encryptedData) | 手机号(code 换) | 手机号(encryptedData) | 支付 | 回调通知 |
+|------|------|----------|---------------------------|-----------------|----------------------|------|----------|
+| 微信（小程序 / 公众号 / H5 / PC / App） | ✅ | ✅ | ✅ | ✅ 小程序 | ✅ | ✅ 小程序/公众号/App | ✅ 全场景 |
+| 微信开放平台 | ✅ | ✅ | — | — | — | — | — |
+| 支付宝（小程序 / 生活号 / App） | ✅ | ✅ | ✅ response+sign | — | — | ✅ mini/mp/app | ✅ |
+| 抖音（小程序） | ✅ | ✅ | ✅ | ✅ RSA 密文 | ✅ | ✅ 小程序 | ✅ 小程序 |
+| 百度（小程序） | ✅ | ✅ | ✅ | — | ✅ | ✅ 小程序 | ✅ 小程序 |
+| QQ（小程序） | ✅ | ✅ | ✅ | — | ✅ | ✅ 小程序 | ✅ 小程序 |
+| 企业微信 | ✅ | ✅ | ✅ | — | ✅ | —（经 kode/pays） | ✅ |
+| 钉钉 | ✅ | ✅ | — | — | — | — | — |
+| 飞书 | ✅ | ✅ | ✅ hex 变体 | — | ✅ | — | — |
+
+说明：
+
+- **客户端解密(encryptedData)**：微信 / 抖音 / QQ / 百度 / 飞书 / 企业微信 走统一 `Union::decrypt()` / `decryptByUser()`（AES-128-CBC + watermark）；支付宝走 `Union::alipay()->decrypt()`（response+sign / RSA2 验签），不并入统一入口。
+- **手机号(code 换)**：微信小程序 `Union::phoneByCode()`（明文）；抖音 `Union::phoneByCode()`（RSA 密文，需 `app_private_key`）。
+- **手机号(encryptedData)**：微信 / 抖音 / QQ / 百度 / 飞书 / 企业微信 走 `Union::phoneByDecrypt()` / `phoneByUser()`；支付宝走 `Union::phoneByResponse()`。
+- **支付 / 回调**：B 端平台（钉钉 / 飞书）及微信开放平台（第三方平台）无消费者支付场景，标记为「—」属设计预期。
+
 ## 安装
 
 ```bash
@@ -331,6 +354,51 @@ $user = Union::wechat()->user($openId, [], 'mp');
 //    小程序：传入客户端上报（已解密）的资料
 $user = Union::wechat()->user($openId, ['raw' => $clientUserInfo], 'mini');
 ```
+
+## 统一敏感数据（手机号 / 用户资料 / 加密数据）
+
+小程序客户端回传的 `encryptedData`、手机号 code，经本 SDK 统一解密 / 校验后返回**强类型值对象**或**归一化数组**，业务侧无需关心各端算法差异（AES-128-CBC + watermark / 支付宝 RSA2 / 抖音 RSA 密文）。登录成功即自动托管 `session_key`，后续解密可一键取用，无需手动传递密钥。
+
+### 三族统一入口
+
+| 能力 | 数组入口 | 值对象入口 | 覆盖渠道 |
+|------|----------|------------|----------|
+| 通用加密数据 data | `Union::decrypt()` / `decryptByUser()` | — | 微信/抖音/QQ/百度/飞书/企业微信（支付宝走 `Union::alipay()->decrypt()`） |
+| 手机号 phone | `Union::phoneByCode()` / `phoneByDecrypt()` / `phoneByUser()` / `phoneByResponse()` | `Union::phoneObjectBy*` | code：微信/抖音；encryptedData：微信/抖音/QQ/百度/飞书/企业微信；response：支付宝 |
+| 用户资料 userInfo | `Union::userInfoByDecrypt()` / `userInfoByUser()` | `Union::userInfoObjectBy*` | 微信/抖音/QQ/百度/飞书/企业微信 |
+
+### 典型用法
+
+```php
+use Kode\MiniApp\Union\Union;
+use Kode\MiniApp\Union\Channel;
+
+// 1. 登录即自动托管 session_key（微信/抖音/QQ/百度/飞书/企业微信）
+$user = Union::wechat()->mini('JS_CODE');
+
+// 2. 手机号：新版 code 换手机号（微信小程序）
+$phone = Union::phoneByCode(Channel::WechatMini, 'PHONE_CODE');
+//    或强类型值对象：$phone->phoneNumber / $phone->purePhoneNumber / $phone->countryCode
+$phoneObj = Union::phoneObjectByCode(Channel::WechatMini, 'PHONE_CODE');
+
+// 3. 手机号：encryptedData + session_key（微信/抖音/QQ/百度/飞书/企业微信）
+$phone = Union::phoneByDecrypt(Channel::WechatMini, $encryptedData, $sessionKey, $iv);
+//    或一键取用登录托管的 session_key（免手动传密钥）
+$phone = Union::phoneByUser(Channel::WechatMini, $encryptedData, $iv, $user->openId);
+
+// 4. 支付宝手机号（response + sign，RSA2 验签防篡改）
+$phone = Union::phoneByResponse(Channel::AlipayMini, $response, $sign);
+
+// 5. 从已登录 UnionUser 一键解密（桥接入口，免重复传参）
+$phoneObj = Union::phoneObjectForUser($user, $encryptedData, $iv);
+$profile  = Union::userInfoObjectForUser($user, $encryptedData, $iv);
+
+// 6. 客户端加密用户资料
+$profile = Union::userInfoByDecrypt(Channel::WechatMini, $encryptedData, $sessionKey, $iv);
+```
+
+> 完整算法说明、失败语义（统一抛 `ApiException`）、各端字段差异对照表见 [docs/union.md](docs/union.md)。
+> 敏感密钥（`session_key` / `aes_key`）已在日志脱敏键中，严禁下发前端或写入日志。
 
 ### 多端登录约束（SessionManager）
 

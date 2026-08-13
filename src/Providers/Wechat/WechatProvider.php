@@ -32,6 +32,7 @@ final class WechatProvider extends BaseProvider
         $this->wechatConfig = new WechatConfig($config);
     }
 
+    #[\Override]
     public function name(): Platform
     {
         return Platform::Wechat;

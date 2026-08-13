@@ -32,6 +32,7 @@ final class DingtalkProvider extends BaseProvider
         $this->dingtalkConfig = new DingtalkConfig($config);
     }
 
+    #[\Override]
     public function name(): Platform
     {
         return Platform::Dingtalk;

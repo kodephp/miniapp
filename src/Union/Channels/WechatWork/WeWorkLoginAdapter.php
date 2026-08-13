@@ -24,11 +24,13 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class WeWorkLoginAdapter extends BaseAdapter implements LoginAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::WechatWork;
     }
 
+    #[\Override]
     public function authenticate(array $payload): UnionUser
     {
         $code = self::requireString($payload, 'code');

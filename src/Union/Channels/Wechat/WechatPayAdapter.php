@@ -23,11 +23,13 @@ use Kode\MiniApp\Union\Contracts\PayAdapter;
  */
 final class WechatPayAdapter extends BaseAdapter implements PayAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::WechatMini;
     }
 
+    #[\Override]
     public function unifiedOrder(array $order): array
     {
         $provider = $this->provider('wechat');

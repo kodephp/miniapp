@@ -349,31 +349,37 @@ final readonly class ApiResponse implements ArrayAccess, JsonSerializable, \Stri
     /**
      * @return array<string, mixed>
      */
+    #[\Override]
     public function jsonSerialize(): array
     {
         return $this->data;
     }
 
+    #[\Override]
     public function __toString(): string
     {
         return $this->raw;
     }
 
+    #[\Override]
     public function offsetExists(mixed $offset): bool
     {
         return array_key_exists((string) $offset, $this->data);
     }
 
+    #[\Override]
     public function offsetGet(mixed $offset): mixed
     {
         return $this->get((string) $offset);
     }
 
+    #[\Override]
     public function offsetSet(mixed $offset, mixed $value): void
     {
         throw new \LogicException('ApiResponse 为只读对象，不支持写入');
     }
 
+    #[\Override]
     public function offsetUnset(mixed $offset): void
     {
         throw new \LogicException('ApiResponse 为只读对象，不支持删除');

@@ -14,6 +14,9 @@ use Psr\Http\Message\StreamInterface;
  */
 final class FakeResponse implements ResponseInterface
 {
+    /**
+     * @param array<string, mixed> $body
+     */
     public function __construct(private array $body)
     {
     }
@@ -86,7 +89,7 @@ final class FakeResponse implements ResponseInterface
                 return null;
             }
 
-            public function getSize(): ?int
+            public function getSize(): int
             {
                 return strlen($this->content);
             }

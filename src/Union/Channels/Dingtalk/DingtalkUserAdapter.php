@@ -16,11 +16,13 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class DingtalkUserAdapter extends BaseAdapter implements UserAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::Dingtalk;
     }
 
+    #[\Override]
     public function profile(string $openId, array $payload = []): UnionUser
     {
         $provider = $this->provider('dingtalk');

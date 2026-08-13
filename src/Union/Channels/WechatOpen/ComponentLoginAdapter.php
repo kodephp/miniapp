@@ -36,11 +36,13 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class ComponentLoginAdapter extends BaseAdapter implements LoginAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::WechatOpen;
     }
 
+    #[\Override]
     public function authenticate(array $payload): UnionUser
     {
         $authCode           = self::requireString($payload, 'authorization_code');

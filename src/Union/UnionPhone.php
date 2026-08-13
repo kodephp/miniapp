@@ -71,6 +71,7 @@ final readonly class UnionPhone implements JsonSerializable
      *
      * @return array{phoneNumber:string, purePhoneNumber:string, countryCode:string}
      */
+    #[\Override]
     public function jsonSerialize(): array
     {
         return $this->toArray();

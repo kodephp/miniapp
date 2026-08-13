@@ -13,11 +13,13 @@ use Kode\MiniApp\Union\Contracts\NotifyAdapter;
  */
 final class BaiduNotifyAdapter extends BaseAdapter implements NotifyAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::BaiduMini;
     }
 
+    #[\Override]
     public function decode(array $payload, array $headers = []): array
     {
         return [

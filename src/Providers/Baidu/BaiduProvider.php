@@ -32,6 +32,7 @@ final class BaiduProvider extends BaseProvider
         $this->baiduConfig = new BaiduConfig($config);
     }
 
+    #[\Override]
     public function name(): Platform
     {
         return Platform::Baidu;

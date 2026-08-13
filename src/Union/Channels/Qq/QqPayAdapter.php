@@ -18,11 +18,13 @@ use Kode\MiniApp\Union\Contracts\PayAdapter;
  */
 final class QqPayAdapter extends BaseAdapter implements PayAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::Qq;
     }
 
+    #[\Override]
     public function unifiedOrder(array $order): array
     {
         $provider = $this->provider('qq');
@@ -32,9 +34,6 @@ final class QqPayAdapter extends BaseAdapter implements PayAdapter
         }
 
         $pay = $app->pay();
-        if (!method_exists($pay, 'unifiedOrder')) {
-            throw new \RuntimeException('QQ 支付模块未提供 unifiedOrder 方法');
-        }
 
         /** @var array<string, mixed> $result */
         $result = $pay->unifiedOrder($order);

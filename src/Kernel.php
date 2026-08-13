@@ -52,6 +52,7 @@ final class Kernel implements KernelInterface
     /**
      * 获取微信 Provider
      */
+    #[\Override]
     public function wechat(): PlatformInterface
     {
         return $this->get(Platform::Wechat);
@@ -60,14 +61,19 @@ final class Kernel implements KernelInterface
     /**
      * 获取微信开放平台 Provider
      */
-    public function wechatOpen(): PlatformInterface
+    #[\Override]
+    public function wechatOpen(): WechatOpenProvider
     {
-        return $this->get(Platform::WechatOpen);
+        /** @var WechatOpenProvider $app */
+        $app = $this->get(Platform::WechatOpen);
+
+        return $app;
     }
 
     /**
      * 获取支付宝 Provider
      */
+    #[\Override]
     public function alipay(): PlatformInterface
     {
         return $this->get(Platform::Alipay);
@@ -76,6 +82,7 @@ final class Kernel implements KernelInterface
     /**
      * 获取抖音 Provider
      */
+    #[\Override]
     public function douyin(): PlatformInterface
     {
         return $this->get(Platform::Douyin);
@@ -84,6 +91,7 @@ final class Kernel implements KernelInterface
     /**
      * 获取百度 Provider
      */
+    #[\Override]
     public function baidu(): PlatformInterface
     {
         return $this->get(Platform::Baidu);
@@ -92,6 +100,7 @@ final class Kernel implements KernelInterface
     /**
      * 获取 QQ Provider
      */
+    #[\Override]
     public function qq(): PlatformInterface
     {
         return $this->get(Platform::Qq);
@@ -100,6 +109,7 @@ final class Kernel implements KernelInterface
     /**
      * 获取微信企业号 Provider
      */
+    #[\Override]
     public function wechatWork(): PlatformInterface
     {
         return $this->get(Platform::WechatWork);
@@ -108,6 +118,7 @@ final class Kernel implements KernelInterface
     /**
      * 获取钉钉 Provider
      */
+    #[\Override]
     public function dingtalk(): PlatformInterface
     {
         return $this->get(Platform::Dingtalk);
@@ -116,6 +127,7 @@ final class Kernel implements KernelInterface
     /**
      * 获取飞书 Provider
      */
+    #[\Override]
     public function lark(): PlatformInterface
     {
         return $this->get(Platform::Lark);
@@ -133,6 +145,7 @@ final class Kernel implements KernelInterface
      *   // 或者
      *   $user = Union::wechat()->mini('JS_CODE');
      */
+    #[\Override]
     public function union(): Union
     {
         if ($this->unionInstance === null) {
@@ -147,6 +160,7 @@ final class Kernel implements KernelInterface
     /**
      * 通用获取 Provider
      */
+    #[\Override]
     public function get(Platform $platform): PlatformInterface
     {
         $key = $platform->value;

@@ -18,6 +18,11 @@ interface KernelInterface
     public function get(Platform $platform): PlatformInterface;
 
     /**
+     * 获取指定平台的 App 实例
+     */
+    public function app(Platform $platform, string $name = 'default'): AppInterface;
+
+    /**
      * 快捷获取 Provider
      */
     public function wechat(): PlatformInterface;

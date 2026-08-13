@@ -24,11 +24,13 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class PcLoginAdapter extends BaseAdapter implements LoginAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::WechatPc;
     }
 
+    #[\Override]
     public function authenticate(array $payload): UnionUser
     {
         $code = self::requireString($payload, 'code');

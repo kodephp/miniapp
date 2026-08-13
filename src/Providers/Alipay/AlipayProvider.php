@@ -32,6 +32,7 @@ final class AlipayProvider extends BaseProvider
         $this->alipayConfig = new AlipayConfig($config);
     }
 
+    #[\Override]
     public function name(): Platform
     {
         return Platform::Alipay;

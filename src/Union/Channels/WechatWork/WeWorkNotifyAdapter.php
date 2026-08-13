@@ -13,11 +13,13 @@ use Kode\MiniApp\Union\Contracts\NotifyAdapter;
  */
 final class WeWorkNotifyAdapter extends BaseAdapter implements NotifyAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::WechatWork;
     }
 
+    #[\Override]
     public function decode(array $payload, array $headers = []): array
     {
         return [

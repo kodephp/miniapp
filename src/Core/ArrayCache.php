@@ -17,6 +17,7 @@ class ArrayCache implements CacheInterface
     /** @var array<string, array{value: mixed, expires: int|null}> */
     private array $data = [];
 
+    #[\Override]
     public function get(string $key, mixed $default = null): mixed
     {
         if (!array_key_exists($key, $this->data)) {
@@ -35,6 +36,7 @@ class ArrayCache implements CacheInterface
         return $entry['value'];
     }
 
+    #[\Override]
     public function set(string $key, mixed $value, \DateInterval|int|null $ttl = null): bool
     {
         $this->data[$key] = [
@@ -45,6 +47,7 @@ class ArrayCache implements CacheInterface
         return true;
     }
 
+    #[\Override]
     public function delete(string $key): bool
     {
         unset($this->data[$key]);
@@ -52,6 +55,7 @@ class ArrayCache implements CacheInterface
         return true;
     }
 
+    #[\Override]
     public function clear(): bool
     {
         $this->data = [];
@@ -63,6 +67,7 @@ class ArrayCache implements CacheInterface
      * @param iterable<string> $keys
      * @return iterable<string, mixed>
      */
+    #[\Override]
     public function getMultiple(iterable $keys, mixed $default = null): iterable
     {
         $result = [];
@@ -76,6 +81,7 @@ class ArrayCache implements CacheInterface
     /**
      * @param iterable<string, mixed> $values
      */
+    #[\Override]
     public function setMultiple(iterable $values, \DateInterval|int|null $ttl = null): bool
     {
         foreach ($values as $key => $value) {
@@ -88,6 +94,7 @@ class ArrayCache implements CacheInterface
     /**
      * @param iterable<string> $keys
      */
+    #[\Override]
     public function deleteMultiple(iterable $keys): bool
     {
         foreach ($keys as $key) {
@@ -97,6 +104,7 @@ class ArrayCache implements CacheInterface
         return true;
     }
 
+    #[\Override]
     public function has(string $key): bool
     {
         $miss = new \stdClass();

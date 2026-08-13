@@ -35,16 +35,19 @@ abstract class BaseProvider implements PlatformInterface
     /**
      * 获取平台标识
      */
+    #[\Override]
     abstract public function name(): Platform;
 
     /**
      * 获取平台下指定名称的应用实例
      */
+    #[\Override]
     abstract public function app(string $name = 'default'): AppInterface;
 
     /**
      * 获取 HTTP 客户端
      */
+    #[\Override]
     public function http(): HttpClientInterface
     {
         return $this->http;
@@ -53,11 +56,13 @@ abstract class BaseProvider implements PlatformInterface
     /**
      * 获取平台配置
      */
+    #[\Override]
     abstract public function config(): ConfigInterface;
 
     /**
      * 获取关联的 Kernel 实例
      */
+    #[\Override]
     public function kernel(): ?KernelInterface
     {
         return $this->kernel;

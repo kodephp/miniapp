@@ -16,6 +16,7 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class QqUnion extends PlatformUnion
 {
+    #[\Override]
     public function platform(): string
     {
         return 'qq';
@@ -32,6 +33,7 @@ final class QqUnion extends PlatformUnion
     /**
      * @return array<string, Channel>
      */
+    #[\Override]
     protected function sceneMap(): array
     {
         return [
@@ -39,11 +41,13 @@ final class QqUnion extends PlatformUnion
         ];
     }
 
+    #[\Override]
     protected function defaultChannel(): Channel
     {
         return Channel::Qq;
     }
 
+    #[\Override]
     protected function defaultPayChannel(): Channel
     {
         return Channel::Qq;

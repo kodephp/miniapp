@@ -15,11 +15,13 @@ use Kode\MiniApp\Union\Contracts\PayAdapter;
  */
 final class AlipayPayAdapter extends BaseAdapter implements PayAdapter
 {
+    #[\Override]
     public function channel(): Channel
     {
         return Channel::AlipayMini;
     }
 
+    #[\Override]
     public function unifiedOrder(array $order): array
     {
         $provider = $this->provider('alipay');
