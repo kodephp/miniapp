@@ -61,6 +61,7 @@ $app      = $provider->app();
 $component = $app->component();
 
 // 1. 获取 component_access_token（需用 component_verify_ticket）
+//    已内置 PSR-16 缓存（2h，带单飞保护），自动复用、避免重复换取触发微信配额限制
 $tokenResult = $component->accessToken($verifyTicket);
 $componentAccessToken = $tokenResult['component_access_token'];
 
@@ -79,6 +80,14 @@ $loginUrl = $component->loginPage(
 
 // 4. 使用授权码换取 authorizer_access_token
 $auth = $component->queryAuth($componentAccessToken, $authorizationCode);
+
+// 后续代公众号 / 小程序调用接口时，优先用 authorizerAccessToken() 复用令牌
+// （内置 PSR-16 缓存 2h，带单飞保护；刷新失败可传 forceRefresh: true）
+$authorizerAccessToken = $component->authorizerAccessToken(
+    componentAccessToken:    $componentAccessToken,
+    authorizerAppId:         $auth['authorization_info']['authorizer_appid'],
+    authorizerRefreshToken:  $auth['authorization_info']['authorizer_refresh_token'],
+);
 
 // 5. 刷新 authorizer_access_token
 $refresh = $component->refreshAuthorizerToken(

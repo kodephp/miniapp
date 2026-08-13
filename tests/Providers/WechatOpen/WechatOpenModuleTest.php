@@ -334,6 +334,8 @@ class WechatOpenModuleTest extends TestCase
                     'component_secret' => 'comp-secret',
                     'token'            => 'verify-token',
                     'encoding_aes_key' => str_repeat('a', 43),
+                    // 本测试验证请求体，关闭缓存保证每次都真正请求微信
+                    'token_cache'      => false,
                 ],
             ],
             $stub,

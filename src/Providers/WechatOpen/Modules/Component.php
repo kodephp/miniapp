@@ -6,6 +6,8 @@ namespace Kode\MiniApp\Providers\WechatOpen\Modules;
 
 use Kode\MiniApp\Contracts\Platform;
 use Kode\MiniApp\Core\ApiResponse;
+use Kode\MiniApp\Core\TokenManager;
+use Kode\MiniApp\Core\TokenResult;
 use Kode\MiniApp\Providers\WechatOpen\WechatOpenApp;
 
 /**
@@ -31,26 +33,53 @@ readonly class Component
      * - 第三方平台 appsecret
      * - 微信推送的 component_verify_ticket（每 10 分钟推送一次）
      *
-     * 该 token 有效期 2 小时，需缓存使用。
+     * 该 token 有效期 2 小时。本方法走 PSR-16 缓存（带单飞保护），
+     * 首次用 ticket 换取并缓存，后续调用直接命中缓存、不再请求微信，
+     * 避免高频重复换取触发微信每日配额限制。
      *
      * @return array<string, mixed>
      */
     public function accessToken(string $verifyTicket): array
     {
-        $payload = [
-            'component_appid'         => $this->app->config()->componentAppId(),
-            'component_appsecret'     => $this->app->config()->componentSecret(),
-            'component_verify_ticket' => $verifyTicket,
-        ];
+        $manager  = TokenManager::for($this->app->config());
+        $identity = $this->app->config()->componentAppId();
 
-        $response = $this->app->http()->postJson(
-            self::API_BASE . '/api_component_token',
-            $payload
+        $token = $manager->remember(
+            Platform::WechatOpen,
+            $identity,
+            'component_access_token',
+            function () use ($verifyTicket): TokenResult {
+                $payload = [
+                    'component_appid'         => $this->app->config()->componentAppId(),
+                    'component_appsecret'     => $this->app->config()->componentSecret(),
+                    'component_verify_ticket' => $verifyTicket,
+                ];
+
+                $response = $this->app->http()->postJson(
+                    self::API_BASE . '/api_component_token',
+                    $payload
+                );
+
+                $data = json_decode((string) $response->getBody(), true);
+                $data = is_array($data) ? $data : [];
+
+                if (empty($data['component_access_token'])) {
+                    throw new \RuntimeException(
+                        'component_access_token 获取失败: ' . (string) ($data['errmsg'] ?? '未知错误')
+                    );
+                }
+
+                return new TokenResult(
+                    $data['component_access_token'],
+                    (int) ($data['expires_in'] ?? TokenResult::DEFAULT_EXPIRES_IN)
+                );
+            },
         );
 
-        $data = json_decode((string) $response->getBody(), true);
-
-        return is_array($data) ? $data : [];
+        return [
+            'component_access_token' => is_string($token) ? $token : '',
+            'expires_in'             => TokenResult::DEFAULT_EXPIRES_IN,
+        ];
     }
 
     /**
@@ -149,6 +178,67 @@ readonly class Component
         $data = json_decode((string) $response->getBody(), true);
 
         return is_array($data) ? $data : [];
+    }
+
+    /**
+     * 获取 / 复用授权方 access_token（默认命中缓存，带单飞保护）
+     *
+     * authorizer_access_token 有效期 2 小时，应通过本方法复用，避免重复刷新。
+     * 刷新需 component_access_token 与 authorizer_refresh_token。
+     *
+     * @param bool $forceRefresh 是否忽略缓存强制刷新
+     */
+    public function authorizerAccessToken(
+        string $componentAccessToken,
+        string $authorizerAppId,
+        string $authorizerRefreshToken,
+        bool $forceRefresh = false,
+    ): string {
+        $manager = TokenManager::for($this->app->config());
+
+        $token = $forceRefresh
+            ? $manager->refresh(
+                Platform::WechatOpen,
+                $authorizerAppId,
+                'authorizer_access_token',
+                $this->authorizerTokenResolver($componentAccessToken, $authorizerAppId, $authorizerRefreshToken),
+            )
+            : $manager->remember(
+                Platform::WechatOpen,
+                $authorizerAppId,
+                'authorizer_access_token',
+                $this->authorizerTokenResolver($componentAccessToken, $authorizerAppId, $authorizerRefreshToken),
+            );
+
+        return is_string($token) ? $token : '';
+    }
+
+    /**
+     * @return callable(): TokenResult
+     */
+    private function authorizerTokenResolver(
+        string $componentAccessToken,
+        string $authorizerAppId,
+        string $authorizerRefreshToken,
+    ): callable {
+        return function () use ($componentAccessToken, $authorizerAppId, $authorizerRefreshToken): TokenResult {
+            $data = $this->refreshAuthorizerToken(
+                $componentAccessToken,
+                $authorizerAppId,
+                $authorizerRefreshToken
+            );
+
+            if (empty($data['authorizer_access_token'])) {
+                throw new \RuntimeException(
+                    'authorizer_access_token 刷新失败: ' . (string) ($data['errmsg'] ?? '未知错误')
+                );
+            }
+
+            return new TokenResult(
+                $data['authorizer_access_token'],
+                (int) ($data['expires_in'] ?? TokenResult::DEFAULT_EXPIRES_IN)
+            );
+        };
     }
 
     /**
