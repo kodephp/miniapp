@@ -14,6 +14,7 @@
   - [回调处理（统一入口）](#回调处理统一入口)
   - [UnionId - UnionID 机制工具](#unionid---unionid-机制工具)
 - [微信生态互联](#微信生态互联)
+- [多应用注册表（按 appid 路由）](#多应用注册表按-appid-路由)
 - [完整授权流程示例](#完整授权流程示例)
 - [API 验证对接](#api-验证对接)
 - [常见问题](#常见问题)
@@ -322,6 +323,29 @@ $wechat      = $qqApp->wechat();
 ```
 
 > 平台枚举 `Platform::Wechat`、`Platform::WechatOpen`、`Platform::WechatWork`、`Platform::Qq` 共享微信生态（`Platform::isWechatEcosystem()` 返回 `true`）。
+
+## 多应用注册表（按 appid 路由）
+
+包默认「一个 Kernel = 一个 appid」。当自研业务同时持有多个小程序 / 公众号（通常均绑定同一开放平台）时，可为每个 appid 各自 `new Kernel` 并注册到 `AppRegistry`，运行时按 appid 解析出对应平台的 App 实例，实现「按 appid 运行时切换」。
+
+```php
+use Kode\MiniApp\Core\AppRegistry;
+use Kode\MiniApp\Contracts\Platform;
+use Kode\MiniApp\Kernel;
+
+$registry = new AppRegistry();
+$registry->register('wxa111', new Kernel($cfgMiniA));
+$registry->register('wxb222', new Kernel($cfgMiniB));
+
+// 按 appid 路由到对应小程序
+$appA = $registry->app('wxa111');                  // 默认微信平台
+$appB = $registry->app('wxb222', Platform::Wechat);
+
+// 未注册时抛 RuntimeException
+$registry->has('wxc333'); // false
+```
+
+> 若需要「单个 Kernel 直接管理多个 appid 配置」的核心重构（配置模型变更），属更大范围的架构改造，应单独评估。
 
 ## 完整授权流程示例
 
