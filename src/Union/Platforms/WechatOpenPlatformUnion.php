@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Union\Platforms;
 
+use Kode\MiniApp\Providers\WechatOpen\Events\OpenPlatformEvent;
+use Kode\MiniApp\Providers\WechatOpen\WechatOpenApp;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\UnionUser;
 
@@ -64,5 +66,24 @@ final class WechatOpenPlatformUnion extends PlatformUnion
     protected function defaultPayChannel(): Channel
     {
         return Channel::WechatApp;
+    }
+
+    /**
+     * 开放平台回调统一入口（解密 component_verify_ticket / 授权事件 / 授权方消息）
+     *
+     * ⚠️ 与基类 {@see self::notify()} 区分：基类的 notify() 返回支付回调适配器
+     * （NotifyAdapter，校验支付结果签名）；本方法处理开放平台「授权事件推送」，
+     * 返回结构化的 {@see OpenPlatformEvent}，两者互不干扰。
+     *
+     * @param array<string, mixed> $query 微信回调 URL 上的 msg_signature / timestamp / nonce
+     */
+    public function handleEvent(string $rawBody, array $query): OpenPlatformEvent
+    {
+        $app = $this->appInstance();
+        if (!$app instanceof WechatOpenApp) {
+            throw new \RuntimeException('开放平台回调要求 wechat_open Provider');
+        }
+
+        return $app->notify($rawBody, $query);
     }
 }

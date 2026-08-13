@@ -11,6 +11,7 @@
   - [Authorizer - 授权方管理](#authorizer---授权方管理)
   - [OpenApp - 移动应用 / 网站应用](#openapp---移动应用--网站应用)
   - [Crypto - 消息加解密](#crypto---消息加解密)
+  - [回调处理（统一入口）](#回调处理统一入口)
   - [UnionId - UnionID 机制工具](#unionid---unionid-机制工具)
 - [微信生态互联](#微信生态互联)
 - [完整授权流程示例](#完整授权流程示例)
@@ -223,6 +224,43 @@ $payload = $crypto->encryptMessage(
 // $payload 为 JSON 字符串，包含 Encrypt / MsgSignature / TimeStamp / Nonce
 ```
 
+### 回调处理（统一入口）
+
+SDK 在 `Crypto` 之上提供了开箱即用的回调解析入口，自动完成「取 `<Encrypt>` → 验签解密 → 解析 → 包装为事件对象」，业务侧无需手写解密流水线。
+
+```php
+// 方式一：直接通过开放平台 App 实例
+$app   = $kernel->wechatOpen()->app();
+$event = $app->notify(
+    rawBody: $httpRawBody,   // POST 原始 body（含 <Encrypt> 的 XML）
+    query:   $_GET,          // 含 msg_signature / timestamp / nonce
+);
+
+// 方式二：通过 Union 平台入口（语义更清晰，与支付回调 notify() 互不干扰）
+$event = Union::openPlatform()->handleEvent($httpRawBody, $_GET);
+
+// 按 InfoType 分发
+switch ($event->infoType()) {
+    case 'component_verify_ticket':
+        $ticket = $event->ticket();              // 缓存 2 小时
+        break;
+    case 'authorized':
+    case 'updateauthorized':
+        $authCode = $event->authorizationCode(); // 换 authorizer_access_token
+        $appId    = $event->authorizerAppId();
+        break;
+    case 'unauthorized':
+        $appId = $event->authorizerAppId();      // 清理该授权方缓存
+        break;
+}
+
+// 未知字段用 get() 取，原始数组用 toArray()
+$event->get('AppId');
+$event->toArray();
+```
+
+返回的 {@see \Kode\MiniApp\Providers\WechatOpen\Events\OpenPlatformEvent} 实现了 `JsonSerializable`，可直接 `json_encode`。
+
 ### UnionId - UnionID 机制工具
 
 辅助处理同一开放平台下多个应用的 UnionID 互通。
@@ -285,17 +323,14 @@ $wechat      = $qqApp->wechat();
 $kernel = new Kernel([...]);
 $component = $kernel->wechatOpen()->app()->component();
 
-// 2. 缓存 component_verify_ticket（微信每 10 分钟推送一次）
-// 在你的推送处理脚本中：
-$app = $kernel->wechatOpen()->app();
-$crypto = $app->crypto();
-$plain = $crypto->decryptMessage(
-    encrypted:    $body['Encrypt'],
-    msgSignature: $body['msg_signature'] ?? '',
-    timestamp:    $body['CreateTime'] ?? (string) time(),
-    nonce:        $body['Nonce'] ?? '',
+// 2. 缓存 component_verify_ticket（微信每 10 分钟推送）
+// 在你的推送处理脚本中，用统一入口解析回调：
+$app   = $kernel->wechatOpen()->app();
+$event = $app->notify(
+    rawBody: $httpRawBody,   // POST 原始 body（含 <Encrypt> 的 XML）
+    query:   $_GET,          // 含 msg_signature / timestamp / nonce
 );
-$ticket = json_decode($plain, true)['ComponentVerifyTicket'];
+$ticket = $event->ticket();  // InfoType = component_verify_ticket
 
 // 3. 用 ticket 换 component_access_token 并缓存 2 小时
 $tokenResult = $component->accessToken($ticket);

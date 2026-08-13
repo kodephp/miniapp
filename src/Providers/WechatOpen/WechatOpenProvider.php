@@ -12,6 +12,7 @@ use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Core\BaseProvider;
 use Kode\MiniApp\Core\HttpClient;
 use Kode\MiniApp\Providers\Wechat\WechatProvider;
+use Kode\MiniApp\Providers\WechatOpen\Events\OpenPlatformEvent;
 
 /**
  * 微信开放平台 Provider
@@ -75,5 +76,22 @@ final class WechatOpenProvider extends BaseProvider
 
         $provider = $kernel->wechat();
         return $provider instanceof WechatProvider ? $provider : null;
+    }
+
+    /**
+     * 开放平台回调统一入口（解密 component_verify_ticket / 授权事件 / 授权方消息）
+     *
+     * 转发到 {@see WechatOpenApp::notify()}。与支付回调 notify() 互不干扰。
+     *
+     * @param array<string, mixed> $query 含 msg_signature / timestamp / nonce
+     */
+    public function handleEvent(string $rawBody, array $query): OpenPlatformEvent
+    {
+        $app = $this->app();
+        if (!$app instanceof WechatOpenApp) {
+            throw new \RuntimeException('微信开放平台 app 实例异常');
+        }
+
+        return $app->notify($rawBody, $query);
     }
 }
