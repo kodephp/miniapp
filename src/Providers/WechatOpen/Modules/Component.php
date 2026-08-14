@@ -60,18 +60,12 @@ readonly class Component
                     $payload
                 );
 
-                $data = json_decode((string) $response->getBody(), true);
-                $data = is_array($data) ? $data : [];
-
-                if (empty($data['component_access_token'])) {
-                    throw new \RuntimeException(
-                        'component_access_token 获取失败: ' . (string) ($data['errmsg'] ?? '未知错误')
-                    );
-                }
+                $api = ApiResponse::fromPsr($response, Platform::Wechat)
+                    ->throwIfFailed('component_access_token 获取');
 
                 return new TokenResult(
-                    $data['component_access_token'],
-                    (int) ($data['expires_in'] ?? TokenResult::DEFAULT_EXPIRES_IN)
+                    $api->string('component_access_token'),
+                    $api->int('expires_in', TokenResult::DEFAULT_EXPIRES_IN)
                 );
             },
         );
@@ -96,9 +90,9 @@ readonly class Component
             ]
         );
 
-        $data = json_decode((string) $response->getBody(), true);
-
-        return is_array($data) ? $data : [];
+        return ApiResponse::fromPsr($response, Platform::Wechat)
+            ->throwIfFailed('预授权码获取')
+            ->toArray();
     }
 
     /**
@@ -153,7 +147,9 @@ readonly class Component
         );
 
         // 真实对接：非法 JSON 归一化为空数组；微信错误（errcode）由上层适配器判定。
-        return ApiResponse::fromPsr($response, Platform::Wechat)->toArray();
+        return ApiResponse::fromPsr($response, Platform::Wechat)
+            ->throwIfFailed('授权码换取 authorizer_access_token')
+            ->toArray();
     }
 
     /**
@@ -175,9 +171,9 @@ readonly class Component
             ]
         );
 
-        $data = json_decode((string) $response->getBody(), true);
-
-        return is_array($data) ? $data : [];
+        return ApiResponse::fromPsr($response, Platform::Wechat)
+            ->throwIfFailed('授权方 token 刷新')
+            ->toArray();
     }
 
     /**
@@ -258,9 +254,9 @@ readonly class Component
             ]
         );
 
-        $data = json_decode((string) $response->getBody(), true);
-
-        return is_array($data) ? $data : [];
+        return ApiResponse::fromPsr($response, Platform::Wechat)
+            ->throwIfFailed('授权方基本信息获取')
+            ->toArray();
     }
 
     /**
@@ -282,9 +278,9 @@ readonly class Component
             ]
         );
 
-        $data = json_decode((string) $response->getBody(), true);
-
-        return is_array($data) ? $data : [];
+        return ApiResponse::fromPsr($response, Platform::Wechat)
+            ->throwIfFailed('授权方选项获取')
+            ->toArray();
     }
 
     /**
@@ -308,9 +304,9 @@ readonly class Component
             ]
         );
 
-        $data = json_decode((string) $response->getBody(), true);
-
-        return is_array($data) ? $data : [];
+        return ApiResponse::fromPsr($response, Platform::Wechat)
+            ->throwIfFailed('授权方选项设置')
+            ->toArray();
     }
 
     /**
@@ -403,9 +399,9 @@ readonly class Component
             ]
         );
 
-        $data = json_decode((string) $response->getBody(), true);
-
-        return is_array($data) ? $data : [];
+        return ApiResponse::fromPsr($response, Platform::Wechat)
+            ->throwIfFailed('授权方列表获取')
+            ->toArray();
     }
 
     /**

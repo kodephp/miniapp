@@ -57,15 +57,6 @@ final class ComponentLoginAdapter extends BaseAdapter implements LoginAdapter
         $component    = $app->component();
         $authRaw      = $component->queryAuth($componentAccessTkn, $authCode);
 
-        // 真实对接：微信返回 errcode（如 40013 无效 appid、40001 无效 token）
-        // 时必须抛错，避免授权失败静默落入空的 UnionUser。
-        if (isset($authRaw['errcode']) && (int) $authRaw['errcode'] !== 0) {
-            throw new \RuntimeException(
-                '开放平台授权码换取失败: ' . self::str($authRaw, 'errmsg')
-                . ' (' . self::str($authRaw, 'errcode') . ')'
-            );
-        }
-
         // 这是授权方账号信息，不是用户；openId / unionId 留空，
         // 授权方关键信息放到 extra 供后续代调用使用。
         $authInfo = is_array($authRaw['authorization_info'] ?? null) ? $authRaw['authorization_info'] : [];

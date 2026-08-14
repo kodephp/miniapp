@@ -762,6 +762,17 @@ $outTradeNo = $payload['out_trade_no'];
 
 本包内置了各端支付适配器（`Providers/{wechat,qq,alipay,douyin,baidu}/Modules/Pay.php`、`Union/Channels/*/PayAdapter.php`、`PlatformUnion::pay()/unifiedOrder()/notify()`），可独立完成小程序 / 公众号 / App 的下单与回调适配。
 
+> ✅ **内置支付 = 微信生态全端统一 V3（含服务商模式）**
+>
+> 以微信为例，本包内置 `Wechat\Modules\Pay` 已覆盖**直连商户**与**服务商**两种模式，并支持按渠道分派交易类型：
+> - **交易类型**：JSAPI（公众号 / 小程序）、APP（移动应用）、H5（MWEB）、NATIVE（PC 扫码）；
+> - **服务商模式**：配置 `sp_mchid` + `sub_mchid`（+ `sub_appid`）即自动切换，body 使用 `sp_mchid` / `sub_mchid` / `sub_appid`，V3 签名头 `mchid` 取 `sp_mchid`；
+> - 所有请求自动附加 V3 `Authorization` 签名头。
+>
+> 也就是说，微信「支付 ✅」现已是**多端 + 服务商**的完整实现，开放平台关联各公众号 / 服务号 / App / H5 的统一支付均可经此完成。
+>
+> `kode/pays` 仍是可选的**增强插件**（对账、沙箱、事件等更重的能力），内置支付则作为轻量 / 向后兼容路径。
+
 但按整体架构规划，**支付能力（下单、订单、对账、退款等）建议统一交由 [kode/pays](https://github.com/kode-lab/pays) 承载**：
 
 - 本包支付适配器属于**向后兼容的历史保留实现**，与登录 / 用户体系共用同一套各平台 `appid` / `appsecret` 凭证配置；
@@ -816,10 +827,77 @@ if (PaysBridge::available()) {
 | --- | --- | --- |
 | `app_id` / `mch_id` | `app_id` / `mch_id` | 同名透传 |
 | `key` | `api_key` | 微信 v2 商户密钥，字段名不同 |
-| `api_v3_key` / `cert_path` / `key_path` | 同名 | 仅非空时透传 |
+| `api_v3_key` / `cert_path` / `key_path` / `mch_serial_no` | 同名 | 仅非空时透传 |
 | `app_id` / `private_key` / `public_key` / `sandbox` | 同名 | 支付宝 |
 
 覆盖渠道：默认 resolver 支持**微信 / 支付宝**（kode/pays 文档已确认 `Pay::wechat()` / `Pay::alipay()`）；抖音 / QQ 的 kode/pays 配置字段尚未经源码核实，请使用 `PaysBridge::adapter()` 注入自定义 resolver。
+
+## 能力发现与配置契约
+
+为降低接入心智负担，Union 提供了**运行时能力自检**与**配置契约校验**两套机制：开发者无需熟读各平台文档，即可在启动 / 接入前确认「某渠道支持什么、还缺哪些配置」。
+
+### 1. 渠道能力发现（Capability Discovery）
+
+`Channel` 枚举为每个渠道声明了它**实际支持**的能力（`ChannelFeature`：`Login` / `Pay` / `Notify` / `User` / `Decrypt`），并如实反映当前适配器覆盖——例如微信 **H5 / PC 暂未实现支付**，故不声明 `Pay`；微信开放平台（第三方平台）无独立支付适配器，故 `Pay` 为 `false`。
+
+```php
+use Kode\MiniApp\Union\Union;
+use Kode\MiniApp\Union\Channel;
+use Kode\MiniApp\Contracts\ChannelFeature;
+
+// 单个渠道
+$info = Union::capabilities(Channel::WechatMini);
+$info->supports(ChannelFeature::Pay);     // true
+$info->supports(ChannelFeature::Decrypt); // true
+$info->toArray();
+// => [
+//      'channel'         => 'wechat_mini',
+//      'label'           => '微信小程序',
+//      'features'        => ['login','pay','notify','user','decrypt'],
+//      'required_config' => ['app_id','mch_id','key_path','mch_serial_no'],
+//    ]
+
+// 对照：微信 H5 暂未实现支付
+$h5 = Union::capabilities(Channel::WechatH5);
+$h5->supports(ChannelFeature::Pay); // false —— 调用 pay() 会抛「不支持支付」
+```
+
+枚举上也可直接查询，无需实例化 Union：
+
+```php
+Channel::WechatMini->supports(ChannelFeature::Pay); // true
+Channel::WechatH5->features();                      // [Login, Notify, User]
+Channel::WechatMini->providerKey();                 // 'wechat'（回溯 Provider 配置）
+```
+
+### 2. 配置契约（Config Contract）
+
+每个平台 `Config` 声明两类必填键，缺失时给出**清晰清单**而非运行时才暴露的诡异错误：
+
+- `requiredKeys()`：平台级必填（任一能力都需提供）。如微信 `['app_id']`、支付宝 `['app_id','private_key','public_key']`。
+- `requiredKeysFor(ChannelFeature::Pay)`：启用某能力时的**额外**必填。如微信支付还需 `['mch_id','key_path','mch_serial_no']`。
+
+```php
+use Kode\MiniApp\Union\Channel;
+use Kode\MiniApp\Contracts\ChannelFeature;
+
+$config = $kernel->provider('wechat')->config();
+
+// 运行前自检，缺键直接抛 ConfigException 并列出缺失项
+$config->validate();                       // 校验 app_id
+$config->validateFeature(ChannelFeature::Pay); // 校验 mch_id / key_path / mch_serial_no
+
+// 或只读查询（不抛异常），用于生成接入检查清单
+$missing = array_diff(
+    $config->requiredKeysFor(ChannelFeature::Pay),
+    array_keys($config->all()),
+);
+// $missing 即为还需补充的配置键
+```
+
+`Union::capabilities()` 返回的 `required_config` 已将上述两类键**合并去重**，是「接入某渠道需要配哪些键」的一站式答案。
+
+> 说明：内置支付目前为**直连商户 JSAPI**（见上文支付能力归属），因此微信支付的 `requiredKeysFor(Pay)` 仅包含直连商户所需键；服务商 / 开放平台统一支付所需的 `sub_mchid` 等由 `kode/pays` 各自约束。
 
 ## 自定义适配器（业务扩展）
 

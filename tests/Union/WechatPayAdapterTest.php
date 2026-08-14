@@ -23,6 +23,32 @@ use PHPUnit\Framework\TestCase;
  */
 final class WechatPayAdapterTest extends TestCase
 {
+    private string $keyFile;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $res = openssl_pkey_new([
+            'private_key_type' => OPENSSL_KEYTYPE_RSA,
+            'digest_alg'       => 'sha256',
+            'bits'             => 2048,
+        ]);
+        \assert($res !== false);
+        openssl_pkey_export($res, $key);
+        $this->keyFile = tempnam(sys_get_temp_dir(), 'wxkey') . '.pem';
+        file_put_contents($this->keyFile, $key);
+    }
+
+    protected function tearDown(): void
+    {
+        if (is_file($this->keyFile)) {
+            unlink($this->keyFile);
+        }
+
+        parent::tearDown();
+    }
+
     private function buildUnion(): Union
     {
         $http = (new FakeHttpClient())
@@ -34,10 +60,12 @@ final class WechatPayAdapterTest extends TestCase
         $kernel = new Kernel(
             [
                 'wechat' => [
-                    'app_id'  => 'wx_app',
-                    'secret'  => 'wechat-secret',
-                    'mch_id'  => 'wechat_mch',
-                    'cache'   => new ArrayCache(),
+                    'app_id'        => 'wx_app',
+                    'secret'        => 'wechat-secret',
+                    'mch_id'        => 'wechat_mch',
+                    'mch_serial_no' => 'test_serial_no',
+                    'key_path'      => $this->keyFile,
+                    'cache'         => new ArrayCache(),
                 ],
             ],
             $http,

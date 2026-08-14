@@ -24,6 +24,7 @@ use Kode\MiniApp\Union\Contracts\NotifyAdapter;
 use Kode\MiniApp\Union\Bridge\PaysBridge;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
 use Kode\MiniApp\Union\Contracts\UserAdapter;
+use Kode\MiniApp\Union\CapabilityInfo;
 use Kode\MiniApp\Union\Platforms\AlipayUnion;
 use Kode\MiniApp\Union\Platforms\BaiduUnion;
 use Kode\MiniApp\Union\Platforms\DingtalkUnion;
@@ -307,7 +308,10 @@ final class Union
      *
      * @param array<string, mixed> $raw
      *
-     * @return array{nickname:string, avatar:string, gender:mixed, city:string, province:string, country:string, language:string}
+     * @return array{
+     *     nickname:string, avatar:string, gender:mixed,
+     *     city:string, province:string, country:string, language:string
+     * }
      */
     public static function normalizeUserInfo(array $raw): array
     {
@@ -755,6 +759,33 @@ final class Union
     }
 
     /**
+     * 渠道能力发现
+     *
+     * 返回某渠道支持的能力（登录 / 支付 / 回调 / 用户资料 / 解密）以及
+     * 启用这些能力所需的必填配置键，便于运行前自检：
+     *
+     *   $info = Union::capabilities(Channel::WechatMini);
+     *   $info->supports(ChannelFeature::Pay);          // true
+     *   $info->requiredConfig;                          // ['app_id','mch_id',...]
+     *   $info->toArray();
+     *
+     * 能力集合如实反映当前适配器实现覆盖（例如微信 H5 / PC 暂未实现支付）。
+     */
+    public function capabilities(Channel $channel): CapabilityInfo
+    {
+        $provider = $this->kernelProvider($channel->providerKey());
+        $config   = $provider->config();
+
+        $keys = $config->requiredKeys();
+        foreach ($channel->features() as $feature) {
+            $keys = [...$keys, ...$config->requiredKeysFor($feature)];
+        }
+        $keys = array_values(array_unique($keys));
+
+        return new CapabilityInfo($channel, $channel->features(), $keys);
+    }
+
+    /**
      * 获取当前 SessionManager
      */
     public function sessionManager(): ?SessionManager
@@ -985,8 +1016,10 @@ final class Union
         $namespace = '\\Kode\\MiniApp\\Union\\Channels';
         $adapter = match ($channel) {
             Channel::WechatMini,
-            Channel::WechatMp     => "{$namespace}\\Wechat\\WechatPayAdapter",
-            Channel::WechatApp    => "{$namespace}\\WechatOpen\\AppPayAdapter",
+            Channel::WechatMp     => "{$namespace}\\Wechat\\WechatPayAdapter",   // JSAPI
+            Channel::WechatApp    => "{$namespace}\\Wechat\\WechatAppPayAdapter", // APP
+            Channel::WechatH5     => "{$namespace}\\Wechat\\WechatH5PayAdapter",  // MWEB
+            Channel::WechatPc     => "{$namespace}\\Wechat\\WechatPcPayAdapter",  // NATIVE
             Channel::WechatWork   => "{$namespace}\\WechatWork\\WeWorkPayAdapter",
             Channel::AlipayMini,
             Channel::AlipayMp,

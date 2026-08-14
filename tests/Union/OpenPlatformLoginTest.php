@@ -464,8 +464,8 @@ class OpenPlatformLoginTest extends TestCase
     {
         $kernel = $this->kernel($this->http());
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessageMatches('/授权码换取失败|40013/');
+        $this->expectException(ApiException::class);
+        $this->expectExceptionMessageMatches('/40013|invalid appid/');
         $kernel->union()->wechatOpen()->open([
             'authorization_code'     => 'bad_auth',
             'component_access_token' => 'COMP_TOK',

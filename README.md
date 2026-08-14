@@ -74,7 +74,7 @@ composer require kode/event     # 事件
 
 | 平台 | 登录 | 用户资料 | 客户端解密(encryptedData) | 手机号(code 换) | 手机号(encryptedData) | 支付 | 回调通知 |
 |------|------|----------|---------------------------|-----------------|----------------------|------|----------|
-| 微信（小程序 / 公众号 / H5 / PC / App） | ✅ | ✅ | ✅ | ✅ 小程序 | ✅ | ✅ 小程序/公众号/App | ✅ 全场景 |
+| 微信（小程序 / 公众号 / H5 / PC / App） | ✅ | ✅ | ✅ | ✅ 小程序 | ✅ | ✅ 全端(JSAPI/APP/MWEB/NATIVE) + 服务商 | ✅ 全场景 |
 | 微信开放平台 | ✅ | ✅ | — | — | — | — | — |
 | 支付宝（小程序 / 生活号 / App） | ✅ | ✅ | ✅ response+sign | — | — | ✅ mini/mp/app | ✅ |
 | 抖音（小程序） | ✅ | ✅ | ✅ | ✅ RSA 密文 | ✅ | ✅ 小程序 | ✅ 小程序 |
@@ -197,10 +197,11 @@ Kernel（门面）
 'wechat' => [
     'app_id'     => 'wx1234567890',
     'secret'     => 'your-secret',
-    'mch_id'     => '1234567890',
-    'api_v3_key' => 'your-api-v3-key',
-    'cert_path'  => '/path/to/apiclient_cert.pem',
-    'key_path'   => '/path/to/apiclient_key.pem',
+    'mch_id'       => '1234567890',
+    'api_v3_key'   => 'your-api-v3-key',
+    'cert_path'    => '/path/to/apiclient_cert.pem',
+    'key_path'     => '/path/to/apiclient_key.pem',
+    'mch_serial_no' => '商户 API 证书序列号',  // 微信支付 V3 请求签名必填
     'token'      => 'your-token',
     'aes_key'    => 'your-aes-key',
 ]

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Providers\Alipay;
 
+use Kode\MiniApp\Contracts\ChannelFeature;
 use Kode\MiniApp\Contracts\Platform;
 use Kode\MiniApp\Core\BaseConfig;
 
@@ -68,5 +69,27 @@ readonly class AlipayConfig extends BaseConfig
         return $this->sandbox()
             ? 'https://openapi.alipaydev.com/gateway.do'
             : 'https://openapi.alipay.com/gateway.do';
+    }
+
+    /**
+     * 平台级必填配置（签名与验签均需应用私钥 / 支付宝公钥）
+     *
+     * @return array<string>
+     */
+    #[\Override]
+    public function requiredKeys(): array
+    {
+        return ['app_id', 'private_key', 'public_key'];
+    }
+
+    /**
+     * 特定能力的额外必填配置（支付宝支付复用基础密钥，无额外要求）
+     *
+     * @return array<string>
+     */
+    #[\Override]
+    public function requiredKeysFor(ChannelFeature $feature): array
+    {
+        return [];
     }
 }

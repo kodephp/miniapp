@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Union;
 
+use Kode\MiniApp\Contracts\ChannelFeature;
+
 /**
  * 支持的统一登录 / 鉴权渠道
  *
@@ -106,5 +108,94 @@ enum Channel: string
             self::Dingtalk   => '钉钉',
             self::Lark       => '飞书',
         };
+    }
+
+    /**
+     * 对应的平台 Provider 注册键（Kernel 内 provider 标识）
+     *
+     * 用于能力发现时回溯 Provider 配置契约。
+     */
+    public function providerKey(): string
+    {
+        return match ($this) {
+            self::WechatMp,
+            self::WechatH5,
+            self::WechatMini => 'wechat',
+            self::WechatPc,
+            self::WechatApp,
+            self::WechatOpen => 'wechat_open',
+            self::WechatWork => 'wechat_work',
+            self::Qq         => 'qq',
+            self::AlipayMini,
+            self::AlipayMp,
+            self::AlipayApp  => 'alipay',
+            self::DouyinMini,
+            self::DouyinMp   => 'douyin',
+            self::BaiduMini  => 'baidu',
+            self::Dingtalk   => 'dingtalk',
+            self::Lark       => 'lark',
+        };
+    }
+
+    /**
+     * 该渠道支持的能力集合
+     *
+     * 如实反映当前各适配器实现覆盖。微信生态各端（公众号 / 小程序 / App / H5 / PC）
+     * 均已支持支付（统一 V3，JSAPI / APP / MWEB / NATIVE 四种交易类型）；
+     * 微信开放平台第三方平台本身无独立支付适配器（支付走 wechat 直连 / 服务商）。
+     *
+     * @return array<ChannelFeature>
+     */
+    public function features(): array
+    {
+        return match ($this) {
+            self::WechatMp,
+            self::WechatMini,
+            self::WechatApp   => [
+                ChannelFeature::Login,
+                ChannelFeature::Pay,
+                ChannelFeature::Notify,
+                ChannelFeature::User,
+                ChannelFeature::Decrypt,
+            ],
+            self::WechatH5,
+            self::WechatPc     => [
+                ChannelFeature::Login,
+                ChannelFeature::Pay,
+                ChannelFeature::Notify,
+                ChannelFeature::User,
+            ],
+            self::WechatOpen => [
+                ChannelFeature::Login,
+                ChannelFeature::Notify,
+                ChannelFeature::User,
+            ],
+            self::WechatWork,
+            self::Qq,
+            self::AlipayMini,
+            self::AlipayMp,
+            self::AlipayApp,
+            self::DouyinMini,
+            self::DouyinMp,
+            self::BaiduMini => [
+                ChannelFeature::Login,
+                ChannelFeature::Pay,
+                ChannelFeature::Notify,
+                ChannelFeature::User,
+            ],
+            self::Dingtalk,
+            self::Lark => [
+                ChannelFeature::Login,
+                ChannelFeature::User,
+            ],
+        };
+    }
+
+    /**
+     * 是否支持指定能力
+     */
+    public function supports(ChannelFeature $feature): bool
+    {
+        return in_array($feature, $this->features(), true);
     }
 }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Providers\WechatOpen\Modules;
 
+use Kode\MiniApp\Contracts\Platform;
+use Kode\MiniApp\Core\ApiResponse;
 use Kode\MiniApp\Providers\WechatOpen\WechatOpenApp;
 
 /**
@@ -73,9 +75,9 @@ readonly class Authorizer
             ],
         ]);
 
-        $data = json_decode((string) $response->getBody(), true);
-
-        return is_array($data) ? $data : [];
+        return ApiResponse::fromPsr($response, Platform::Wechat)
+            ->throwIfFailed('代小程序登录（code2session）')
+            ->toArray();
     }
 
     /**

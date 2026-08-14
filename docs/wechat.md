@@ -53,10 +53,11 @@ $kernel = new Kernel([
     'wechat' => [
         'app_id'     => 'wx1234567890abcdef',  // 小程序/公众号 AppID
         'secret'     => 'your-app-secret',       // AppSecret
-        'mch_id'     => '1234567890',            // 微信支付商户号（可选）
-        'api_v3_key' => 'your-api-v3-key',       // APIv3 密钥（可选）
-        'cert_path'  => '/path/to/apiclient_cert.pem', // 商户证书路径（可选）
-        'key_path'   => '/path/to/apiclient_key.pem',  // 商户证书私钥路径（可选）
+        'mch_id'       => '1234567890',                  // 微信支付商户号（可选）
+        'api_v3_key'   => 'your-api-v3-key',             // APIv3 密钥（可选，回调验签/账单解密用）
+        'cert_path'    => '/path/to/apiclient_cert.pem', // 商户证书路径（可选）
+        'key_path'     => '/path/to/apiclient_key.pem',  // 商户证书私钥路径（V3 签名必填）
+        'mch_serial_no' => '商户 API 证书序列号',        // 微信支付 V3 请求签名必填
         'token'      => 'your-server-token',     // 服务端消息校验 Token（可选）
         'aes_key'    => 'your-aes-key',          // 消息加解密密钥（可选）
         'cloud_env'  => 'prod-env-id',           // 云开发环境 ID（可选）
@@ -401,17 +402,67 @@ $portrait = $app->dataAnalysis()->getUserPortrait('2024-01-01', '2024-01-07');
 
 ## 支付
 
-### 基础支付
+> ✅ **本包内置微信支付（统一 V3）已覆盖微信生态全端**
+>
+> 使用统一的微信支付 V3 模块（`Providers/Wechat/Modules/Pay.php`），自动附加 `Authorization` 签名头，支持：
+> - **交易类型分派**：JSAPI（公众号 / 小程序）、APP（移动应用）、H5（MWEB）、NATIVE（PC 扫码）；
+> - **两种商户模式**：直连商户（`mch_id`）与**服务商**（sp_mchid / sub_mchid / sub_appid）；
+> - 统一下单 / 查询 / 关单 / 退款 / 账单。
+>
+> 必填配置：`mch_id`（直连）或 `sp_mchid` + `sub_mchid`（服务商）、`key_path`（商户私钥）、`mch_serial_no`（证书序列号）。
+
+### 交易类型分派（按场景下单）
 
 ```php
-// 创建支付订单
-$app->pay()->order([
+// JSAPI（公众号 / 小程序）—— 需 payer.openid
+$app->pay()->order('JSAPI', [
     'description'  => '商品描述',
     'out_trade_no' => 'ORDER_001',
     'amount'       => ['total' => 100],  // 单位：分
     'payer'        => ['openid' => $openid],
 ]);
 
+// APP（移动应用）—— appid 应为开放平台「移动应用」AppID，可用参数覆盖默认值
+$app->pay()->order('APP', [
+    'description'  => '商品描述',
+    'out_trade_no' => 'ORDER_APP_001',
+    'amount'       => ['total' => 100],
+    'appid'        => 'wx_open_mobile_app',  // 可选，覆盖默认 app_id
+]);
+
+// H5（MWEB）—— 微信返回 h5_url 供跳转
+$app->pay()->order('MWEB', [
+    'description'     => '商品描述',
+    'out_trade_no'    => 'ORDER_H5_001',
+    'amount'          => ['total' => 100],
+    'scene_info'      => ['h5_info' => ['type' => 'Wap', 'wap_url' => 'https://example.com', 'wap_name' => '示例']],
+]);
+
+// NATIVE（PC 扫码）—— 微信返回 code_url 生成二维码
+$app->pay()->order('NATIVE', [
+    'description'  => '商品描述',
+    'out_trade_no' => 'ORDER_PC_001',
+    'amount'       => ['total' => 100],
+]);
+```
+
+### 服务商模式（代特约商户收款）
+
+```php
+// 配置中声明 sp_mchid + sub_mchid（+ sub_appid）即自动切换服务商模式：
+// 'sp_mchid' => '服务商商户号', 'sub_mchid' => '特约商户号', 'sub_appid' => '特约商户 AppID'
+// 下单 body 自动使用 sp_mchid / sub_mchid / sub_appid，V3 签名头 mchid 取 sp_mchid
+$app->pay()->order('JSAPI', [
+    'description'  => '商品描述',
+    'out_trade_no' => 'ORDER_SUB_001',
+    'amount'       => ['total' => 100],
+    'payer'        => ['openid' => $subOpenid],
+]);
+```
+
+### 订单查询 / 关单 / 退款 / 账单
+
+```php
 // 查询订单
 $app->pay()->query('ORDER_001');
 

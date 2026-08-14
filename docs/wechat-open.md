@@ -6,6 +6,7 @@
 
 - [快速开始](#快速开始)
 - [配置说明](#配置说明)
+- [配置契约与能力校验](#配置契约与能力校验)
 - [核心能力模块](#核心能力模块)
   - [Component - 第三方平台自身能力](#component---第三方平台自身能力)
   - [Authorizer - 授权方管理](#authorizer---授权方管理)
@@ -51,6 +52,48 @@ $app      = $provider->app();
 | `token`               | 是   | 消息校验 Token                                     |
 | `encoding_aes_key`    | 是   | 消息加解密 EncodingAESKey（43 位 base64，可使用 `aes_key` 兼容字段） |
 | `pre_auth_apps`       | 否   | 预授权的 appid 列表（数组）                         |
+
+### 配置契约与能力校验
+
+SDK 内置「配置契约」：任意使用该 Provider 前，可调用配置对象的 `validate()` / `validateFeature(ChannelFeature)` 做必填校验，缺失时抛出清晰的 `ConfigException`（列出缺失项），避免运行时才暴露配置问题。
+
+```php
+$config = $kernel->wechatOpen()->config();
+
+// 平台级必填（第三方平台授权、代调用、Union 登录均依赖）
+$config->validate();
+
+// 仅校验某一能力所需配置
+$config->validateFeature(\Kode\MiniApp\Contracts\ChannelFeature::Login);   // 同平台级必填
+$config->validateFeature(\Kode\MiniApp\Contracts\ChannelFeature::Notify);  // 只需 token + encoding_aes_key
+```
+
+各能力必填项：
+
+| 能力 (ChannelFeature) | 必填配置 |
+| --------------------- | -------- |
+| `Login` / `User`      | `component_appid`、`component_secret`、`token`、`encoding_aes_key` |
+| `Notify`              | `token`、`encoding_aes_key` |
+| `Pay`                 | 开放平台不支持支付，无必填项 |
+
+> 兼容别名：`component_appid` 可用 `app_id` 替代、`component_secret` 可用 `component_appsecret` / `secret` 替代、`encoding_aes_key` 可用 `aes_key` 替代。校验按「生效值」判断，使用别名不会误判缺失。
+
+### API 错误传播
+
+所有代微信调用的接口在微信返回 `errcode` 时**统一抛出 `ApiException`**（携带 `errcode` / `errmsg` / 平台 / 动作），而非静默返回错误体或空数组。业务侧可直接捕获 `ApiException` 做统一错误处理：
+
+```php
+use Kode\MiniApp\Exceptions\ApiException;
+
+try {
+    $auth = $component->queryAuth($componentAccessToken, $authCode);
+} catch (ApiException $e) {
+    // $e->getErrorCode() 微信错误码
+    // $e->getErrorMessage() 微信错误描述
+    // $e->getPlatform() / $e->getAction()
+}
+```
+
 
 ## 核心能力模块
 

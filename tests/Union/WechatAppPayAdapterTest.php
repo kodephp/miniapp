@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Tests\Union;
 
-use Kode\MiniApp\Core\ArrayCache;
 use Kode\MiniApp\Kernel;
-use Kode\MiniApp\Tests\Fakes\FakeHttpClient;
+use Kode\MiniApp\Tests\Fakes\CapturingHttpClient;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
 use Kode\MiniApp\Union\Union;
@@ -16,40 +15,52 @@ use PHPUnit\Framework\TestCase;
  * 微信 App 支付适配器（Union 层接线）回归测试
  *
  * 验证 `Union::pay(Channel::WechatApp)->unifiedOrder([...])` 正确分派到
- * `WechatOpenApp::authorizer()->call('/pay/unifiedorder', ...)`（代授权方下单）。
+ * 微信支付 V3 `/pay/transactions/app` 端点，并自动附加可验签的 Authorization 头。
  *
- * 覆盖：
- *  - 适配器可被 Union 解析，channel 为 WechatApp；
- *  - unifiedOrder 校验 authorizer_access_token / authorizer_appid（缺失抛 InvalidArgumentException）；
- *  - unifiedOrder 真实分派到底层 Authorizer::call，返回预下单响应（prepay_id）；
- *  - 静态门面 Union::instance()->pay(Channel::WechatApp) 同样可用。
- *
- * HTTP 层以 {@see FakeHttpClient} 桩替换，避免真实请求。
+ * HTTP 层以 {@see CapturingHttpClient} 桩替换，断言实际发出的请求 URI 与签名头。
  */
 final class WechatAppPayAdapterTest extends TestCase
 {
+    private CapturingHttpClient $http;
+
     private function buildUnion(): Union
     {
-        $http = (new FakeHttpClient())
-            ->stub(
-                'pay/unifiedorder',
-                ['return_code' => 'SUCCESS', 'prepay_id' => 'wx_prepay_xyz'],
-            );
+        $this->http = new CapturingHttpClient();
+        $this->http->stub(['prepay_id' => 'wx_prepay_app']);
 
         $kernel = new Kernel(
             [
-                'wechat_open' => [
-                    'app_id'           => 'wx_open_app',
-                    'secret'           => 'open-secret',
-                    'component_app_id' => 'comp_appid',
-                    'component_secret' => 'comp_secret',
-                    'cache'            => new ArrayCache(),
+                'wechat' => [
+                    'app_id'        => 'wx_open_mobile_app',
+                    'secret'        => 'wechat-secret',
+                    'mch_id'        => 'wechat_mch',
+                    'mch_serial_no' => 'serial_no_xyz',
+                    'key_path'      => $this->keyFile(),
+                    'notify_url'    => 'https://example.com/notify',
                 ],
             ],
-            $http,
+            $this->http,
         );
 
         return $kernel->union();
+    }
+
+    private function keyFile(): string
+    {
+        static $file;
+        if ($file === null) {
+            $res = openssl_pkey_new([
+                'private_key_type' => OPENSSL_KEYTYPE_RSA,
+                'digest_alg'       => 'sha256',
+                'bits'             => 2048,
+            ]);
+            \assert($res !== false);
+            openssl_pkey_export($res, $key);
+            $file = tempnam(sys_get_temp_dir(), 'wxappkey') . '.pem';
+            file_put_contents($file, $key);
+        }
+
+        return $file;
     }
 
     public function testWechatAppPayAdapterIsResolved(): void
@@ -60,36 +71,19 @@ final class WechatAppPayAdapterTest extends TestCase
         self::assertSame(Channel::WechatApp, $pay->channel());
     }
 
-    public function testWechatAppPayUnifiedOrderDispatchesToAuthorizer(): void
+    public function testWechatAppPayUnifiedOrderDispatchesToV3AppEndpoint(): void
     {
         $result = $this->buildUnion()->pay(Channel::WechatApp)->unifiedOrder([
-            'authorizer_access_token' => 'AUTH_TOK',
-            'authorizer_appid'        => 'auth_appid_1',
-            'out_trade_no'            => 'ORDER_WXAPP_1',
-            'body'                    => '商品',
-            'total_fee'               => 100,
-            'openid'                  => 'OPENID_1',
+            'out_trade_no' => 'ORDER_WXAPP_1',
+            'description'  => '商品',
+            'amount'       => ['total' => 100],
         ]);
 
-        // 底层 Authorizer::call 被调用并返回解析后的预下单响应
-        self::assertSame('SUCCESS', $result['return_code'] ?? null);
-        self::assertSame('wx_prepay_xyz', $result['prepay_id'] ?? null);
-    }
+        self::assertSame('wx_prepay_app', $result['prepay_id'] ?? null);
 
-    public function testWechatAppPayRequiresAuthorizerCredentials(): void
-    {
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('App 支付需传入 authorizer_access_token / authorizer_appid');
-
-        $this->buildUnion()->pay(Channel::WechatApp)->unifiedOrder([
-            'out_trade_no' => 'ORDER_WXAPP_2',
-            'total_fee'    => 100,
-        ]);
-    }
-
-    public function testWechatAppPayViaStaticFacade(): void
-    {
-        // Kernel 构造时已注入全局 Kernel，静态门面可直接使用
-        self::assertSame(Channel::WechatApp, Union::instance()->pay(Channel::WechatApp)->channel());
+        $req = $this->http->last();
+        self::assertSame('POST', $req['method']);
+        self::assertStringEndsWith('/pay/transactions/app', $req['uri']);
+        self::assertStringStartsWith('WECHATPAY2-SHA256-RSA2048 ', $req['headers']['Authorization']);
     }
 }
