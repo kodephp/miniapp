@@ -9,6 +9,7 @@ use Kode\MiniApp\Providers\Baidu\BaiduApp;
 use Kode\MiniApp\Union\Channels\BaseAdapter;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
+use Kode\MiniApp\Union\UnionUser;
 
 /**
  * 百度支付适配器（小程序）
@@ -22,7 +23,7 @@ final class BaiduPayAdapter extends BaseAdapter implements PayAdapter
     }
 
     #[\Override]
-    public function unifiedOrder(array $order): array
+    public function unifiedOrder(array $order, ?UnionUser $user = null): array
     {
         $provider = $this->provider('baidu');
         $app      = $provider->app();

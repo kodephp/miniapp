@@ -411,6 +411,40 @@ $portrait = $app->dataAnalysis()->getUserPortrait('2024-01-01', '2024-01-07');
 >
 > 必填配置：`mch_id`（直连）或 `sp_mchid` + `sub_mchid`（服务商）、`key_path`（商户私钥）、`mch_serial_no`（证书序列号）。
 
+### 登录与支付强绑定（openid 自动关联）
+
+微信支付是**平台硬约束**：JSAPI（公众号 / 小程序）下单必须携带付款人 `openid`，
+而 `openid` 只能来自微信登录（小程序 `code2session` / 公众号 OAuth），且与当前 `appid` 强绑定
+（小程序的 openid 不能用于公众号支付）。因此登录与支付本就是一体，无法拆分使用。
+
+Union 层把已登录用户直接传入支付即可**自动注入 `openid`**，无需业务侧手动拼装：
+
+```php
+$user   = Union::wechat()->mini('code');        // 微信登录，拿到 openid
+$result = Union::wechat()->pay()->unifiedOrder([
+    'out_trade_no' => 'ORDER_001',
+    'description'  => '商品描述',
+    'amount'       => ['total' => 100],
+], $user);                                       // 自动注入 payer.openid
+
+// 等价便捷写法（PlatformUnion 透传用户到支付适配器）
+$result = Union::wechat()->unifiedOrder([
+    'out_trade_no' => 'ORDER_001',
+    'amount'       => ['total' => 100],
+], user: $user);
+
+// 也可显式携带 openid（覆盖自动注入）
+$result = Union::wechat()->pay()->unifiedOrder([
+    'out_trade_no' => 'ORDER_001',
+    'amount'       => ['total' => 100],
+    'payer'        => ['openid' => 'OPENID_XXX'],
+]);
+```
+
+> ⚠️ JSAPI 下单若既无 `openid` 又无已登录用户，适配器会 **fail-fast** 抛出
+> `InvalidArgumentException`，避免微信侧含糊的「参数错误」。`APP` / `H5` / `NATIVE`
+> 等不需要 openid 的交易类型不受此约束。
+
 ### 交易类型分派（按场景下单）
 
 ```php

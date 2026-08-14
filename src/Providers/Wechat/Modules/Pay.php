@@ -54,7 +54,7 @@ readonly class Pay
         }
 
         $url      = self::BASE_URL . self::TRADE_ENDPOINTS[$tradeType];
-        $body     = $this->json($this->buildPayload($params));
+        $body     = $this->json($this->buildPayload($params, $tradeType));
         $response = $this->signed('POST', $url, $body);
 
         return json_decode((string) $response->getBody(), true);
@@ -154,10 +154,16 @@ readonly class Pay
      * 直连商户：appid / mchid；服务商：sp_mchid / sub_mchid / sub_appid。
      * 业务参数（含可覆盖的 appid / sub_appid）合并在后。
      *
+     * JSAPI（公众号 / 小程序）支付：微信支付 V3 要求付款人 openid 放在
+     * `payer.openid`。本方法兼容业务侧两种写法——直接传顶层 `openid`
+     * 或传 `payer.{openid}`——统一归并到 `payer.openid`。
+     * openid 来自微信登录（code2session / OAuth），与 appid 强绑定，
+     * 缺失校验在 {@see \Kode\MiniApp\Union\Channels\Wechat\WechatPayAdapter} 完成。
+     *
      * @param array<string, mixed> $params
      * @return array<string, mixed>
      */
-    private function buildPayload(array $params): array
+    private function buildPayload(array $params, string $tradeType): array
     {
         $cfg = $this->app->config();
 
@@ -174,6 +180,17 @@ readonly class Pay
                 'mchid'      => $cfg->mchId(),
                 'notify_url' => $cfg->get('notify_url', ''),
             ];
+        }
+
+        if ($tradeType === 'JSAPI') {
+            $payer = is_array($params['payer'] ?? null) ? $params['payer'] : [];
+            if (isset($params['openid']) && is_string($params['openid']) && $params['openid'] !== '') {
+                $payer['openid'] = $params['openid'];
+                unset($params['openid']);
+            }
+            if ($payer !== []) {
+                $params['payer'] = $payer;
+            }
         }
 
         return array_merge($base, $params);

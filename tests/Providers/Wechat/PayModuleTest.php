@@ -179,6 +179,32 @@ final class PayModuleTest extends TestCase
         $this->assertSignatureValid('POST', $req['uri'], $req['body'], $req['headers']['Authorization']);
     }
 
+    public function testJsapiPromotesOpenidToPayer(): void
+    {
+        $this->http->stub(['prepay_id' => 'prepay_jsapi']);
+        $this->app()->pay()->order('JSAPI', [
+            'description'  => 'test',
+            'amount'       => ['total' => 1],
+            'out_trade_no' => 'T_JSAPI',
+            'openid'       => 'OPENID_USER_1',
+        ]);
+
+        $body = json_decode($this->http->last()['body'], true);
+        self::assertSame('OPENID_USER_1', $body['payer']['openid'] ?? null);
+        self::assertArrayNotHasKey('openid', $body);
+
+        // 兼容业务侧直接传 payer.openid
+        $this->http->stub(['prepay_id' => 'prepay_jsapi2']);
+        $this->app()->pay()->order('JSAPI', [
+            'description'  => 'test',
+            'amount'       => ['total' => 1],
+            'out_trade_no' => 'T_JSAPI2',
+            'payer'        => ['openid' => 'OPENID_DIRECT'],
+        ]);
+        $body2 = json_decode($this->http->last()['body'], true);
+        self::assertSame('OPENID_DIRECT', $body2['payer']['openid'] ?? null);
+    }
+
     public function testServiceProviderQueryUsesSpMchidParam(): void
     {
         $this->http->stub(['trade_state' => 'SUCCESS']);

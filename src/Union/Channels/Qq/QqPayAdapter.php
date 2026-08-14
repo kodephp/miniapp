@@ -9,6 +9,7 @@ use Kode\MiniApp\Providers\Qq\QqApp;
 use Kode\MiniApp\Union\Channels\BaseAdapter;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
+use Kode\MiniApp\Union\UnionUser;
 
 /**
  * QQ 支付适配器（小程序）
@@ -25,7 +26,7 @@ final class QqPayAdapter extends BaseAdapter implements PayAdapter
     }
 
     #[\Override]
-    public function unifiedOrder(array $order): array
+    public function unifiedOrder(array $order, ?UnionUser $user = null): array
     {
         $provider = $this->provider('qq');
         $app      = $provider->app();

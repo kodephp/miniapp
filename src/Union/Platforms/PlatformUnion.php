@@ -181,12 +181,19 @@ abstract class PlatformUnion
     /**
      * 统一下单（直接调用）
      *
+     * 便捷写法：把已登录的 {@see UnionUser} 传入，支付适配器会自动注入
+     * 平台侧所需的用户标识（如微信 JSAPI 的 openid），确保登录与支付强绑定。
+     *
+     * 用法：
+     *   $user  = Union::wechat()->mini('code');
+     *   $order = Union::wechat()->unifiedOrder($params, user: $user);
+     *
      * @param array<string, mixed> $order
      * @return array<string, mixed>
      */
-    public function unifiedOrder(array $order, ?string $scene = null): array
+    public function unifiedOrder(array $order, ?string $scene = null, ?UnionUser $user = null): array
     {
-        return $this->pay($scene)->unifiedOrder($order);
+        return $this->pay($scene)->unifiedOrder($order, $user);
     }
 
     /**

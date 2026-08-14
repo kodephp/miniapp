@@ -81,11 +81,17 @@ final class WechatPayAdaptersTest extends TestCase
     #[\PHPUnit\Framework\Attributes\DataProvider('channelProvider')]
     public function testEachWechatChannelDispatchesToCorrectV3Endpoint(Channel $channel, string $endpoint): void
     {
-        $this->buildUnion()->pay($channel)->unifiedOrder([
+        $order = [
             'out_trade_no' => 'ORDER_' . $channel->value,
             'description'  => '商品',
             'amount'       => ['total' => 100],
-        ]);
+        ];
+        // JSAPI（小程序 / 公众号）下单必须绑定付款人 openid（来自微信登录）
+        if ($channel === Channel::WechatMini || $channel === Channel::WechatMp) {
+            $order['payer'] = ['openid' => 'OPENID_TEST'];
+        }
+
+        $this->buildUnion()->pay($channel)->unifiedOrder($order);
 
         $req = $this->http->last();
         self::assertTrue(str_ends_with($req['uri'], $endpoint), "请求 URI 应以 {$endpoint} 结尾");

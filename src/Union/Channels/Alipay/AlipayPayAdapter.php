@@ -9,6 +9,7 @@ use Kode\MiniApp\Providers\Alipay\AlipayApp;
 use Kode\MiniApp\Union\Channels\BaseAdapter;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
+use Kode\MiniApp\Union\UnionUser;
 
 /**
  * 支付宝支付适配器（小程序 / 生活号 / App 通用）
@@ -22,7 +23,7 @@ final class AlipayPayAdapter extends BaseAdapter implements PayAdapter
     }
 
     #[\Override]
-    public function unifiedOrder(array $order): array
+    public function unifiedOrder(array $order, ?UnionUser $user = null): array
     {
         $provider = $this->provider('alipay');
         $app      = $provider->app();

@@ -6,6 +6,7 @@ namespace Kode\MiniApp\Union\Bridge;
 
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
+use Kode\MiniApp\Union\UnionUser;
 
 /**
  * kode/pays 桥接支付适配器
@@ -49,10 +50,11 @@ final class PaysBridgePayAdapter implements PayAdapter
      * 统一下单（委托 kode/pays）
      *
      * @param array<string, mixed> $order
+     * @param UnionUser|null       $user 可选，已登录用户（与平台支付绑定，本桥接当前透传）
      * @return array<string, mixed>
      */
     #[\Override]
-    public function unifiedOrder(array $order): array
+    public function unifiedOrder(array $order, ?UnionUser $user = null): array
     {
         $facade = self::PAYS_FACADE;
         if (!class_exists($facade)) {
