@@ -445,6 +445,31 @@ $result = Union::wechat()->pay()->unifiedOrder([
 > `InvalidArgumentException`，避免微信侧含糊的「参数错误」。`APP` / `H5` / `NATIVE`
 > 等不需要 openid 的交易类型不受此约束。
 
+### 支付前必须先登录：openid 来自当次登录，而非「查库历史」
+
+> ⚠️ 这是旧方案最常见的坑，也是微信的**平台级硬规则**，无法被任何 SDK 绕过：
+> 公众号 / 小程序的 JSAPI 付款人 `openid`，必须来自**当次**微信登录
+> （小程序 `code2session` / 公众号网页授权 OAuth），且与支付所用的 `appid` 强绑定。
+> 一个从没在公众号里授权 / 没在小程序里登录过的用户，**不可能**凭「历史库里存过的 openid」
+> 直接支付——库里没有就会拼出空值，微信直接报「参数错误 / openid 无效」。
+
+因此正确的流程是「**先登录、后支付**」，openid 来自当次登录会话（内存里的 `UnionUser`），而不是业务自己再去数据库捞一遍历史记录：
+
+```php
+// 推荐：支付入口即触发当次登录，openid 来自本次会话
+// 小程序：前端 wx.login → code，后端 code2session 拿 openid
+$user   = Union::wechat()->mini($code);              // 当次登录，openid 在内存
+$result = Union::wechat()->unifiedOrder($order, user: $user);  // 自动注入 openid
+
+// 公众号 H5 网页授权：未关注 / 未登录的用户也能当场拿到 openid（服务号网页授权权限）
+//   先引导走 snsapi_base 静默授权拿 code → code2session/access_token 换 openid，再下单
+```
+
+> 经验法则：
+> - **老用户**（之前登录过、库里有 openid）：可以直接用，但更稳妥的做法仍是用当次登录的 `UnionUser` 注入，避免 appid 迁移 / 多端 openid 混淆。
+> - **新用户 / 没在公众号授权过的用户**：必须先走当次登录（OAuth / code2session），拿到 openid 后才能调起 JSAPI 支付。这是微信规则，不是代码缺陷——前端支付按钮应放在「已登录态」之后。
+> - `Union::capabilities(Channel::WechatMini/WechatMp)->supports(Pay)` 可在下单前自检是否支持支付，配合 `validateFeature(Pay)` 校验必填配置，做到 fail-fast。
+
 ### 交易类型分派（按场景下单）
 
 ```php

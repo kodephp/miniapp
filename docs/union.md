@@ -773,19 +773,34 @@ $outTradeNo = $payload['out_trade_no'];
 >
 > `kode/pays` 仍是可选的**增强插件**（对账、沙箱、事件等更重的能力），内置支付则作为轻量 / 向后兼容路径。
 
-但按整体架构规划，**支付能力（下单、订单、对账、退款等）建议统一交由 [kode/pays](https://github.com/kode-lab/pays) 承载**：
+### 本包基础支付 与 kode/pays 的关系（分工，不是替代）
 
-- 本包支付适配器属于**向后兼容的历史保留实现**，与登录 / 用户体系共用同一套各平台 `appid` / `appsecret` 凭证配置；
-- 新项目、新代码**不应再依赖本包支付接口**，请直接使用 `kode/pays`；
-- 本包支付代码当前**不做删除**（避免功能缺失），后续随 `kode/pays` 能力完备可能标记为 `@deprecated` 并最终移交；
-- `composer.json` 的 `suggest.kode/pays` 已更新为推荐说明（仍保持 `suggest` 软依赖，未设为 `require`，以免在包未发布 / 不可解析时破坏 `composer install`）。
+> ⚠️ 旧文档曾把内置支付描述为「历史保留 / 将被移交」。这已不准确：本包内置支付
+> 现已是**生产级**实现（含 V3 签名、服务商模式、H5 / PC / App 全端、openid 自动关联），
+> 可独立承载下单 + 回调。**kode/pays 不是替代品，而是可选的「支付中枢增强」**。
+
+两者的定位是「**身份 → 支付**」的上下游，而非二选一：
+
+| 层 | 职责 | 是否拿得到 openid |
+| --- | --- | --- |
+| **本包 miniapp** | 登录 + 平台身份（OAuth / code2session）、openid / unionid、用户体系；内置「基础支付」 | ✅ 登录时即可拿到，是唯一 openid 来源 |
+| **kode/pays（可选）** | 支付编排：下单、回调验签、退款、对账、沙箱、多渠道聚合 | ❌ 不处理登录，付款人标识仍需由本包登录提供 |
+
+也就是说：
+
+- **只需下单 + 回调**：用本包内置基础支付即可，已生产级，无需安装 kode/pays；
+- **需要退款 / 对账 / 多支付渠道统一编排 / 沙箱 / 事件**：安装 kode/pays，经 `PaysBridge` 桥接，
+  调用契约（`unifiedOrder(array, ?UnionUser)`）与本包基础支付**完全一致**，业务侧零改动切换；
+- 无论走哪条路，**openid 都来自本包的登录流程**（见上方「登录与支付强绑定」），
+  kode/pays 只是拿你给的 openid 去做支付编排——它不会、也无法替你做微信登录。
 
 ```php
-// 历史保留用法（向后兼容，不推荐新项目使用）
-$order = $kernel->union()->wechat()->pay()->unifiedOrder([/* ... */]);
+// 方案 A：本包内置基础支付（已生产级，推荐轻量场景）
+$order = $kernel->union()->wechat()->unifiedOrder($payload, user: $user);
 
-// 推荐：支付能力统一走 kode/pays
-// 详见 https://github.com/kodephp/pays
+// 方案 B：安装 kode/pays 后，桥接切换（业务侧调用方式零改动）
+//    需要先：composer require kode/pays
+$order = $kernel->union()->wechat()->payViaPays()->unifiedOrder($payload, user: $user);
 ```
 
 ### kode/pays 桥接（可选、健壮支付）
@@ -797,12 +812,13 @@ $order = $kernel->union()->wechat()->pay()->unifiedOrder([/* ... */]);
 ```php
 // 1) 一行切换：用 Kernel 中已配置的凭证自动拼装 kode/pays config
 //    需要先在业务项目 composer require kode/pays
+//    openid 仍来自本包登录（user: $user 自动注入），kode/pays 不会替你登录
+$user  = Union::wechat()->mini($code);     // 当次登录拿 openid
 $order = $kernel->union()->wechat()->payViaPays()->unifiedOrder([
     'out_trade_no' => 'ORDER_' . time(),
-    'body'         => '商品',
-    'total_fee'    => 100,      // 分
-    'openid'       => 'USER_OPENID',
-]);
+    'description'  => '商品',
+    'amount'       => ['total' => 100],    // 分（V3 结构）
+], $user);
 
 // 2) 自定义凭证来源（单独维护 kode/pays config 时）
 use Kode\MiniApp\Union\Bridge\PaysBridge;
@@ -838,7 +854,7 @@ if (PaysBridge::available()) {
 
 ### 1. 渠道能力发现（Capability Discovery）
 
-`Channel` 枚举为每个渠道声明了它**实际支持**的能力（`ChannelFeature`：`Login` / `Pay` / `Notify` / `User` / `Decrypt`），并如实反映当前适配器覆盖——例如微信 **H5 / PC 暂未实现支付**，故不声明 `Pay`；微信开放平台（第三方平台）无独立支付适配器，故 `Pay` 为 `false`。
+`Channel` 枚举为每个渠道声明了它**实际支持**的能力（`ChannelFeature`：`Login` / `Pay` / `Notify` / `User` / `Decrypt`），并如实反映当前适配器覆盖——例如微信 **H5 / PC 已支持支付**（MWEB / NATIVE，无需 openid，故不声明 `Decrypt`）；微信开放平台（第三方平台）无独立支付适配器（其支付由服务商模式的 `sp_mchid` / `sub_mchid` 承载），故 `Pay` 为 `false`。
 
 ```php
 use Kode\MiniApp\Union\Union;
@@ -857,9 +873,10 @@ $info->toArray();
 //      'required_config' => ['app_id','mch_id','key_path','mch_serial_no'],
 //    ]
 
-// 对照：微信 H5 暂未实现支付
+// 对照：微信 H5（MWEB）已支持支付，但无需 openid，故不声明 Decrypt
 $h5 = Union::capabilities(Channel::WechatH5);
-$h5->supports(ChannelFeature::Pay); // false —— 调用 pay() 会抛「不支持支付」
+$h5->supports(ChannelFeature::Pay);     // true
+$h5->supports(ChannelFeature::Decrypt); // false
 ```
 
 枚举上也可直接查询，无需实例化 Union：
