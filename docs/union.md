@@ -716,6 +716,48 @@ $info  = Union::userInfoObjectForUser($user, $encryptedData, $iv); // 同样免�
 - **飞书 profile 必须拍平**：见 §2 注。
 - **raw 包封层级三种**：`array('data')` / `array('result')` / `array('alipay_..._response')` / `toArray()`（混入 `errcode`/`ret`/`msg` 等协议噪声），遍历 `raw` 时需留意。
 
+## 支付回调（Notify）统一入口
+
+除各 Provider 自带的 `notify()`（含签名验签）外，Union 提供跨端统一的回调**归一化**入口，
+适合「一个回调控制器按渠道分发」的场景，与统一登录 / 支付 / 解密入口对称：
+
+```php
+use Kode\MiniApp\Union\Union;
+
+$union = $kernel->union();
+
+// 按渠道取通知适配器：微信(小程序/公众号/PC/App/开放平台) / 企业微信 / 支付宝 / 抖音 / 百度 / QQ 均已支持
+$notify = $union->wechat()->notify();   // 或 alipay() / baidu() / douyin() / qq() / wechatWork()
+
+// $raw 为业务侧已将 XML / 表单参数解析后的关联数组
+$payload = $notify->decode($raw);
+
+// 归一化字段随渠道不同：
+//   微信/QQ：out_trade_no, transaction_id, total_fee, openid, result_code, raw
+//   支付宝  ：out_trade_no, trade_no, total_amount, trade_status, raw
+//   抖音/百度：out_trade_no, trade_no, result_code|status, raw
+//   企业微信：event_type, raw
+$outTradeNo = $payload['out_trade_no'];
+```
+
+> ⚠️ `Union::notify()->decode()` **仅做字段归一化，不验签**。微信 / 支付宝 / 抖音 / 百度 / 企业微信
+> 的回调签名验签请使用各 Provider 自带的 `notify()`；QQ 回调由 `Qq\Modules\Notify` 内部完成
+> XML+MD5 验签，建议直接用 `$kernel->qq()->app()->notify()`。业务侧务必在 `decode()` 之前完成
+> 签名校验，避免伪造回调。
+
+### 回调渠道支持矩阵
+
+| 渠道 | Union notify 归一化 | Provider 级验签 | 说明 |
+| --- | --- | --- | --- |
+| 微信 | ✅ | ✅ | 验签走 Provider `notify()`（api_v3_key） |
+| 微信开放平台 | ✅ | ✅ | 同微信（代授权方） |
+| 企业微信 | ✅ | ✅ | 验签走 Provider `notify()` |
+| 支付宝 | ✅ | ✅ | 验签走 Provider `notify()`（RSA2） |
+| 抖音 | ✅ | ✅ | 验签走 Provider `notify()` |
+| 百度 | ✅ | ✅ | 验签走 Provider `notify()` |
+| QQ | ✅ | ✅ | 验签内置 `Qq\Modules\Notify`（XML+MD5） |
+| 钉钉 / 飞书 | — | — | 无消费者支付回调 |
+
 ## 支付能力归属说明（软移交）
 
 本包内置了各端支付适配器（`Providers/{wechat,qq,alipay,douyin,baidu}/Modules/Pay.php`、`Union/Channels/*/PayAdapter.php`、`PlatformUnion::pay()/unifiedOrder()/notify()`），可独立完成小程序 / 公众号 / App 的下单与回调适配。

@@ -948,6 +948,36 @@ if ($result['code'] === 'SUCCESS') {
 }
 ```
 
+### 统一支付回调（Union 入口）
+
+除各 Provider 自带 `notify()`（含签名验签）外，Union 还提供跨端统一的回调
+**归一化**入口，适合「一个回调控制器按渠道分发」的场景，与统一登录 / 支付 / 解密入口对称：
+
+```php
+use Kode\MiniApp\Union\Union;
+use Kode\MiniApp\Union\Channel;
+
+$union = $kernel->union();
+
+// 按渠道取通知适配器：微信(小程序/公众号/PC/App/开放平台) / 企业微信 / 支付宝 / 抖音 / 百度 / QQ 均已支持
+$notify = $union->wechat()->notify();   // 或 alipay() / baidu() / douyin() / qq() / wechatWork()
+
+// $raw 为业务侧已将 XML / 表单参数解析后的关联数组
+$payload = $notify->decode($raw);
+
+// 归一化字段随渠道不同：
+//   微信/QQ：out_trade_no, transaction_id, total_fee, openid, result_code, raw
+//   支付宝  ：out_trade_no, trade_no, total_amount, trade_status, raw
+//   抖音/百度：out_trade_no, trade_no, result_code|status, raw
+//   企业微信：event_type, raw
+$outTradeNo = $payload['out_trade_no'];
+```
+
+> 注意：`Union::notify()->decode()` 仅做字段归一化，**不验签**。微信 / 支付宝 / 抖音 / 百度 /
+> 企业微信的回调签名验签请使用各 Provider 自带的 `notify()`（上文 Provider 级用法）；
+> QQ 回调由 `Qq\Modules\Notify` 内部完成 XML+MD5 验签，建议直接用 `$kernel->qq()->app()->notify()`。
+> 业务侧务必在 `decode()` 之前完成签名校验，避免伪造回调。
+
 ### 微信企业号
 
 ```php
