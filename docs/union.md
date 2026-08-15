@@ -267,23 +267,25 @@ if ($adv->supportsSettlement()) {      // 结算 / 提现
 
 #### 渠道能力矩阵（kode/pays 实测）
 
-| 渠道 | 分账 | 转账 | 对账 | 红包 | 订阅 | 结算 | 余额 |
-| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| 微信 V2（小程序等） | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
-| 微信 V3 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 支付宝 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| 抖音 | ✅ | — | — | — | — | — | — |
-| 京东 / 美团 | ✅ | ✅ | ✅ | ✅ | — | ✅ | — |
-| 银联 | ✅ | — | — | — | — | — | — |
-| Stripe | ✅ | ✅ | ✅ | — | ✅ | ✅ | ✅ |
-| Adyen / Revolut | — | ✅ | ✅ | — | ✅ | ✅ | ✅ |
-| PayPal | — | — | — | — | ✅ | ✅ | ✅ |
-| QQ | — | — | — | — | — | — | — |
-| 百度 / 企业微信 | — | — | — | — | — | — | — |
+| 渠道 | 分账 | 转账 | 对账 | 红包 | 订阅 | 结算 | 余额 | 个人收款 | 加密货币 |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| 微信 V2（小程序等） | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — | ✅ | — |
+| 微信 V3 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
+| 支付宝 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
+| 抖音 | ✅ | — | — | — | — | — | — | — | — |
+| 京东 / 美团 | ✅ | ✅ | ✅ | ✅ | — | ✅ | — | — | — |
+| 银联 | ✅ | — | — | — | — | — | — | ✅ | — |
+| Stripe | ✅ | ✅ | ✅ | — | ✅ | ✅ | ✅ | ✅ | — |
+| Adyen / Revolut | — | ✅ | ✅ | — | ✅ | ✅ | ✅ | ✅ | — |
+| PayPal | — | — | — | — | ✅ | ✅ | ✅ | ✅ | — |
+| QQ | — | — | — | — | — | — | — | — | — |
+| 百度 / 企业微信 | — | — | — | — | — | — | — | — | — |
+| Coinbase（加密货币） | — | — | — | — | — | — | — | — | ✅ |
 
 > 矩阵依据 kode/pays 网关能力接口（ProfitSharing / Transfer / Reconciliation / RedPacket /
-> Subscription / Settlement / BalanceCapableInterface）实测。具体平台以 kode/pays 最新版本为准；
-> 调用前用 `supports*()` 判断最稳妥。
+> Subscription / Settlement / Balance / PersonalReceive / CryptoCapableInterface）实测。具体平台以
+> kode/pays 最新版本为准；调用前用 `supports*()`（个人收款）判断最稳妥，加密货币走独立
+> `Union::crypto()` 入口（不受该矩阵约束）。
 
 ### Webhook 事件回调（异步事件，区别于同步结果通知）
 
@@ -322,6 +324,107 @@ if ($wh->channel()->supportsWebhook()) {       // 见下方版本说明
 >    清晰异常（`...不支持 [Webhook 事件] 能力...`），**不会**触发「Call to undefined method」；
 >  - 待 kode/pays **2.6.0+** 发布后，`composer update kode/pays` 升级即自动激活，无需改业务代码。
 >  - 设计上与分账 / 转账等高级能力完全一致：均以 `method_exists` 守卫委托真实网关，版本就绪即生效。
+
+### 退款闭环（申请 / 查询 / 取消，RefundCapableInterface）
+
+`Union::pay()->refund()` / `queryRefund()` 已覆盖核心「申请退款 / 查询退款」（对齐 kode/pays
+网关 `refund()` / `queryRefund()`）；而部分场景还需要**取消退款**（如 Stripe）或希望以统一接口
+表达「退款闭环」。本包通过 {@see \Kode\MiniApp\Union\Contracts\RefundAdapter} 暴露 kode/pays 网关
+{@see \Kode\Pays\Contract\RefundCapableInterface} 的**完整退款能力**，由
+{@see \Kode\MiniApp\Union\Bridge\PaysBridgeRefundAdapter} 委托 `applyRefund` / `queryRefund` /
+`cancelRefund`：
+
+```php
+// 取得退款能力适配器（与 pay() / notify() / webhook() 对称）
+$refund = Union::wechat()->refund();
+
+// 申请退款（对齐 kode/pays 网关 applyRefund；out_trade_no 与 transaction_id 至少其一）
+$res = $refund->applyRefund([
+    'out_trade_no'  => '原支付商户单号',
+    'out_refund_no' => '商户退款单号',
+    'amount'        => 100,
+]);
+
+// 查询退款（对齐 kode/pays 网关 queryRefund，按商户退款单号）
+$info = $refund->queryRefund('商户退款单号');
+
+// 取消退款（仅部分网关支持，如 Stripe；微信 / 支付宝 / PayPal 网关已实现并在未支持时回退报错）
+$cancel = $refund->cancelRefund('商户退款单号');
+```
+
+> **与 `PayAdapter::refund()` 的区别**：`PayAdapter::refund(array)` 对齐 kode/pays 网关核心方法
+> `refund()`，是「申请退款」的最简入口；`RefundAdapter` 则对齐 `RefundCapableInterface`，额外覆盖
+> `queryRefund` / `cancelRefund`，形成「申请 / 查询 / 取消」的完整闭环，更适合退款状态机类业务。
+> 调用前可用 `Union::wechat()->advancedPay()->supportsRefund()` 优雅判断当前渠道是否支持退款能力
+> （无需支付配置；`cancelRefund` 仅部分网关支持，以 `applyRefund` 作为能力基线）。
+
+### 个人收款（收款码 / 提现，PersonalReceiveCapableInterface）
+
+为个人 / 小微商户提供**免企业资质**的收款能力：生成收款二维码、查询收款记录、提现到银行卡、
+查询提现结果。本包通过 {@see \Kode\MiniApp\Union\Contracts\AdvancedPayAdapter} 暴露 kode/pays 网关
+{@see \Kode\Pays\Contract\PersonalReceiveCapableInterface} 的四个方法，由
+{@see \Kode\MiniApp\Union\Bridge\PaysBridgePayAdapter} 以 `method_exists` 守卫委托真实网关：
+
+```php
+$pr = Union::wechat()->advancedPay();
+
+// 生成个人收款二维码（返回二维码 URL / 内容）
+$qr = $pr->personalReceiveCreateQrCode(['amount' => 100, 'description' => '货款']);
+
+// 查询收款记录（按时间区间 / 分页）
+$records = $pr->personalReceiveQueryRecords(['start_time' => '2026-08-01', 'page' => 1]);
+
+// 提现到银行卡
+$withdraw = $pr->personalReceiveWithdraw(['amount' => 50, 'bank_account' => '...']);
+
+// 查询提现结果（按商户提现单号）
+$wd = $pr->personalReceiveQueryWithdraw('商户提现单号');
+```
+
+> **能力发现**：微信 / 支付宝 / Stripe 等网关已在 kode/pays 2.3.0 实现 `PersonalReceiveCapableInterface`，
+> 调用前可用 `Union::wechat()->advancedPay()->supportsPersonalReceive()` 优雅判断（无需支付配置）。
+> 不支持的渠道调用对应方法会抛清晰异常（含「个人收款」能力名），不会触发「Call to undefined method」。
+
+### 加密货币支付（Coinbase 等聚合网关，CryptoCapableInterface）
+
+加密货币是**独立的支付形态**，其方法名与核心 {@see \Kode\MiniApp\Union\Contracts\PayAdapter} 重名
+（`createOrder` / `queryOrder` / `refund` / `verifyNotify`），故单独成契约
+{@see \Kode\MiniApp\Union\Contracts\CryptoAdapter}，由
+{@see \Kode\MiniApp\Union\Bridge\PaysBridgeCryptoAdapter} 委托 kode/pays 网关
+{@see \Kode\Pays\Contract\CryptoCapableInterface} 的完整能力（法币 / 币种定价下单、支付地址、链上确认、
+实时汇率、订单状态、退款、异步验签）：
+
+```php
+use Kode\MiniApp\Union\Channel;
+
+// 加密货币不在 miniapp Kernel 默认渠道凭证体系内，须注入自定义 config resolver
+$crypto = Union::crypto(Channel::Crypto, fn () => ['api_key' => '...']);
+
+// 指定币种定价下单（推荐：避免汇率波动）
+$order = $crypto->createCryptoOrder([
+    'crypto_currency' => 'BTC',
+    'fiat_amount'     => 100,
+    'fiat_currency'   => 'USD',
+]);
+
+// 获取支付地址 / 查询链上确认
+$addr = $crypto->getPaymentAddresses($order['id']);
+$conf = $crypto->getConfirmations($order['id']);
+
+// 实时汇率（默认 USD）
+$rate = $crypto->getExchangeRate('BTC', 'USD');
+
+// 退款 / 异步验签（verifyNotify 返回 bool）
+$crypto->refund(['order_id' => $order['id']]);
+$ok = $crypto->verifyNotify($payload);
+```
+
+> **与法币支付的关系**：加密货币是平行于 `Union::pay()` 的另一种「收钱」入口，二者共用同一套 kode/pays
+> 桥接与渠道映射。Channel 枚举新增 `Channel::Crypto` 专门表达该形态。
+> 因 miniapp Kernel 无 crypto platform 配置，默认 Kernel resolver 对 `Channel::Crypto` 会抛清晰引导——
+> 请改用 `Union::crypto(channel, resolver)` 注入自定义 config resolver，或 `registerCryptoAdapter()`
+> 注册预置适配器（与 `refundAdapter` / `webhookAdapter` 的注册方式一致）。
+> 平台聚合入口同样可用：`Union::crypto(Channel::Crypto, resolver)`（经 `PlatformUnion::crypto()`）。
 
 ### 透传底层 Provider / App
 

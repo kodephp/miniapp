@@ -12,6 +12,8 @@ use Kode\MiniApp\Session\SessionManager;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\LoginAdapter;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
+use Kode\MiniApp\Union\Contracts\RefundAdapter;
+use Kode\MiniApp\Union\Contracts\CryptoAdapter;
 use Kode\MiniApp\Union\Contracts\WebhookAdapter;
 use Kode\MiniApp\Union\Bridge\PaysBridge;
 use Kode\MiniApp\Union\Contracts\AdvancedPayAdapter;
@@ -254,6 +256,51 @@ abstract class PlatformUnion
             ? $this->channelForScene($scene)
             : $this->defaultPayChannel();
         return $this->union->webhook($channel);
+    }
+
+    /**
+     * 统一退款适配器（申请 / 查询 / 取消退款）
+     *
+     * 与 {@see self::notify()}（同步支付结果通知）/ {@see self::webhook()}（异步事件）对称，
+     * 面向业务侧的「退款闭环」。返回的 {@see RefundAdapter} 委托 kode/pays 网关的
+     * RefundCapableInterface 完成 applyRefund / queryRefund / cancelRefund。
+     *
+     * 用法：
+     *   $refund = Union::wechat()->refund();
+     *   $res    = $refund->applyRefund(['out_trade_no' => '原支付商户单号', 'out_refund_no' => '商户退款单号', 'amount' => 100]);
+     *   $info   = $refund->queryRefund('商户退款单号');
+     *
+     * @see \Kode\MiniApp\Union\Contracts\RefundAdapter
+     */
+    public function refund(?string $scene = null): RefundAdapter
+    {
+        $channel = $scene !== null
+            ? $this->channelForScene($scene)
+            : $this->defaultPayChannel();
+        return $this->union->refund($channel);
+    }
+
+    /**
+     * 统一加密货币支付适配器（Coinbase 等聚合网关）
+     *
+     * 与 {@see self::refund()}（法币退款闭环）对称，面向业务侧的「加密货币支付」。
+     * 返回的 {@see CryptoAdapter} 委托 kode/pays 网关的 CryptoCapableInterface 完成
+     * createCryptoOrder / getPaymentAddresses / getExchangeRate / getConfirmations / 退款 / 异步验签。
+     *
+     * 加密货币不属于某个既有平台的小程序 / App 场景，故以独立 {@see Channel::Crypto} 表达；
+     * 调用方也可显式传入其它渠道（需其网关 implements CryptoCapableInterface）。由于加密货币不在
+     * miniapp Kernel 默认渠道凭证体系内，通常通过 `Union::crypto(Channel::Crypto, resolver)` 注入
+     * 自定义 config resolver，或 registerCryptoAdapter() 注册适配器。
+     *
+     * 用法：
+     *   $crypto = Union::crypto(Channel::Crypto, fn () => ['api_key' => '...']);
+     *   $order  = $crypto->createCryptoOrder(['crypto_currency' => 'BTC', 'fiat_amount' => 100]);
+     *
+     * @see \Kode\MiniApp\Union\Contracts\CryptoAdapter
+     */
+    public function crypto(?Channel $channel = null): CryptoAdapter
+    {
+        return $this->union->crypto($channel ?? Channel::Crypto);
     }
 
     /**

@@ -252,6 +252,50 @@ interface AdvancedPayAdapter extends PayAdapter
      */
     public function settlementQuery(string $outBizNo): array;
 
+    // ===== 个人收款（PersonalReceiveCapableInterface） =====
+
+    /**
+     * 生成个人收款二维码（对齐 kode/pays 网关 createQrCode）
+     *
+     * 为个人 / 小微商户提供收款能力（无需企业资质）。
+     *
+     * @param array<string, mixed> $params 收款参数（amount / description 等）
+     * @return array<string, mixed> 包含二维码 URL / 内容
+     */
+    public function personalReceiveCreateQrCode(array $params): array;
+
+    /**
+     * 查询个人收款记录（对齐 kode/pays 网关 queryRecords）
+     *
+     * @param array<string, mixed> $params 查询参数（start_time / end_time / page 等）
+     * @return array<string, mixed> 收款记录列表
+     */
+    public function personalReceiveQueryRecords(array $params): array;
+
+    /**
+     * 提现到银行卡（对齐 kode/pays 网关 withdraw）
+     *
+     * @param array<string, mixed> $params 提现参数（amount / bank_account 等）
+     * @return array<string, mixed>
+     */
+    public function personalReceiveWithdraw(array $params): array;
+
+    /**
+     * 查询提现结果（对齐 kode/pays 网关 queryWithdraw）
+     *
+     * @param string $outBizNo 商户提现单号
+     * @return array<string, mixed>
+     */
+    public function personalReceiveQueryWithdraw(string $outBizNo): array;
+
+    /**
+     * 当前渠道是否支持「个人收款」能力
+     *
+     * 基于 kode/pays 网关类是否实现 PersonalReceiveCapableInterface 判断，无需完整支付配置即可调用。
+     * 返回 false 时调用 {@see self::personalReceiveCreateQrCode()} 等会抛清晰异常。
+     */
+    public function supportsPersonalReceive(): bool;
+
     /**
      * 当前渠道是否支持「分账」能力
      *
@@ -311,4 +355,13 @@ interface AdvancedPayAdapter extends PayAdapter
      * {@see \Kode\MiniApp\Union\Contracts\WebhookAdapter::parse()} 会抛清晰异常。
      */
     public function supportsWebhook(): bool;
+
+    /**
+     * 当前渠道是否支持「退款」能力（申请退款 / 查询退款 / 取消退款）
+     *
+     * 基于 kode/pays 网关类是否实现 RefundCapableInterface 判断，无需完整支付配置即可调用。
+     * 注意：`cancelRefund` 仅部分网关支持（如 Stripe），故本方法以 `applyRefund` 作为能力基线；
+     * 返回 false 时调用 {@see \Kode\MiniApp\Union\Contracts\RefundAdapter} 三个方法会抛清晰异常。
+     */
+    public function supportsRefund(): bool;
 }

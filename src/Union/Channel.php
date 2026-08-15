@@ -67,6 +67,10 @@ enum Channel: string
     /** 飞书 */
     case Lark            = 'lark';
 
+    // ===== 加密货币（Coinbase 等聚合网关） =====
+    /** 加密货币支付（法币 / 指定币种定价，链上确认） */
+    case Crypto          = 'crypto';
+
     /**
      * 是否属于微信生态
      */
@@ -107,6 +111,7 @@ enum Channel: string
             self::BaiduMini  => '百度小程序',
             self::Dingtalk   => '钉钉',
             self::Lark       => '飞书',
+            self::Crypto     => '加密货币',
         };
     }
 
@@ -134,6 +139,7 @@ enum Channel: string
             self::BaiduMini  => 'baidu',
             self::Dingtalk   => 'dingtalk',
             self::Lark       => 'lark',
+            self::Crypto     => 'crypto',
         };
     }
 
@@ -187,6 +193,9 @@ enum Channel: string
             self::Lark => [
                 ChannelFeature::Login,
                 ChannelFeature::User,
+            ],
+            self::Crypto => [
+                ChannelFeature::Pay,
             ],
         };
     }

@@ -9,6 +9,7 @@ use Kode\MiniApp\Kernel;
 use Kode\MiniApp\Tests\Fakes\FakeHttpClient;
 use Kode\MiniApp\Tests\Union\Bridge\Fixtures\FakePaysHttpClient;
 use Kode\MiniApp\Tests\Union\Bridge\Fixtures\NoCapabilityGateway;
+use Kode\MiniApp\Tests\Union\Bridge\Fixtures\PersonalReceiveCapableTestGateway;
 use Kode\MiniApp\Union\Bridge\PaysBridge;
 use Kode\MiniApp\Union\Bridge\PaysBridgePayAdapter;
 use Kode\MiniApp\Union\Channel;
@@ -73,6 +74,8 @@ final class PaysBridgeAdvancedTest extends TestCase
                 'subscriptionPause', 'subscriptionResume', 'subscriptionGet',
                 'balanceQuery', 'balanceQueryDayEnd',
                 'settlementToWallet', 'settlementToBankCard', 'settlementToPayout', 'settlementQuery',
+                'personalReceiveCreateQrCode', 'personalReceiveQueryRecords',
+                'personalReceiveWithdraw', 'personalReceiveQueryWithdraw',
             ] as $method
         ) {
             self::assertTrue(method_exists($adapter, $method), "PaysBridgePayAdapter 缺少高级方法 {$method}");
@@ -90,6 +93,8 @@ final class PaysBridgeAdvancedTest extends TestCase
         self::assertTrue($adapter->supportsRedPacket());
         self::assertTrue($adapter->supportsSubscription());
         self::assertTrue($adapter->supportsSettlement());
+        // 微信 V2 网关实现 PersonalReceiveCapableInterface，个人收款被支持
+        self::assertTrue($adapter->supportsPersonalReceive());
         // 微信 V2 网关未实现 BalanceCapableInterface，余额查询不被支持
         self::assertFalse($adapter->supportsBalance());
     }
@@ -237,6 +242,45 @@ final class PaysBridgeAdvancedTest extends TestCase
 
         self::assertNotEmpty($records);
         self::assertSame('OUT1', $records[0]['out_trade_no'] ?? '');
+    }
+
+    /**
+     * 个人收款能力委托到真实网关的 PersonalReceiveCapableInterface 方法（夹具隔离网络）。
+     *
+     * 临时把 wechat 网关注册替换为 PersonalReceiveCapableTestGateway，验证四个方法正确转发，
+     * 验证后还原，避免污染其它测试的网关注册表。
+     */
+    public function testPersonalReceiveDelegatesToGateway(): void
+    {
+        Pay::clearCache('wechat');
+        GatewayFactory::unregister('wechat');
+        Pay::register('wechat', PersonalReceiveCapableTestGateway::class);
+
+        try {
+            $adapter = PaysBridge::adapter(Channel::WechatMini, fn () => $this->wechatConfig());
+
+            self::assertSame(
+                'createQrCode',
+                $adapter->personalReceiveCreateQrCode(['amount' => 100])['_method'],
+            );
+            self::assertSame(
+                'queryRecords',
+                $adapter->personalReceiveQueryRecords(['page' => 1])['_method'],
+            );
+            self::assertSame(
+                'withdraw',
+                $adapter->personalReceiveWithdraw(['amount' => 50])['_method'],
+            );
+            self::assertSame(
+                'R1',
+                $adapter->personalReceiveQueryWithdraw('R1')['out_biz_no'],
+            );
+            self::assertSame('queryWithdraw', $adapter->personalReceiveQueryWithdraw('R1')['_method']);
+        } finally {
+            GatewayFactory::unregister('wechat');
+            Pay::register('wechat', WechatPayGateway::class);
+            Pay::clearCache('wechat');
+        }
     }
 
     /**

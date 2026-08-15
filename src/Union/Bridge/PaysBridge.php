@@ -8,6 +8,8 @@ use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
+use Kode\MiniApp\Union\Contracts\RefundAdapter;
+use Kode\MiniApp\Union\Contracts\CryptoAdapter;
 use Kode\MiniApp\Union\Contracts\WebhookAdapter;
 
 /**
@@ -109,6 +111,58 @@ final class PaysBridge
     }
 
     /**
+     * 用自定义 config resolver 构造「退款」桥接适配器（与 {@see self::adapter()} 对称）
+     *
+     * 返回的 {@see PaysBridgeRefundAdapter} 实现 {@see RefundAdapter}，其 `applyRefund()` /
+     * `queryRefund()` / `cancelRefund()` 委托 kode/pays 网关的 RefundCapableInterface 方法完成
+     * 退款闭环（申请 / 查询 / 取消），与 {@see self::adapter()} 共用同一凭证 source。
+     */
+    public static function refundAdapter(Channel $channel, \Closure $resolver): PaysBridgeRefundAdapter
+    {
+        return new PaysBridgeRefundAdapter($channel, new PaysBridgePayAdapter($channel, $resolver));
+    }
+
+    /**
+     * 从 miniapp Kernel 凭证自动拼装 kode/pays config 的「退款」桥接适配器
+     *
+     * 与 {@see self::adapterForKernel()} 对称：下单走 {@see PaysBridgePayAdapter}，
+     * 退款闭环走 {@see PaysBridgeRefundAdapter}，二者共用同一份 Kernel 凭证与渠道映射。
+     */
+    public static function refundAdapterForKernel(Channel $channel, KernelInterface $kernel): PaysBridgeRefundAdapter
+    {
+        return new PaysBridgeRefundAdapter($channel, self::adapterForKernel($channel, $kernel));
+    }
+
+    /**
+     * 用自定义 config resolver 构造「加密货币」桥接适配器（与 {@see self::adapter()} 对称）
+     *
+     * 返回的 {@see PaysBridgeCryptoAdapter} 实现 {@see CryptoAdapter}，其加密货币能力方法
+     * （createCryptoOrder / getPaymentAddresses / getExchangeRate / ...）委托 kode/pays 网关的
+     * CryptoCapableInterface，与 {@see self::adapter()} 共用同一凭证 source。
+     *
+     * 注意：加密货币（Coinbase 等）不在 miniapp Kernel 的默认渠道凭证体系内，故必须注入自定义
+     * resolver（见 {@see self::kernelResolver()} 对 crypto 渠道的引导），或改用 {@see self::cryptoAdapterForKernel()}
+     * 时由业务侧先行 registerCryptoAdapter。
+     */
+    public static function cryptoAdapter(Channel $channel, \Closure $resolver): PaysBridgeCryptoAdapter
+    {
+        return new PaysBridgeCryptoAdapter($channel, new PaysBridgePayAdapter($channel, $resolver));
+    }
+
+    /**
+     * 从 miniapp Kernel 凭证自动拼装 kode/pays config 的「加密货币」桥接适配器
+     *
+     * 与 {@see self::adapterForKernel()} 对称：但加密货币渠道（Channel::Crypto）的 Kernel resolver
+     * 会抛清晰引导（miniapp Kernel 无 crypto platform 配置），故该入口要求业务侧已通过
+     * {@see \Kode\MiniApp\Union\Union::registerCryptoAdapter()} 注册适配器，或改用
+     * {@see self::cryptoAdapter()} 注入自定义 resolver。
+     */
+    public static function cryptoAdapterForKernel(Channel $channel, KernelInterface $kernel): PaysBridgeCryptoAdapter
+    {
+        return new PaysBridgeCryptoAdapter($channel, self::adapterForKernel($channel, $kernel));
+    }
+
+    /**
      * 默认凭证解析：把 miniapp 的 Kernel 配置翻译为 kode/pays 网关 config
      *
      * 字段映射要点：
@@ -132,6 +186,10 @@ final class PaysBridge
                 $channel === Channel::WechatWork => throw new \InvalidArgumentException(
                     "kode/pays 桥接的默认 Kernel resolver 暂未覆盖渠道 [{$channel->label()}]，"
                     . '请使用 PaysBridge::adapter() 注入自定义 config resolver（kode/pays 该渠道 config 字段待核实）',
+                ),
+                $channel === Channel::Crypto => throw new \InvalidArgumentException(
+                    "kode/pays 桥接的默认 Kernel resolver 暂未覆盖加密货币渠道 [crypto]（miniapp Kernel 无 crypto platform 配置）。"
+                    . '请使用 Union::crypto(channel, resolver) 注入自定义 config resolver，或 registerCryptoAdapter() 注册适配器',
                 ),
                 default => throw new \InvalidArgumentException(
                     "kode/pays 桥接的默认 Kernel resolver 暂未覆盖渠道 [{$channel->label()}]，"

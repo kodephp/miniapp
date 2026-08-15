@@ -525,6 +525,41 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
         return $this->callGatewayFeature('querySettlement', '结算', $outBizNo);
     }
 
+    // ===== 个人收款（PersonalReceiveCapableInterface） =====
+
+    #[\Override]
+    public function personalReceiveCreateQrCode(array $params): array
+    {
+        return $this->callGatewayFeature('createQrCode', '个人收款', $params);
+    }
+
+    #[\Override]
+    public function personalReceiveQueryRecords(array $params): array
+    {
+        return $this->callGatewayFeature('queryRecords', '个人收款', $params);
+    }
+
+    #[\Override]
+    public function personalReceiveWithdraw(array $params): array
+    {
+        return $this->callGatewayFeature('withdraw', '个人收款', $params);
+    }
+
+    #[\Override]
+    public function personalReceiveQueryWithdraw(string $outBizNo): array
+    {
+        return $this->callGatewayFeature('queryWithdraw', '个人收款', $outBizNo);
+    }
+
+    /**
+     * 当前渠道是否支持「个人收款」能力（无需完整支付配置即可判断）
+     */
+    #[\Override]
+    public function supportsPersonalReceive(): bool
+    {
+        return $this->gatewaySupports('createQrCode');
+    }
+
     /**
      * 当前渠道是否支持「分账」能力（无需完整支付配置即可判断）
      */
@@ -597,6 +632,19 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
     public function supportsWebhook(): bool
     {
         return $this->gatewaySupports('verifyWebhook');
+    }
+
+    /**
+     * 当前渠道是否支持「退款」能力（申请 / 查询 / 取消退款）
+     *
+     * 基于 kode/pays 网关类是否实现 RefundCapableInterface（applyRefund）判断，
+     * 无需完整支付配置即可调用。注意 cancelRefund 仅部分网关支持（如 Stripe），
+     * 以 applyRefund 作为能力基线，返回 false 时退款适配器方法会抛清晰异常。
+     */
+    #[\Override]
+    public function supportsRefund(): bool
+    {
+        return $this->gatewaySupports('applyRefund');
     }
 
     /**
@@ -745,6 +793,7 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
             Channel::DouyinMini, Channel::DouyinMp => 'douyin',
             Channel::Qq => 'qq',
             Channel::BaiduMini => 'baidu',
+            Channel::Crypto => 'coinbase',
             default => throw new \InvalidArgumentException(
                 "kode/pays 桥接暂不支持渠道 [{$channel->label()}]",
             ),

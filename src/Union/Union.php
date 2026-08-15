@@ -25,6 +25,8 @@ use Kode\MiniApp\Union\Contracts\WebhookAdapter;
 use Kode\MiniApp\Union\Bridge\PaysBridge;
 use Kode\MiniApp\Union\Contracts\AdvancedPayAdapter;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
+use Kode\MiniApp\Union\Contracts\RefundAdapter;
+use Kode\MiniApp\Union\Contracts\CryptoAdapter;
 use Kode\MiniApp\Union\Contracts\UserAdapter;
 use Kode\MiniApp\Union\CapabilityInfo;
 use Kode\MiniApp\Union\Platforms\AlipayUnion;
@@ -100,6 +102,12 @@ final class Union
 
     /** @var array<string, WebhookAdapter> */
     private array $webhookAdapters = [];
+
+    /** @var array<string, RefundAdapter> */
+    private array $refundAdapters = [];
+
+    /** @var array<string, CryptoAdapter> */
+    private array $cryptoAdapters = [];
 
     /**
      * 全局 Kernel 引用（供静态方法使用）
@@ -759,6 +767,41 @@ final class Union
     }
 
     /**
+     * 获取退款能力适配器（申请 / 查询 / 取消退款）
+     *
+     * 与 {@see self::pay()}（下单）/ {@see self::notify()}（同步验签）/ {@see self::webhook()}
+     * （异步事件）不同，本方法面向「退款闭环」：返回的 {@see RefundAdapter} 委托 kode/pays 网关的
+     * RefundCapableInterface 完成 applyRefund / queryRefund / cancelRefund，需先
+     * `composer require kode/pays`。
+     *
+     * @see \Kode\MiniApp\Union\Bridge\PaysBridge
+     */
+    public function refund(Channel $channel): RefundAdapter
+    {
+        return $this->refundAdapter($channel);
+    }
+
+    /**
+     * 获取加密货币支付适配器（Coinbase 等聚合网关）
+     *
+     * 与 {@see self::pay()}（法币下单）/ {@see self::refund()}（法币退款）不同，本方法面向
+     * 「加密货币支付」：返回的 {@see CryptoAdapter} 委托 kode/pays 网关的 CryptoCapableInterface
+     * 完成 createCryptoOrder / getPaymentAddresses / getExchangeRate / getConfirmations / 退款 /
+     * 异步验签，需先 `composer require kode/pays`。
+     *
+     * 加密货币不在 miniapp Kernel 默认渠道凭证体系内，故优先使用：
+     *  - 已通过 {@see self::registerCryptoAdapter()} 注册的适配器；或
+     *  - `Union::crypto(channel, resolver)` 注入自定义 config resolver。
+     * 否则抛清晰异常引导接入。
+     *
+     * @see \Kode\MiniApp\Union\Bridge\PaysBridge
+     */
+    public function crypto(Channel $channel, ?\Closure $resolver = null): CryptoAdapter
+    {
+        return $this->cryptoAdapter($channel, $resolver);
+    }
+
+    /**
      * 通用平台访问入口
      *
      * 业务侧可直接通过 `Union::wechat()` / `$kernel->union()->wechat()` 访问。
@@ -926,6 +969,22 @@ final class Union
         $this->notifyAdapters[$adapter->channel()->value] = $adapter;
     }
 
+    /**
+     * 注册自定义退款适配器
+     */
+    public function registerRefundAdapter(RefundAdapter $adapter): void
+    {
+        $this->refundAdapters[$adapter->channel()->value] = $adapter;
+    }
+
+    /**
+     * 注册自定义加密货币适配器
+     */
+    public function registerCryptoAdapter(CryptoAdapter $adapter): void
+    {
+        $this->cryptoAdapters[$adapter->channel()->value] = $adapter;
+    }
+
     // ===== 私有：Provider 解析 =====
 
     private function kernelProvider(string $key): PlatformInterface
@@ -1012,6 +1071,47 @@ final class Union
         return $this->webhookAdapters[$key];
     }
 
+    private function refundAdapter(Channel $channel): RefundAdapter
+    {
+        $key = $channel->value;
+        if (!isset($this->refundAdapters[$key])) {
+            if (!PaysBridge::available()) {
+                throw new \RuntimeException(
+                    '退款能力已迁移至 kode/pays，请先执行 `composer require kode/pays` 后再调用 Union::refund()'
+                );
+            }
+            $this->refundAdapters[$key] = PaysBridge::refundAdapterForKernel($channel, $this->kernel);
+        }
+        return $this->refundAdapters[$key];
+    }
+
+    private function cryptoAdapter(Channel $channel, ?\Closure $resolver): CryptoAdapter
+    {
+        $key = $channel->value;
+        if (isset($this->cryptoAdapters[$key])) {
+            return $this->cryptoAdapters[$key];
+        }
+
+        if ($resolver !== null) {
+            if (!PaysBridge::available()) {
+                throw new \RuntimeException(
+                    '加密货币能力已迁移至 kode/pays，请先执行 `composer require kode/pays` 后再调用 Union::crypto()'
+                );
+            }
+            return PaysBridge::cryptoAdapter($channel, $resolver);
+        }
+
+        if (!PaysBridge::available()) {
+            throw new \RuntimeException(
+                '加密货币能力已迁移至 kode/pays，请先执行 `composer require kode/pays` 后再调用 Union::crypto()'
+            );
+        }
+
+        // 默认 Kernel resolver 对加密货币渠道会抛清晰引导（Kernel 无 crypto platform 配置）；
+        // 业务侧应改用 Union::crypto(channel, resolver) 或 registerCryptoAdapter()。
+        return PaysBridge::cryptoAdapterForKernel($channel, $this->kernel);
+    }
+
     private function buildLoginAdapter(Channel $channel): LoginAdapter
     {
         $namespace = '\\Kode\\MiniApp\\Union\\Channels';
@@ -1032,6 +1132,9 @@ final class Union
             Channel::BaiduMini   => "{$namespace}\\Baidu\\BaiduLoginAdapter",
             Channel::Dingtalk    => "{$namespace}\\Dingtalk\\DingtalkLoginAdapter",
             Channel::Lark        => "{$namespace}\\Lark\\LarkLoginAdapter",
+            default => throw new InvalidArgumentException(
+                "渠道 [{$channel->label()}] 不支持登录适配器（加密货币等支付专用渠道无登录能力）",
+            ),
         };
 
         if (!class_exists($adapter)) {
@@ -1063,6 +1166,9 @@ final class Union
             Channel::BaiduMini    => "{$namespace}\\Baidu\\BaiduUserAdapter",
             Channel::Dingtalk     => "{$namespace}\\Dingtalk\\DingtalkUserAdapter",
             Channel::Lark         => "{$namespace}\\Lark\\LarkUserAdapter",
+            default => throw new InvalidArgumentException(
+                "渠道 [{$channel->label()}] 不支持用户资料适配器（加密货币等支付专用渠道无用户资料能力）",
+            ),
         };
 
         if (!class_exists($adapter)) {
