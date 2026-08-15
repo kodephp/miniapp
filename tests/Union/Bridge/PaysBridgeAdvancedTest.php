@@ -99,6 +99,30 @@ final class PaysBridgeAdvancedTest extends TestCase
         self::assertFalse($adapter->supportsBalance());
     }
 
+    public function testPaymentCapabilitiesSummarizesAllTen(): void
+    {
+        $adapter = PaysBridge::adapter(Channel::WechatMini, fn () => $this->wechatConfig());
+
+        $caps = $adapter->paymentCapabilities();
+
+        self::assertSame(
+            [
+                'profit_sharing', 'transfer', 'reconciliation', 'red_packet', 'subscription',
+                'balance', 'settlement', 'personal_receive', 'webhook', 'refund',
+            ],
+            array_keys($caps),
+        );
+        foreach ($caps as $value) {
+            self::assertIsBool($value);
+        }
+
+        // 与独立 supports*() 一致（微信 V2 支持除余额外的全部能力）
+        self::assertTrue($caps['profit_sharing']);
+        self::assertTrue($caps['red_packet']);
+        self::assertTrue($caps['personal_receive']);
+        self::assertFalse($caps['balance']);
+    }
+
     public function testQqSupportsNoAdvancedCapability(): void
     {
         $adapter = PaysBridge::adapter(Channel::Qq, fn () => $this->wechatConfig());

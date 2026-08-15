@@ -647,6 +647,23 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
         return $this->gatewaySupports('applyRefund');
     }
 
+    #[\Override]
+    public function paymentCapabilities(): array
+    {
+        return [
+            'profit_sharing'      => $this->supportsProfitSharing(),
+            'transfer'            => $this->supportsTransfer(),
+            'reconciliation'      => $this->supportsReconciliation(),
+            'red_packet'          => $this->supportsRedPacket(),
+            'subscription'        => $this->supportsSubscription(),
+            'balance'             => $this->supportsBalance(),
+            'settlement'          => $this->supportsSettlement(),
+            'personal_receive'    => $this->supportsPersonalReceive(),
+            'webhook'             => $this->supportsWebhook(),
+            'refund'              => $this->supportsRefund(),
+        ];
+    }
+
     /**
      * 取得当前渠道的 kode/pays 网关实例（供 Webhook 适配器等兄弟适配器委托）
      *

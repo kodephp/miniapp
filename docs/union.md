@@ -270,22 +270,28 @@ if ($adv->supportsSettlement()) {      // 结算 / 提现
 | 渠道 | 分账 | 转账 | 对账 | 红包 | 订阅 | 结算 | 余额 | 个人收款 | 加密货币 |
 | --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
 | 微信 V2（小程序等） | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — | ✅ | — |
-| 微信 V3 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
+| 微信 V3 | ✅ | ✅ | ✅ | — | — | ✅ | ✅ | ✅ | — |
 | 支付宝 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
 | 抖音 | ✅ | — | — | — | — | — | — | — | — |
 | 京东 / 美团 | ✅ | ✅ | ✅ | ✅ | — | ✅ | — | — | — |
 | 银联 | ✅ | — | — | — | — | — | — | ✅ | — |
 | Stripe | ✅ | ✅ | ✅ | — | ✅ | ✅ | ✅ | ✅ | — |
-| Adyen / Revolut | — | ✅ | ✅ | — | ✅ | ✅ | ✅ | ✅ | — |
+| Adyen | — | ✅ | ✅ | — | ✅ | ✅ | ✅ | — | — |
+| Revolut | — | ✅ | ✅ | — | — | ✅ | ✅ | ✅ | — |
 | PayPal | — | — | — | — | ✅ | ✅ | ✅ | ✅ | — |
 | QQ | — | — | — | — | — | — | — | — | — |
 | 百度 / 企业微信 | — | — | — | — | — | — | — | — | — |
 | Coinbase（加密货币） | — | — | — | — | — | — | — | — | ✅ |
 
 > 矩阵依据 kode/pays 网关能力接口（ProfitSharing / Transfer / Reconciliation / RedPacket /
-> Subscription / Settlement / Balance / PersonalReceive / CryptoCapableInterface）实测。具体平台以
-> kode/pays 最新版本为准；调用前用 `supports*()`（个人收款）判断最稳妥，加密货币走独立
+> Subscription / Settlement / Balance / PersonalReceive / CryptoCapableInterface）**实测**
+> （探针反射各网关类 `implements`，见 `docs/union.md` 同版 `vendor/kode/pays`）。具体平台以
+> kode/pays 最新版本为准；调用前用 `supports*()` 判断最稳妥，加密货币走独立
 > `Union::crypto()` 入口（不受该矩阵约束）。
+> 注意：**微信 V3 网关不含红包 / 订阅能力**（仅 V2 网关提供），需要红包 / 订阅请使用 V2 渠道；
+> 调用方用 `supportsRedPacket()` / `supportsSubscription()` 优雅降级即可。
+> 程序化对齐：{@see \Kode\MiniApp\Union\Contracts\AdvancedPayAdapter::paymentCapabilities()}
+> 一次性返回上述 10 项能力开关（无需支付配置），可直接喂给前端渲染能力菜单。
 
 ### Webhook 事件回调（异步事件，区别于同步结果通知）
 

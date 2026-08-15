@@ -364,4 +364,23 @@ interface AdvancedPayAdapter extends PayAdapter
      * 返回 false 时调用 {@see \Kode\MiniApp\Union\Contracts\RefundAdapter} 三个方法会抛清晰异常。
      */
     public function supportsRefund(): bool;
+
+    /**
+     * 汇总当前渠道支持的「全部高级支付能力」（与 docs/union.md 渠道能力矩阵程序化对齐）
+     *
+     * 一次性返回分账 / 转账 / 对账 / 红包 / 订阅 / 余额 / 结算 / 个人收款 / Webhook / 退款
+     * 共 10 项能力的布尔开关，**无需完整支付配置**即可调用。便于前端按渠道动态渲染能力菜单，
+     * 或业务侧在调用具体方法前做一次性自检：
+     *
+     * ```php
+     * $caps = Union::wechat()->advancedPay()->paymentCapabilities();
+     * // => ['profit_sharing' => true, 'transfer' => true, ...]
+     * if ($caps['red_packet']) {
+     *     // 仅微信 V2 支持红包，V3 为 false
+     * }
+     * ```
+     *
+     * @return array<string, bool> 能力名 => 是否支持
+     */
+    public function paymentCapabilities(): array;
 }

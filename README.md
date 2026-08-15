@@ -150,6 +150,33 @@ $wh = $kernel->union()->wechat()->webhook();
 if ($wh->verify($rawBody, $headers)) {
     $event = $wh->parse($rawBody);   // ['gateway'=>..., 'event_type'=>..., 'data'=>...]
 }
+
+// 退款闭环（申请 / 查询 / 取消）：refund() 返回 RefundAdapter，对齐 RefundCapableInterface。
+// 与 PayAdapter::refund()（仅申请）相比，额外覆盖 queryRefund / cancelRefund。
+$refund = $kernel->union()->wechat()->refund();
+$refund->applyRefund([
+    'out_trade_no'  => 'ORDER_001',
+    'out_refund_no' => 'REFUND_001',
+    'amount'        => 100,
+]);
+$refund->queryRefund('REFUND_001');          // 按商户退款单号查询
+$refund->cancelRefund('REFUND_001');         // 仅部分网关支持（如 Stripe）
+
+// 个人收款（收款码 / 提现，PersonalReceiveCapableInterface）
+$pr = $kernel->union()->wechat()->advancedPay();
+$pr->personalReceiveCreateQrCode(['amount' => 100, 'description' => '货款']);
+$pr->personalReceiveQueryRecords(['start_time' => '2026-08-01', 'page' => 1]);
+
+// 加密货币支付（Coinbase 等聚合网关，CryptoCapableInterface）
+// 加密货币不在 miniapp Kernel 默认凭证体系内，须注入自定义 config resolver
+use Kode\MiniApp\Union\Channel;
+$crypto = $kernel->union()->crypto(Channel::Crypto, fn () => ['api_key' => '...']);
+$order  = $crypto->createCryptoOrder([
+    'crypto_currency' => 'BTC',
+    'fiat_amount'     => 100,
+    'fiat_currency'   => 'USD',
+]);
+$rate   = $crypto->getExchangeRate('BTC', 'USD');   // 实时汇率
 ```
 
 ## 架构设计
