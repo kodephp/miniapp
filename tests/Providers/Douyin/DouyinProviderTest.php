@@ -54,7 +54,6 @@ class DouyinProviderTest extends TestCase
         self::assertInstanceOf(DouyinApp::class, $app);
         self::assertSame('default', $app->name());
         self::assertInstanceOf(\Kode\MiniApp\Providers\Douyin\Modules\Auth::class, $app->auth());
-        self::assertInstanceOf(\Kode\MiniApp\Providers\Douyin\Modules\Pay::class, $app->pay());
         self::assertInstanceOf(\Kode\MiniApp\Providers\Douyin\Modules\Video::class, $app->video());
     }
 }

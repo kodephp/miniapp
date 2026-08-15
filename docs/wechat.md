@@ -421,20 +421,20 @@ Union 层把已登录用户直接传入支付即可**自动注入 `openid`**，�
 
 ```php
 $user   = Union::wechat()->mini('code');        // 微信登录，拿到 openid
-$result = Union::wechat()->pay()->unifiedOrder([
+$result = Union::wechat()->pay()->createOrder([
     'out_trade_no' => 'ORDER_001',
     'description'  => '商品描述',
     'amount'       => ['total' => 100],
 ], $user);                                       // 自动注入 payer.openid
 
 // 等价便捷写法（PlatformUnion 透传用户到支付适配器）
-$result = Union::wechat()->unifiedOrder([
+$result = Union::wechat()->createOrder([
     'out_trade_no' => 'ORDER_001',
     'amount'       => ['total' => 100],
 ], user: $user);
 
 // 也可显式携带 openid（覆盖自动注入）
-$result = Union::wechat()->pay()->unifiedOrder([
+$result = Union::wechat()->pay()->createOrder([
     'out_trade_no' => 'ORDER_001',
     'amount'       => ['total' => 100],
     'payer'        => ['openid' => 'OPENID_XXX'],
@@ -444,6 +444,10 @@ $result = Union::wechat()->pay()->unifiedOrder([
 > ⚠️ JSAPI 下单若既无 `openid` 又无已登录用户，适配器会 **fail-fast** 抛出
 > `InvalidArgumentException`，避免微信侧含糊的「参数错误」。`APP` / `H5` / `NATIVE`
 > 等不需要 openid 的交易类型不受此约束。
+
+> 🔒 **渠道守卫**：传入的 `UnionUser` 必须是微信生态渠道（公众号 / 小程序 / App / H5 /
+> PC / 企业微信 / 开放平台）。误传其他平台（支付宝 / 抖音等）的登录用户会被立即拒绝，
+> 避免把其 `user_id` 错当成微信 `openid` 注入而下单成功却付错人。
 
 ### 支付前必须先登录：openid 来自当次登录，而非「查库历史」
 
@@ -459,7 +463,7 @@ $result = Union::wechat()->pay()->unifiedOrder([
 // 推荐：支付入口即触发当次登录，openid 来自本次会话
 // 小程序：前端 wx.login → code，后端 code2session 拿 openid
 $user   = Union::wechat()->mini($code);              // 当次登录，openid 在内存
-$result = Union::wechat()->unifiedOrder($order, user: $user);  // 自动注入 openid
+$result = Union::wechat()->createOrder($order, user: $user);  // 自动注入 openid
 
 // 公众号 H5 网页授权：未关注 / 未登录的用户也能当场拿到 openid（服务号网页授权权限）
 //   先引导走 snsapi_base 静默授权拿 code → code2session/access_token 换 openid，再下单
@@ -472,64 +476,80 @@ $result = Union::wechat()->unifiedOrder($order, user: $user);  // 自动注入 o
 
 ### 交易类型分派（按场景下单）
 
+> 2.0 起下单统一为 `Union::wechat()->pay()->createOrder($order, $user)`：先登录拿到
+> `UnionUser`（决定 JSAPI / APP / H5 / NATIVE 等场景），再由桥接把付款人标识（openid）
+> 注入 `$order`，无需手写 `payer.openid`。交易类型 / appid / scene_info 等差异由 kode/pays
+> 微信网关按 `$order` 内容识别，沿用微信支付 V3 原生参数结构。
+
 ```php
-// JSAPI（公众号 / 小程序）—— 需 payer.openid
-$app->pay()->order('JSAPI', [
+use Kode\MiniApp\Union\Union;
+
+// JSAPI（公众号 / 小程序）—— openid 由已登录 UnionUser 自动注入
+$user  = Union::wechat()->mini($code);   // 或 ->mp($code) / ->app($code) 决定场景
+$order = Union::wechat()->pay()->createOrder([
     'description'  => '商品描述',
     'out_trade_no' => 'ORDER_001',
     'amount'       => ['total' => 100],  // 单位：分
-    'payer'        => ['openid' => $openid],
-]);
+], $user);
 
-// APP（移动应用）—— appid 应为开放平台「移动应用」AppID，可用参数覆盖默认值
-$app->pay()->order('APP', [
+// APP（移动应用）—— appid 由 kode/pays 取开放平台「移动应用」AppID，可经 $order 覆盖
+$userApp = Union::wechat()->app($code);
+$order   = Union::wechat()->pay()->createOrder([
     'description'  => '商品描述',
     'out_trade_no' => 'ORDER_APP_001',
     'amount'       => ['total' => 100],
-    'appid'        => 'wx_open_mobile_app',  // 可选，覆盖默认 app_id
-]);
+    // 'appid' => 'wx_open_mobile_app',  // 可选，覆盖默认 app_id
+], $userApp);
 
-// H5（MWEB）—— 微信返回 h5_url 供跳转
-$app->pay()->order('MWEB', [
-    'description'     => '商品描述',
-    'out_trade_no'    => 'ORDER_H5_001',
-    'amount'          => ['total' => 100],
-    'scene_info'      => ['h5_info' => ['type' => 'Wap', 'wap_url' => 'https://example.com', 'wap_name' => '示例']],
-]);
+// H5（MWEB）—— kode/pays 返回 h5_url 供跳转
+$order = Union::wechat()->pay()->createOrder([
+    'description'  => '商品描述',
+    'out_trade_no' => 'ORDER_H5_001',
+    'amount'       => ['total' => 100],
+    'scene_info'   => ['h5_info' => ['type' => 'Wap', 'wap_url' => 'https://example.com', 'wap_name' => '示例']],
+], $user);
 
-// NATIVE（PC 扫码）—— 微信返回 code_url 生成二维码
-$app->pay()->order('NATIVE', [
+// NATIVE（PC 扫码）—— kode/pays 返回 code_url 生成二维码
+$order = Union::wechat()->pay()->createOrder([
     'description'  => '商品描述',
     'out_trade_no' => 'ORDER_PC_001',
     'amount'       => ['total' => 100],
-]);
+], $user);
 ```
 
 ### 服务商模式（代特约商户收款）
 
 ```php
-// 配置中声明 sp_mchid + sub_mchid（+ sub_appid）即自动切换服务商模式：
+// 在 Kernel 配置中声明 sp_mchid + sub_mchid（+ sub_appid）即自动切换服务商模式：
 // 'sp_mchid' => '服务商商户号', 'sub_mchid' => '特约商户号', 'sub_appid' => '特约商户 AppID'
-// 下单 body 自动使用 sp_mchid / sub_mchid / sub_appid，V3 签名头 mchid 取 sp_mchid
-$app->pay()->order('JSAPI', [
+// 由 kode/pays 微信网关自动落 sp_mchid / sub_mchid / sub_appid 与 V3 签名头 mchid。
+// 付款人标识由桥接按服务商模式自动落到 payer.sub_openid，你只需照常传已登录 UnionUser。
+$user  = Union::wechat()->mini($code);
+$order = Union::wechat()->pay()->createOrder([
     'description'  => '商品描述',
     'out_trade_no' => 'ORDER_SUB_001',
     'amount'       => ['total' => 100],
-    'payer'        => ['openid' => $subOpenid],
-]);
+], $user);
 ```
 
-### 订单查询 / 关单 / 退款 / 账单
+> ⚠️ **服务商模式的付款人标识是 `sub_openid`（不是 `openid`）**：特约商户的付款人
+> openid 属于 `sub_appid` 体系，微信支付 V3 要求放在 `payer.sub_openid`。本包已按配置
+> 自动归并——你只需照常传 openid（或传已登录 `UnionUser`），服务商模式下会落到
+> `payer.sub_openid`，无需手动区分。直连商户则仍为 `payer.openid`。
+
+### 订单查询 / 关单 / 退款
 
 ```php
+$pay = Union::wechat()->pay();
+
 // 查询订单
-$app->pay()->query('ORDER_001');
+$pay->queryOrder('ORDER_001');
 
 // 关闭订单
-$app->pay()->close('ORDER_001');
+$pay->closeOrder('ORDER_001');
 
 // 申请退款
-$app->pay()->refund([
+$pay->refund([
     'out_trade_no'  => 'ORDER_001',
     'out_refund_no' => 'REFUND_001',
     'reason'        => '用户申请退款',
@@ -541,23 +561,9 @@ $app->pay()->refund([
 ]);
 
 // 查询退款
-$app->pay()->queryRefund('REFUND_001');
+$pay->queryRefund('REFUND_001');
 
-// 申请交易账单
-$app->pay()->tradeBill('2024-01-01');
-
-// 申请资金账单
-$app->pay()->fundBill('2024-01-01');
-```
-
-### 企业级支付（需安装 kode/pays）
-
-```php
-// 获取企业级支付实例
-$pay = $app->payBridge();
-if ($pay !== null) {
-    $pay->order([...]);
-}
+// 交易账单 / 资金账单 / 分账 等能力由 kode/pays 网关直接提供，详见 kode/pays 文档
 ```
 
 ---

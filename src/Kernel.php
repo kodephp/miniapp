@@ -141,7 +141,7 @@ final class Kernel implements KernelInterface
      *
      * 用法：
      *   $user = $kernel->union()->wechat()->mini('JS_CODE');
-     *   $order = $kernel->union()->wechat()->pay()->unifiedOrder([...]);
+     *   $order = $kernel->union()->wechat()->pay()->createOrder([...]);
      *   // 或者
      *   $user = Union::wechat()->mini('JS_CODE');
      */

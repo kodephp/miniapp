@@ -16,7 +16,7 @@ use Kode\MiniApp\Union\UnionUser;
  *   $user = Union::alipay()->mini('code');   // 支付宝小程序
  *   $user = Union::alipay()->mp('code');     // 支付宝生活号
  *
- *   $order = Union::alipay()->pay()->unifiedOrder([...]);
+ *   $order = Union::alipay()->pay()->createOrder([...]);
  *   $data  = Union::alipay()->notify()->decode($payload, $headers);
  */
 final class AlipayUnion extends PlatformUnion

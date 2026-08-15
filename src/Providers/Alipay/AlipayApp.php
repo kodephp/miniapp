@@ -15,7 +15,6 @@ use Kode\MiniApp\Providers\Alipay\Modules\Decrypt;
 use Kode\MiniApp\Providers\Alipay\Modules\Bill;
 use Kode\MiniApp\Providers\Alipay\Modules\Marketing;
 use Kode\MiniApp\Providers\Alipay\Modules\Member;
-use Kode\MiniApp\Providers\Alipay\Modules\Pay;
 use Kode\MiniApp\Providers\Alipay\Modules\Transfer;
 
 /**
@@ -27,7 +26,6 @@ final readonly class AlipayApp implements AppInterface
 {
     private Auth $auth;
     private Decrypt $decrypt;
-    private Pay $pay;
     private Transfer $transfer;
     private Bill $bill;
     private Marketing $marketing;
@@ -43,7 +41,6 @@ final readonly class AlipayApp implements AppInterface
         $this->gateway  = new AlipayGateway($this);
         $this->auth     = new Auth($this);
         $this->decrypt  = new Decrypt($this);
-        $this->pay      = new Pay($this);
         $this->transfer = new Transfer($this);
         $this->bill     = new Bill($this);
         $this->marketing = new Marketing($this);
@@ -96,15 +93,6 @@ final readonly class AlipayApp implements AppInterface
     public function gateway(): AlipayGateway
     {
         return $this->gateway;
-    }
-
-    /**
-     * 获取支付模块
-     * 如安装了 kode/pays，可通过 payBridge() 获取企业级支付能力
-     */
-    public function pay(): Pay
-    {
-        return $this->pay;
     }
 
     /**

@@ -49,36 +49,39 @@ $openid = $user['openid'];
 
 ## 支付
 
+> 2.0 起 QQ 支付完全由 `kode/pays` 承载（composer 硬依赖），付款人 openid 由本包登录后自动注入。
+
 ### 统一下单
 
 ```php
-$app->pay()->unifiedOrder([
-    'body'           => '商品描述',
-    'out_trade_no'   => 'ORDER001',
-    'total_fee'      => 100,  // 单位：分
+// 先登录拿到 UnionUser（openid 由桥接自动注入，无需手写）
+$user  = $kernel->union()->qq()->mini($code);
+$order = $kernel->union()->qq()->pay()->createOrder([
+    'body'            => '商品描述',
+    'out_trade_no'    => 'ORDER001',
+    'total_fee'       => 100,  // 单位：分
     'spbill_create_ip'=> '127.0.0.1',
-    'notify_url'     => 'https://example.com/notify',
-    'trade_type'     => 'MINIAPP',
-    'openid'         => $openid,
-]);
+    'notify_url'      => 'https://example.com/notify',
+    'trade_type'      => 'MINIAPP',
+], $user);
 ```
 
 ### 查询订单
 
 ```php
-$app->pay()->orderQuery('ORDER001');
+$kernel->union()->qq()->pay()->queryOrder('ORDER001');
 ```
 
 ### 关闭订单
 
 ```php
-$app->pay()->closeOrder('ORDER001');
+$kernel->union()->qq()->pay()->closeOrder('ORDER001');
 ```
 
 ### 申请退款
 
 ```php
-$app->pay()->refund([
+$kernel->union()->qq()->pay()->refund([
     'out_trade_no'  => 'ORDER001',
     'out_refund_no' => 'REFUND001',
     'total_fee'     => 100,

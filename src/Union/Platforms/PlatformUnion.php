@@ -13,6 +13,7 @@ use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\LoginAdapter;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
 use Kode\MiniApp\Union\Bridge\PaysBridge;
+use Kode\MiniApp\Union\Contracts\AdvancedPayAdapter;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
 use Kode\MiniApp\Union\Contracts\UserAdapter;
 use Kode\MiniApp\Union\Union;
@@ -164,11 +165,16 @@ abstract class PlatformUnion
     }
 
     /**
-     * 统一支付适配器
+     * 统一支付适配器（kode/pays 为唯一支付实现）
      *
-     * ⚠️ 软移交说明：支付能力建议统一交由 kode/pays 承载（下单 / 订单 / 对账 / 退款）。
-     * 本包支付适配器为历史保留实现，仅与登录 / 用户共用凭证配置，请勿在新代码中依赖。
-     * 详见 {@see \Kode\MiniApp\Union\Contracts\PayAdapter}。
+     * 2.0 起支付能力完全由 kode/pays 承载：本方法返回 pays 桥接适配器，
+     * 业务侧调用方式与 kode/pays 网关契约完全一致（createOrder / verifyNotify / ...），详见
+     * {@see \Kode\MiniApp\Union\Contracts\PayAdapter}。
+     *
+     * ⚠️ kode/pays 为硬依赖：未安装时调用会抛清晰异常，引导业务侧先
+     * `composer require kode/pays`。
+     *
+     * @see \Kode\MiniApp\Union\Bridge\PaysBridge
      */
     public function pay(?string $scene = null): PayAdapter
     {
@@ -179,6 +185,26 @@ abstract class PlatformUnion
     }
 
     /**
+     * 高级支付能力适配器（分账 / 转账 / 对账）
+     *
+     * 在 {@see self::pay()} 之上，返回实现了 {@see AdvancedPayAdapter} 的实例，
+     * 业务侧即可调用 `profitSharingCreate` / `transferSingle` / `reconciliationDownloadBill` 等
+     * kode/pays 网关特色方法。适配器未实现该接口时抛清晰异常。
+     *
+     * 用法：
+     *   $res = Union::wechat()->advancedPay()->profitSharingCreate([...]);
+     *
+     * @see \Kode\MiniApp\Union\Contracts\AdvancedPayAdapter
+     */
+    public function advancedPay(?string $scene = null): AdvancedPayAdapter
+    {
+        $channel = $scene !== null
+            ? $this->channelForScene($scene)
+            : $this->defaultPayChannel();
+        return $this->union->advancedPay($channel);
+    }
+
+    /**
      * 统一下单（直接调用）
      *
      * 便捷写法：把已登录的 {@see UnionUser} 传入，支付适配器会自动注入
@@ -186,31 +212,14 @@ abstract class PlatformUnion
      *
      * 用法：
      *   $user  = Union::wechat()->mini('code');
-     *   $order = Union::wechat()->unifiedOrder($params, user: $user);
+     *   $order = Union::wechat()->createOrder($params, user: $user);
      *
      * @param array<string, mixed> $order
      * @return array<string, mixed>
      */
-    public function unifiedOrder(array $order, ?string $scene = null, ?UnionUser $user = null): array
+    public function createOrder(array $order, ?string $scene = null, ?UnionUser $user = null): array
     {
-        return $this->pay($scene)->unifiedOrder($order, $user);
-    }
-
-    /**
-     * 统一支付适配器（kode/pays 桥接 / 健壮支付）
-     *
-     * 委托企业级聚合支付 SDK kode/pays 完成下单。需 `composer require kode/pays`；
-     * 未安装时调用会抛清晰异常，可回退到 {@see self::pay()}（基础支付适配器）。
-     * 返回结构与 {@see self::pay()} 一致（平台原始数组）。
-     *
-     * @see \Kode\MiniApp\Union\Bridge\PaysBridge
-     */
-    public function payViaPays(?string $scene = null): PayAdapter
-    {
-        $channel = $scene !== null
-            ? $this->channelForScene($scene)
-            : $this->defaultPayChannel();
-        return $this->union->payViaPays($channel);
+        return $this->pay($scene)->createOrder($order, $user);
     }
 
     /**

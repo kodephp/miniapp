@@ -12,7 +12,7 @@ use Kode\MiniApp\Union\UnionUser;
  *
  * 用法：
  *   $user = Union::qq()->login('code');    // QQ 登录
- *   $order = Union::qq()->pay()->unifiedOrder([...]);
+ *   $order = Union::qq()->pay()->createOrder([...]);
  */
 final class QqUnion extends PlatformUnion
 {

@@ -28,7 +28,6 @@ use Kode\MiniApp\Providers\Wechat\Modules\Menu;
 use Kode\MiniApp\Providers\Wechat\Modules\Message;
 use Kode\MiniApp\Providers\Wechat\Modules\MiniProgramCode;
 use Kode\MiniApp\Providers\Wechat\Modules\Live;
-use Kode\MiniApp\Providers\Wechat\Modules\Pay;
 use Kode\MiniApp\Providers\Wechat\Modules\Phone;
 use Kode\MiniApp\Providers\Wechat\Modules\Plugin;
 use Kode\MiniApp\Providers\Wechat\Modules\Redpack;
@@ -53,7 +52,6 @@ final readonly class WechatApp implements AppInterface
     private Auth $auth;
     private Jssdk $jssdk;
     private Message $message;
-    private Pay $pay;
     private User $user;
     private Media $media;
     private Menu $menu;
@@ -91,7 +89,6 @@ final readonly class WechatApp implements AppInterface
         $this->auth            = new Auth($this);
         $this->jssdk           = new Jssdk($this);
         $this->message         = new Message($this);
-        $this->pay             = new Pay($this);
         $this->user            = new User($this);
         $this->media           = new Media($this);
         $this->menu            = new Menu($this);
@@ -158,15 +155,6 @@ final readonly class WechatApp implements AppInterface
     public function message(): Message
     {
         return $this->message;
-    }
-
-    /**
-     * 获取支付模块
-     * 如安装了 kode/pays，可通过 payBridge() 获取企业级支付能力
-     */
-    public function pay(): Pay
-    {
-        return $this->pay;
     }
 
     /**

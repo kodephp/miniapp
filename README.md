@@ -15,7 +15,7 @@
 - **PHP 8.3+ 现代化**：使用 readonly、enum、match、构造函数属性提升、nullsafe、命名参数、`__call`/`__callStatic` 魔术分发等新特性
 - **企业级能力**：除 C 端小程序外，完整支持企业微信、钉钉、飞书的通讯录、审批、消息推送
 - **服务端消息处理**：统一处理各平台的消息推送和事件回调
-- **支付桥接**：内置基础支付能力，同时可桥接到 `kode/pays` 企业级聚合支付 SDK
+- **企业级支付**：2.0 起支付能力完全由 `kode/pays` 承载（composer 硬依赖），下单 / 验签 / 退款 / 分账 / 转账 / 对账统一经 kode/pays，付款人身份（openid / buyer_id）由本包登录后自动注入
 - **工具桥接**：内置基础工具类，同时可桥接到 `kode/tools` 企业级工具包
 - **异常桥接**：内置异常体系，同时可桥接到 `kode/exception` 统一异常处理组件
 - **Kode 生态兼容**：与 kode/pays、kode/tools、kode/exception、kode/cache、kode/event、kode/jwt 等包无缝协作
@@ -35,7 +35,7 @@ Kode MiniApp 是 Kode 生态的重要组成部分，与以下包可协同工作�
 
 | 包名 | 类型 | 说明 |
 |------|------|------|
-| `kode/pays` | suggest | 企业级多平台聚合支付 SDK，安装后可通过 `payBridge()` 获取更强支付能力 |
+| `kode/pays` | require（硬依赖） | 企业级多平台聚合支付 SDK，2.0 起为**唯一**支付路径（下单 / 验签 / 退款 / 分账 / 转账 / 对账），付款人身份由本包登录后注入 |
 | `kode/tools` | suggest | PHP 通用工具包（加解密、二维码、消息体等），安装后自动优先使用 |
 | `kode/exception` | suggest | 统一异常处理组件，安装后扩展异常码体系 |
 | `kode/cache` | suggest | 高性能缓存组件，支持 Redis/Memcached 等，SessionManager 默认基于 PSR-16 |
@@ -118,19 +118,31 @@ $kernel = new Kernel([
 // 微信登录
 $session = $kernel->wechat()->app()->auth()->session($code);
 
-// 支付宝下单（内置基础支付）
-$order = $kernel->alipay()->app()->pay()->create([
+// 微信下单（2.0 起支付完全由 kode/pays 承载，openid 自动注入）
+$user  = $kernel->union()->wechat()->mini($code);
+$order = $kernel->union()->wechat()->pay()->createOrder([
+    'out_trade_no' => 'ORDER_001',
+    'description'  => '测试商品',
+    'amount'       => ['total' => 9999],  // 单位：分
+], $user);
+
+// 支付宝下单（同样经 kode/pays，buyer_id 自动注入）
+$order = $kernel->union()->alipay()->createOrder([
     'out_trade_no' => 'ORDER_001',
     'total_amount' => '99.99',
     'subject'      => '测试商品',
 ]);
 
-// 如安装了 kode/pays，可使用企业级支付能力
-$pay = $kernel->wechat()->app()->payBridge();
-if ($pay !== null) {
-    // 使用 kode/pays 的企业级支付能力
-    $pay->order([...]);
-}
+// 高级支付能力（分账 / 转账 / 对账）：advancedPay() 返回 AdvancedPayAdapter，
+// 方法名与 kode/pays 网关契约一致
+$adv = $kernel->union()->wechat()->advancedPay();
+$adv->profitSharingCreate([
+    'transaction_id' => '微信订单号',
+    'out_order_no'   => '商户分账单号',
+    'receivers'      => [['type' => 'MERCHANT_ID', 'account' => 'mch_2', 'amount' => 100]],
+]);
+$adv->transferSingle(['out_biz_no' => 'BIZ_1', 'amount' => 100, 'recipient' => ['type' => 'openid', 'account' => $openId, 'name' => '张三']]);
+$bill = $adv->reconciliationDownloadBill(['bill_date' => '20260814']);
 ```
 
 ## 架构设计
@@ -140,8 +152,7 @@ Kernel（门面）
   ├── Provider（平台入口）           ←  底层细粒度接口
   │     └── App（应用实例）
   │           ├── Auth（认证）
-  │           ├── Pay（基础支付）
-  │           ├── PayBridge（桥接 kode/pays 企业级支付）
+  │           ├── PayBridge（桥接 kode/pays，企业级支付）
   │           ├── Message（消息）
   │           ├── Contact（通讯录）
   │           ├── Approval（审批）
@@ -337,14 +348,14 @@ $user = Union::dingtalk()->mini('CODE');             // 钉钉
 $user = Union::lark()->mini('CODE');                 // 飞书
 
 // 3. 支付
-$order = Union::wechat()->pay()->unifiedOrder([
+$order = Union::wechat()->pay()->createOrder([
     'out_trade_no' => 'O001',
     'body'         => '商品',
     'total_fee'    => 100,
     'openid'       => $user->openId,
 ]);
-$order = Union::alipay()->pay()->unifiedOrder([...]); // 支付宝支付
-$order = Union::work()->pay()->unifiedOrder([...]);   // 企业微信支付
+$order = Union::alipay()->pay()->createOrder([...]); // 支付宝支付
+$order = Union::work()->pay()->createOrder([...]);   // 企业微信支付
 
 // 4. 回调
 $data = Union::wechat()->notify()->decode($payload, $headers);
@@ -566,7 +577,7 @@ $session = new SessionManager(
 ```php
 $user = Union::wechat()->mini($code);                              // 1. 登录
 $user = Union::wechat()->user($openId, $payload);                  // 2. 用户资料
-$order = Union::wechat()->pay()->unifiedOrder([...]);              // 3. 支付
+$order = Union::wechat()->pay()->createOrder([...]);              // 3. 支付
 $data = Union::wechat()->notify()->decode($payload, $headers);     // 4. 回调
 ```
 
@@ -719,22 +730,25 @@ $app->subscribeMessage()->send($openid, $templateId, ['thing1' => ['value' => '�
 $templates = $app->subscribeMessage()->getTemplateList();
 $app->subscribeMessage()->deleteTemplate($priTmplId);
 
-// 基础支付
-$app->pay()->order([
+// 支付（2.0 起统一经 kode/pays；先登录拿到 UnionUser，openid 自动注入）
+$user  = $kernel->union()->wechat()->mini($code);
+$pay   = $kernel->union()->wechat()->pay();
+
+// 统一下单
+$order = $pay->createOrder([
     'description'  => '商品描述',
     'out_trade_no' => 'ORDER_001',
     'amount'       => ['total' => 100],
-    'payer'        => ['openid' => $openid],
-]);
+], $user);
 
 // 查询订单
-$app->pay()->query('ORDER_001');
+$pay->queryOrder('ORDER_001');
 
 // 关闭订单
-$app->pay()->close('ORDER_001');
+$pay->closeOrder('ORDER_001');
 
 // 申请退款
-$app->pay()->refund([
+$pay->refund([
     'out_trade_no'  => 'ORDER_001',
     'out_refund_no' => 'REFUND_001',
     'reason'        => '用户申请退款',
@@ -746,11 +760,9 @@ $app->pay()->refund([
 ]);
 
 // 查询退款
-$app->pay()->queryRefund('REFUND_001');
+$pay->queryRefund('REFUND_001');
 
-// 申请账单
-$app->pay()->tradeBill('2024-01-01');
-$app->pay()->fundBill('2024-01-01');
+// 账单 / 分账 / 转账等高级能力由 kode/pays 网关直接提供，详见 kode/pays 文档
 
 // 小程序订单物流同步（发货）
 // 标准快递发货
@@ -899,11 +911,13 @@ $app->cloudbase()->databaseQuery(['env' => 'prod-env', 'query' => 'db.collection
 $app->cloudbase()->databaseAdd(['env' => 'prod-env', 'query' => 'db.collection("users").add({data:{name:"张三"}})']);
 $app->cloudbase()->uploadFile('/path/to/file.jpg');
 
-// 企业级支付（需安装 kode/pays）
-$pay = $app->payBridge();
-if ($pay !== null) {
-    $pay->order([...]);
-}
+// 支付（2.0 起统一经 kode/pays，先登录拿到 UnionUser，openid 自动注入）
+$user  = $kernel->union()->wechat()->mini($code);
+$order = $kernel->union()->wechat()->pay()->createOrder([
+    'out_trade_no' => 'ORDER_001',
+    'description'  => '商品',
+    'amount'       => ['total' => 100],
+], $user);
 ```
 
 ### 微信服务端消息处理
@@ -1293,18 +1307,18 @@ $app = $kernel->alipay()->app();
 $user = $app->auth()->token($code);
 $userInfo = $app->auth()->user($accessToken);
 
-// 基础支付
-$app->pay()->create([
+// 支付（2.0 起统一经 kode/pays，先登录再下单，buyer_id 自动注入）
+$app  = $kernel->alipay()->app();
+$user = $app->auth()->token($code);
+$pay  = $kernel->union()->alipay()->pay();
+
+$order = $pay->createOrder([
     'out_trade_no' => 'ORDER_001',
     'total_amount' => '99.99',
     'subject'      => '测试商品',
-]);
+], $user);
 
-// 企业级支付（需安装 kode/pays）
-$pay = $app->payBridge();
-if ($pay !== null) {
-    $pay->create([...]);
-}
+// 退款 / 查询 / 对账等能力由 kode/pays 网关提供（composer require kode/pays 后可用）
 
 // 转账
 $app->transfer()->create([
@@ -1368,8 +1382,14 @@ $app = $kernel->baidu()->app();
 $app->auth()->session($code);
 $app->auth()->userInfo($accessToken);
 
-// 支付
-$app->pay()->order(['dealId' => 'DEAL001', 'appKey' => 'APP001', 'totalAmount' => '100', 'tpOrderId' => 'ORDER001']);
+// 支付（2.0 起统一经 kode/pays）
+$user = $app->auth()->session($code);
+$order = $kernel->union()->baidu()->pay()->createOrder([
+    'dealId'     => 'DEAL001',
+    'appKey'     => 'APP001',
+    'totalAmount' => '100',
+    'tpOrderId'  => 'ORDER001',
+], $user);
 
 // 模板消息
 $app->message()->send(['touser' => $openId, 'template_id' => $templateId, 'data' => ['keyword1' => '值1', 'keyword2' => '值2']]);
@@ -1386,30 +1406,45 @@ $app = $kernel->qq()->app();
 // 登录
 $user = $app->auth()->user($code);
 
-// 支付
-$app->pay()->unifiedOrder(['body' => '商品描述', 'out_trade_no' => 'ORDER001', 'total_fee' => 100, 'spbill_create_ip' => '127.0.0.1', 'notify_url' => 'https://example.com/notify', 'trade_type' => 'MINIAPP']);
-$app->pay()->orderQuery('ORDER001');
-$app->pay()->closeOrder('ORDER001');
-$app->pay()->refund(['out_trade_no' => 'ORDER001', 'out_refund_no' => 'REFUND001', 'total_fee' => 100, 'refund_fee' => 50]);
+// 支付（2.0 起统一经 kode/pays）
+$pay = $kernel->union()->qq()->pay();
+$order = $pay->createOrder([
+    'body'            => '商品描述',
+    'out_trade_no'    => 'ORDER001',
+    'total_fee'       => 100,
+    'spbill_create_ip'=> '127.0.0.1',
+    'notify_url'      => 'https://example.com/notify',
+    'trade_type'      => 'MINIAPP',
+], $user);
+$pay->queryOrder('ORDER001');
+$pay->closeOrder('ORDER001');
+$pay->refund(['out_trade_no' => 'ORDER001', 'out_refund_no' => 'REFUND001', 'total_fee' => 100, 'refund_fee' => 50]);
 ```
 
 ## Kode 生态桥接使用
 
-### 支付桥接（kode/pays）
+### 支付（kode/pays，2.0 起为唯一支付路径）
+
+2.0 起支付能力**完全由 kode/pays 承载**，安装本包即需 `composer require kode/pays`（硬依赖）：
 
 ```php
-use Kode\MiniApp\Bridge\PayBridge;
+use Kode\MiniApp\Union\Union;
 
-// 检查是否安装了 kode/pays
-if (PayBridge::hasPayPackage()) {
-    // 获取企业级支付实例
-    $pay = $kernel->wechat()->app()->payBridge();
-    $pay->order([...]);
-    
-    // 获取企业级通知处理器
-    $notify = PayBridge::getNotify($kernel->wechat()->app());
-}
+// 业务侧推荐用法：先登录拿 UnionUser，再经 Union 下单（openid / buyer_id 自动注入）
+$user  = Union::wechat()->mini($code);
+$order = Union::wechat()->pay()->createOrder([
+    'out_trade_no' => 'ORDER_001',
+    'description'  => '商品',
+    'amount'       => ['total' => 100],
+], $user);
+
+// 回调验签 + 解密（委托 kode/pays）
+$data = Union::wechat()->notify()->decode($payload, $headers);
 ```
+
+桥接内部类 `Kode\MiniApp\Union\Bridge\PaysBridge` 提供诊断与自定义 resolver（`available()` /
+`adapter()` / `notifyAdapter()` 等）；未安装 kode/pays 时 `Union::pay()` / `Union::notify()`
+会直接抛出清晰异常，引导先 `composer require kode/pays`。
 
 ### 工具桥接（kode/tools）
 
@@ -1617,7 +1652,7 @@ private const PLATFORM_MAP = [
 
 ```php
 $user = Union::xiaohongshu()->mini('CODE');
-$order = Union::xiaohongshu()->pay()->unifiedOrder([...]);
+$order = Union::xiaohongshu()->pay()->createOrder([...]);
 ```
 
 ### 扩展 Provider（底层细粒度接口）

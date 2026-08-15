@@ -19,6 +19,8 @@ use Kode\MiniApp\Union\Platforms\WechatUnion;
 use Kode\MiniApp\Union\Platforms\WechatWorkUnion;
 use Kode\MiniApp\Union\Union;
 use Kode\MiniApp\Union\UnionUser;
+use Kode\MiniApp\Union\Bridge\PaysBridgePayAdapter;
+use Kode\MiniApp\Union\Bridge\PaysBridgeNotifyAdapter;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -227,18 +229,24 @@ class PlatformUnionTest extends TestCase
         self::assertSame('mock_test_open', $user->nickname);
     }
 
-    public function testPayChannelFallback(): void
+    public function testPayReturnsPaysBridgeAdapterWhenInstalled(): void
     {
+        // 2.0 起支付完全依赖 kode/pays；安装后 pay() 应返回 pays 桥接适配器（惰性，不触网）
         $kernel = $this->kernel();
+
         $pay = $kernel->union()->wechat()->pay();
-        self::assertInstanceOf(\Kode\MiniApp\Union\Contracts\PayAdapter::class, $pay);
+
+        self::assertInstanceOf(PaysBridgePayAdapter::class, $pay);
     }
 
-    public function testNotifyChannelFallback(): void
+    public function testNotifyReturnsPaysBridgeAdapterWhenInstalled(): void
     {
+        // 2.0 起回调验签完全依赖 kode/pays；安装后 notify() 应返回 pays 桥接回调适配器
         $kernel = $this->kernel();
+
         $notify = $kernel->union()->wechat()->notify();
-        self::assertInstanceOf(\Kode\MiniApp\Union\Contracts\NotifyAdapter::class, $notify);
+
+        self::assertInstanceOf(PaysBridgeNotifyAdapter::class, $notify);
     }
 
     public function testUnsupportedSceneThrows(): void

@@ -5,26 +5,45 @@ declare(strict_types=1);
 namespace Kode\MiniApp\Union\Bridge;
 
 use Kode\MiniApp\Union\Channel;
+use Kode\MiniApp\Union\Contracts\AdvancedPayAdapter;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
 use Kode\MiniApp\Union\UnionUser;
 
 /**
- * kode/pays 桥接支付适配器
+ * kode/pays 桥接支付适配器（首选支付实现）
  *
- * 把 miniapp 的「基础支付」一键切换到企业级聚合支付 SDK {@see https://github.com/kodephp/pays kode/pays}，
- * 从而获得更健壮的下单 / 回调验签 / 退款 / 对账 / 沙箱 / 事件能力，而不必重写业务侧调用代码。
+ * 把 miniapp 的「身份层」接入企业级聚合支付 SDK {@see https://github.com/kodephp/pays kode/pays}，
+ * 让支付这件事完全由 kode/pays 负责（下单 / 查询 / 退款 / 关单 / 回调验签 / 对账 / 沙箱 / 分账 / 转账 / 事件），
+ * 而不必在 miniapp 内重复实现一套支付逻辑。
+ *
+ * 除核心下单 / 退款 / 关单 / 验签外，本适配器还实现 {@see AdvancedPayAdapter}，以 `method_exists`
+ * 守卫委托 kode/pays 网关的「特色方法」暴露分账 / 转账 / 对账等高级能力；网关不支持时抛清晰异常。
+ *
+ * 分工（参照 kode/miniapp =「你是谁」、kode/pays =「收钱」）：
+ *  - miniapp 负责身份：OAuth / code2session 登录、产出 {@see UnionUser}（openid / unionid /
+ *    session_key / access_token / JS-SDK 票据）。它**不**碰签名、订单、回调、退款、分账。
+ *  - kode/pays 负责收钱：以平台原生 `createOrder(array $params)` 形式接收订单与付款人字段，
+ *    **不**依赖 miniapp 类型（对纯 Web / Stripe 后端零耦合）。其微信网关在 JSAPI / 小程序下单时
+ *    强制要求 `openid`，且源码注释明确「openid 来自 kode/miniapp 等 OAuth 授权」。
+ *  - 本桥接是二者之间**唯一、可选的单向胶水**，落在 miniapp 一侧：把 {@see UnionUser} 的
+ *    付款人标识（openid / buyer_id）翻译为 kode/pays 的原生 `$params` 字段后下单。
+ *    kode/pays 永远不知道 miniapp 的存在；miniapp 知道 kode/pays 仅是「可选增强」。
+ *
+ * 命名对齐：本适配器方法名与 kode/pays 网关契约**完全一致**（createOrder / queryOrder /
+ * refund / queryRefund / closeOrder / verifyNotify），因此业务侧调用方式与 kode/pays 网关契约
+ * **完全一致**、无需关心底层适配——这是本包统一命名的核心目标。
  *
  * 设计要点：
- *  - 实现与 {@see PayAdapter} 完全相同的契约（unifiedOrder(array):array），返回「平台原始数组」，
- *    因此现有调用方无需任何改动即可切换。
- *  - **可选依赖**：kode/pays 当前并非本包硬依赖。适配器在 unifiedOrder 时才探测
- *    `Kode\Pays\Facade\Pay` 是否存在；未安装时抛出清晰异常，业务侧回退到基础支付适配器即可。
+ *  - **硬依赖（唯一支付路径）**：2.0 起 kode/pays 为本包唯一支付实现。适配器在首次调用时探测
+ *    `Kode\Pays\Facade\Pay` 是否存在；未安装时抛清晰异常，引导业务侧先 `composer require kode/pays`。
  *  - 凭证来源由外部注入的 {@see $configResolver} 提供（闭包），本类不耦合 miniapp 的配置结构，
  *    便于业务侧按 kode/pays 真实要求的字段自行拼装 config。
  *  - 微信商户 v2 密钥在 miniapp 中字段名为 `key`，需映射为 kode/pays 的 `api_key`，
  *    见 {@see PaysBridge::kernelResolver()} 的默认实现。
+ *  - 付款人注入：当传入 {@see UnionUser} 时，自动取其 openid 写入对应渠道的原生付款人字段
+ *    （微信 / QQ 为 `openid`、支付宝为 `buyer_id`）；`$order` 中已显式提供的字段不会被覆盖。
  */
-final class PaysBridgePayAdapter implements PayAdapter
+final class PaysBridgePayAdapter implements AdvancedPayAdapter
 {
     /**
      * kode/pays 门面类名（用变量拼接避免 PHPStan 在类未安装时报「类不存在」）
@@ -47,36 +66,382 @@ final class PaysBridgePayAdapter implements PayAdapter
     }
 
     /**
-     * 统一下单（委托 kode/pays）
+     * 统一下单（委托 kode/pays，并自动注入付款人身份）
      *
      * @param array<string, mixed> $order
-     * @param UnionUser|null       $user 可选，已登录用户（与平台支付绑定，本桥接当前透传）
+     * @param UnionUser|null       $user 可选，已登录用户；其 openid 会被翻译为对应渠道的原生
+     *                                    付款人字段（微信/QQ=openid、支付宝=buyer_id）后注入 $order。
+     *                                    传 null 时业务侧须自行在 $order 中提供付款人标识。
      * @return array<string, mixed>
      */
     #[\Override]
-    public function unifiedOrder(array $order, ?UnionUser $user = null): array
+    public function createOrder(array $order, ?UnionUser $user = null): array
+    {
+        // 桥接核心：把 miniapp 登录得到的付款人身份翻译为 kode/pays 的原生付款人字段。
+        // kode/pays 的 createOrder(array $params) 不接收付款人对象，故由本桥接注入。
+        $order = $this->injectPayer($order, $user);
+
+        /** @var mixed $gateway */
+        $gateway = $this->paysGateway();
+
+        /** @var array<string, mixed> $result */
+        $result = $gateway->createOrder($order);
+
+        return $result;
+    }
+
+    /**
+     * 查询订单（委托 kode/pays queryOrder）
+     *
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function queryOrder(string $orderId): array
+    {
+        /** @var mixed $gateway */
+        $gateway = $this->paysGateway();
+
+        /** @var array<string, mixed> $result */
+        $result = $gateway->queryOrder($orderId);
+
+        return $result;
+    }
+
+    #[\Override]
+    /**
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    public function refund(array $params): array
+    {
+        /** @var mixed $gateway */
+        $gateway = $this->paysGateway();
+
+        /** @var array<string, mixed> $result */
+        $result = $gateway->refund($params);
+
+        return $result;
+    }
+
+    #[\Override]
+    /** @return array<string, mixed> */
+    public function queryRefund(string $refundId): array
+    {
+        /** @var mixed $gateway */
+        $gateway = $this->paysGateway();
+
+        /** @var array<string, mixed> $result */
+        $result = $gateway->queryRefund($refundId);
+
+        return $result;
+    }
+
+    #[\Override]
+    /** @return array<string, mixed> */
+    public function closeOrder(string $orderId): array
+    {
+        /** @var mixed $gateway */
+        $gateway = $this->paysGateway();
+
+        /** @var array<string, mixed> $result */
+        $result = $gateway->closeOrder($orderId);
+
+        return $result;
+    }
+
+    /**
+     * 回调验签（委托 kode/pays verifyNotify）
+     *
+     * kode/pays 的 `verifyNotify` 仅返回 bool（验签是否通过）。本方法补全为「验签通过则
+     * 返回解析后的业务数据数组」，与 kode/pays verifyNotify 语义一致——业务侧统一按数组取
+     * out_trade_no / transaction_id。微信 V3 通知的 resource 为密文，桥接会调用 pays 的
+     * `decryptResource` 解密后返回明文业务数据。
+     *
+     * @param array<string, mixed> $payload
+     * @param array<string, string> $headers
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function verifyNotify(array $payload, array $headers = []): array
+    {
+        /** @var mixed $gateway */
+        $gateway = $this->paysGateway();
+
+        /** @var bool $ok */
+        $ok = $gateway->verifyNotify($payload);
+        if (!$ok) {
+            throw new \RuntimeException(
+                "支付回调验签失败（渠道 [{$this->channel->label()}]）：请检查 APIv3 密钥 / 公钥配置",
+            );
+        }
+
+        // 微信 V3 通知的 resource 为密文，pays 提供 decryptResource 解密业务数据
+        if (
+            isset($payload['resource']['ciphertext'])
+            && is_object($gateway)
+            && method_exists($gateway, 'decryptResource')
+        ) {
+            /** @var callable(array<string, mixed>):array<string, mixed> $fn */
+            $fn = [$gateway, 'decryptResource'];
+
+            /** @var array<string, mixed> $decrypted */
+            $decrypted = $fn($payload['resource']);
+
+            return $decrypted;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * 发起分账（委托 kode/pays 网关 createProfitSharing）
+     *
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function profitSharingCreate(array $params): array
+    {
+        return $this->callGatewayFeature('createProfitSharing', '分账', $params);
+    }
+
+    /**
+     * 查询分账结果（委托 kode/pays 网关 queryProfitSharing）
+     *
+     * @param string      $outOrderNo
+     * @param string|null $transactionId
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function profitSharingQuery(string $outOrderNo, ?string $transactionId = null): array
+    {
+        return $this->callGatewayFeature('queryProfitSharing', '分账', $outOrderNo, $transactionId);
+    }
+
+    /**
+     * 分账回退（委托 kode/pays 网关 returnProfitSharing）
+     *
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function profitSharingReturn(array $params): array
+    {
+        return $this->callGatewayFeature('returnProfitSharing', '分账', $params);
+    }
+
+    /**
+     * 查询分账回退结果（委托 kode/pays 网关 queryProfitSharingReturn）
+     *
+     * @param string $outReturnNo
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function profitSharingQueryReturn(string $outReturnNo): array
+    {
+        return $this->callGatewayFeature('queryProfitSharingReturn', '分账', $outReturnNo);
+    }
+
+    /**
+     * 解冻未分账的剩余资金（委托 kode/pays 网关 unfreezeProfitSharing）
+     *
+     * @param string      $transactionId
+     * @param string|null $outOrderNo
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function profitSharingUnfreeze(string $transactionId, ?string $outOrderNo = null): array
+    {
+        return $this->callGatewayFeature('unfreezeProfitSharing', '分账', $transactionId, $outOrderNo);
+    }
+
+    /**
+     * 发起单笔转账 / 企业付款到零钱（委托 kode/pays 网关 singleTransfer）
+     *
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function transferSingle(array $params): array
+    {
+        return $this->callGatewayFeature('singleTransfer', '转账', $params);
+    }
+
+    /**
+     * 发起批量转账（委托 kode/pays 网关 batchTransfer）
+     *
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function transferBatch(array $params): array
+    {
+        return $this->callGatewayFeature('batchTransfer', '转账', $params);
+    }
+
+    /**
+     * 查询转账结果（委托 kode/pays 网关 queryTransfer）
+     *
+     * @param string $outBizNo
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function transferQuery(string $outBizNo): array
+    {
+        return $this->callGatewayFeature('queryTransfer', '转账', $outBizNo);
+    }
+
+    /**
+     * 查询转账电子回单（委托 kode/pays 网关 transferReceipt）
+     *
+     * @param string $outBizNo
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function transferReceipt(string $outBizNo): array
+    {
+        return $this->callGatewayFeature('transferReceipt', '转账', $outBizNo);
+    }
+
+    /**
+     * 下载交易对账单（委托 kode/pays 网关 downloadBill）
+     *
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function reconciliationDownloadBill(array $params): array
+    {
+        return $this->callGatewayFeature('downloadBill', '对账', $params);
+    }
+
+    /**
+     * 下载资金账单（委托 kode/pays 网关 downloadFundFlow）
+     *
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function reconciliationDownloadFundFlow(array $params): array
+    {
+        return $this->callGatewayFeature('downloadFundFlow', '对账', $params);
+    }
+
+    /**
+     * 解析对账单原始数据（委托 kode/pays 网关 parseBill）
+     *
+     * @param string $rawData
+     * @return array<int, array<string, mixed>>
+     */
+    #[\Override]
+    public function reconciliationParseBill(string $rawData): array
+    {
+        /** @var array<int, array<string, mixed>> $result */
+        $result = $this->callGatewayFeature('parseBill', '对账', $rawData);
+
+        return $result;
+    }
+
+    /**
+     * 委托真实 kode/pays 网关的「特色方法」（分账 / 转账 / 对账 / ...）
+     *
+     * 以 `method_exists` 守卫：仅当当前渠道的网关真正实现了该方法时才转发，
+     * 否则抛清晰异常（如百度 / 企业微信网关未实现、或某平台暂未开通相关能力），
+     * 避免「Call to undefined method」这类难以定位的致命错误。
+     *
+     * @param string       $method      网关原生方法名（如 createProfitSharing）
+     * @param string       $capability  能力中文名（用于异常提示，如「分账」）
+     * @param mixed        ...$args     透传给网关方法的参数
+     * @return array<string, mixed>
+     */
+    private function callGatewayFeature(string $method, string $capability, mixed ...$args): array
+    {
+        /** @var mixed $gateway */
+        $gateway = $this->paysGateway();
+
+        if (!is_object($gateway) || !method_exists($gateway, $method)) {
+            throw new \RuntimeException(
+                "渠道 [{$this->channel->label()}] 的支付网关不支持 [{$capability}] 能力（未实现 {$method}）",
+            );
+        }
+
+        /** @var callable(mixed...):array<string, mixed> $fn */
+        $fn = [$gateway, $method];
+
+        /** @var array<string, mixed> $result */
+        $result = $fn(...$args);
+
+        return $result;
+    }
+
+    /**
+     * 构造 kode/pays 网关（首次调用时探测 pays 是否已安装）
+     *
+     * @return mixed kode/pays 网关实例（类型在 pays 未安装时不可知，调用方已用 mixed 断言）
+     */
+    private function paysGateway(): mixed
     {
         $facade = self::PAYS_FACADE;
         if (!class_exists($facade)) {
             throw new \RuntimeException(
-                '健壮支付桥接需要安装 kode/pays（执行 `composer require kode/pays`），'
-                . '或改用 miniapp 基础支付适配器 $union->pay()',
+                '支付能力已迁移至 kode/pays，请先执行 `composer require kode/pays` 后再调用 Union::pay()',
             );
         }
 
         /** @var array<string, mixed> $config */
         $config = ($this->configResolver)($this->channel);
 
-        $gatewayClass = $facade;
-        $method       = self::gatewayMethod($this->channel);
+        $method = self::gatewayMethod($this->channel);
 
         /** @var mixed $gateway */
-        $gateway = $gatewayClass::$method($config);
+        $gateway = $facade::$method($config);
 
-        /** @var array<string, mixed> $result */
-        $result = $gateway->createOrder($order);
+        return $gateway;
+    }
 
-        return $result;
+    /**
+     * 把已登录用户的付款人标识翻译并注入订单参数
+     *
+     * 仅当 $order 中尚未显式提供该付款人字段时才写入，不覆盖业务侧手动传入的值。
+     * 同时通过渠道守卫确保付款人来自与本次支付「同一平台」，避免把 A 平台的 openid 付到 B 平台。
+     *
+     * @param array<string, mixed> $order
+     * @return array<string, mixed>
+     */
+    private function injectPayer(array $order, ?UnionUser $user): array
+    {
+        if ($user === null) {
+            return $order;
+        }
+
+        // 渠道守卫：付款人身份必须来自与本次支付同一平台（跨平台 openid 不互通）。
+        if (self::gatewayMethod($user->channel) !== self::gatewayMethod($this->channel)) {
+            throw new \InvalidArgumentException(
+                "付款人身份渠道 [{$user->channel->label()}] 与支付渠道 [{$this->channel->label()}] "
+                . '不属于同一平台，无法注入付款人标识（跨平台 openid 不互通）',
+            );
+        }
+
+        $key = self::payerKey($this->channel);
+        if ($key !== null && !array_key_exists($key, $order)) {
+            $order[$key] = $user->openId;
+        }
+
+        return $order;
+    }
+
+    /**
+     * 渠道 → kode/pays 原生付款人字段名
+     */
+    private static function payerKey(Channel $channel): ?string
+    {
+        return match ($channel) {
+            Channel::WechatMp, Channel::WechatMini, Channel::WechatH5,
+            Channel::WechatPc, Channel::WechatApp, Channel::WechatOpen, Channel::WechatWork,
+            Channel::Qq => 'openid',
+            Channel::AlipayMini, Channel::AlipayMp, Channel::AlipayApp => 'buyer_id',
+            default => null,
+        };
     }
 
     /**
@@ -86,10 +451,12 @@ final class PaysBridgePayAdapter implements PayAdapter
     {
         return match ($channel) {
             Channel::WechatMp, Channel::WechatMini, Channel::WechatH5,
-            Channel::WechatPc, Channel::WechatApp, Channel::WechatOpen, Channel::WechatWork => 'wechat',
+            Channel::WechatPc, Channel::WechatApp, Channel::WechatOpen => 'wechat',
+            Channel::WechatWork => 'wechatWork',
             Channel::AlipayMini, Channel::AlipayMp, Channel::AlipayApp => 'alipay',
             Channel::DouyinMini, Channel::DouyinMp => 'douyin',
             Channel::Qq => 'qq',
+            Channel::BaiduMini => 'baidu',
             default => throw new \InvalidArgumentException(
                 "kode/pays 桥接暂不支持渠道 [{$channel->label()}]",
             ),

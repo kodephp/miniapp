@@ -10,8 +10,6 @@ use Kode\MiniApp\Contracts\HttpClientInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Providers\Qq\Modules\Auth;
 use Kode\MiniApp\Providers\Qq\Modules\Decrypt;
-use Kode\MiniApp\Providers\Qq\Modules\Notify;
-use Kode\MiniApp\Providers\Qq\Modules\Pay;
 
 /**
  * QQ 应用实例
@@ -20,8 +18,6 @@ final readonly class QqApp implements AppInterface
 {
     private Auth $auth;
     private Decrypt $decrypt;
-    private Pay $pay;
-    private Notify $notify;
 
     public function __construct(
         private string $name,
@@ -31,8 +27,6 @@ final readonly class QqApp implements AppInterface
     ) {
         $this->auth    = new Auth($this);
         $this->decrypt = new Decrypt($this);
-        $this->pay     = new Pay($this);
-        $this->notify  = new Notify($this);
     }
 
     #[\Override]
@@ -67,19 +61,6 @@ final readonly class QqApp implements AppInterface
     public function decrypt(): Decrypt
     {
         return $this->decrypt;
-    }
-
-    public function pay(): Pay
-    {
-        return $this->pay;
-    }
-
-    /**
-     * QQ 支付回调通知处理器（XML 解析 + MD5 验签）
-     */
-    public function notify(): Notify
-    {
-        return $this->notify;
     }
 
     /**

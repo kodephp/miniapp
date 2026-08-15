@@ -21,7 +21,7 @@ use Kode\MiniApp\Union\UnionUser;
  *   $user = Union::wechat()->app('code');           // 移动 App
  *   $user = Union::wechat()->open('auth_code');     // 开放平台
  *
- *   $order = Union::wechat()->pay()->unifiedOrder([...]);
+ *   $order = Union::wechat()->pay()->createOrder([...]);
  *   $data  = Union::wechat()->notify()->decode($payload, $headers);
  *   $user  = Union::wechat()->user('openid')->profile();
  */

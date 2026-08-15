@@ -89,16 +89,20 @@ $app->phone()->forgetClientToken();  // 清除缓存
 
 ## 支付
 
+> 2.0 起抖音支付完全由 `kode/pays` 承载（composer 硬依赖），付款人身份（openid）由本包登录后自动注入。
+
 ### 创建支付订单
 
 ```php
-$order = $app->pay()->create([
+// 先登录拿到 UnionUser（openid 由桥接自动注入）
+$user  = $kernel->union()->douyin()->mini($code);
+$order = $kernel->union()->douyin()->pay()->createOrder([
     'out_order_no' => 'ORDER_001',
     'total_amount' => 100,  // 单位：分
     'subject'      => '测试商品',
     'body'         => '商品描述',
     'valid_time'   => 3600,  // 订单有效期（秒）
-]);
+], $user);
 
 // 返回订单信息，前端调用 tt.pay({orderInfo: order})
 ```
@@ -106,7 +110,7 @@ $order = $app->pay()->create([
 ### 查询订单
 
 ```php
-$app->pay()->query('ORDER_001');
+$kernel->union()->douyin()->pay()->queryOrder('ORDER_001');
 ```
 
 ---

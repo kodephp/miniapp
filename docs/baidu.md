@@ -58,17 +58,21 @@ $userInfo = $app->auth()->userInfo($accessToken);
 
 ## 支付
 
+> 2.0 起百度支付完全由 `kode/pays` 承载（composer 硬依赖），付款人身份由本包登录后自动注入。
+
 ### 创建支付订单
 
 ```php
-$order = $app->pay()->order([
-    'dealId'      => 'DEAL001',
-    'appKey'      => 'APP001',
-    'totalAmount' => '100',
-    'tpOrderId'   => 'ORDER_001',
-    'dealTitle'   => '商品标题',
-    'signFieldsValue' => '...',  // 签名值
-]);
+// 先登录拿到 UnionUser（付款人标识由桥接自动注入）
+$user  = $kernel->union()->baidu()->mini($code);
+$order = $kernel->union()->baidu()->pay()->createOrder([
+    'dealId'         => 'DEAL001',
+    'appKey'         => 'APP001',
+    'totalAmount'    => '100',
+    'tpOrderId'      => 'ORDER_001',
+    'dealTitle'      => '商品标题',
+    'signFieldsValue'=> '...',  // 签名值
+], $user);
 ```
 
 ---

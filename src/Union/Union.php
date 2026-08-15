@@ -22,6 +22,7 @@ use Kode\MiniApp\Union\UnionPhone;
 use Kode\MiniApp\Union\UnionUser;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
 use Kode\MiniApp\Union\Bridge\PaysBridge;
+use Kode\MiniApp\Union\Contracts\AdvancedPayAdapter;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
 use Kode\MiniApp\Union\Contracts\UserAdapter;
 use Kode\MiniApp\Union\CapabilityInfo;
@@ -48,7 +49,7 @@ use Kode\MiniApp\Union\Platforms\WechatWorkUnion;
  * 用法：
  *   $user = Union::wechat()->mini('code');                          // 微信小程序登录
  *   $user = Union::wechat()->mp('code');                            // 公众号登录
- *   $order = Union::wechat()->pay()->unifiedOrder([...]);           // 微信支付
+ *   $order = Union::wechat()->pay()->createOrder([...]);           // 微信支付
  *   $user = Union::alipay()->mini('code');                          // 支付宝小程序登录
  *   $data = Union::wechat()->notify()->decode($payload, $headers);  // 微信回调
  *   $user = Union::wechat()->user('openid')->profile();             // 用户资料
@@ -690,7 +691,13 @@ final class Union
     }
 
     /**
-     * 获取支付适配器
+     * 获取支付适配器（kode/pays 为唯一支付实现）
+     *
+     * 2.0 起支付能力完全委托企业级聚合支付 SDK kode/pays。需先
+     * `composer require kode/pays`；未安装时调用即抛清晰异常，引导安装。
+     * 付款人身份（openid / buyer_id）由桥接自动从已登录的 {@see UnionUser} 注入。
+     *
+     * @see \Kode\MiniApp\Union\Bridge\PaysBridge
      */
     public function pay(Channel $channel): PayAdapter
     {
@@ -698,21 +705,35 @@ final class Union
     }
 
     /**
-     * 获取「kode/pays 桥接」支付适配器（健壮支付）
+     * 获取高级支付能力适配器（分账 / 转账 / 对账）
      *
-     * 委托企业级聚合支付 SDK kode/pays 完成下单（V3 签名、回调验签、退款、对账、沙箱、事件等）。
-     * 需要 `composer require kode/pays`；未安装时适配器调用会抛清晰异常，回退到 {@see self::pay()} 即可。
-     * 返回结构与 {@see self::pay()} 一致（平台原始数组），业务侧无需改动。
+     * 在 {@see self::pay()} 返回的核心 {@see PayAdapter} 之上，进一步返回实现了
+     * {@see AdvancedPayAdapter} 的实例，从而可调用分账 / 转账 / 对账等 kode/pays 网关特色方法。
+     * 当前唯一实现为 {@see \Kode\MiniApp\Union\Bridge\PaysBridgePayAdapter}（kode/pays 桥接）；
+     * 若某渠道的支付适配器未实现该接口，调用会抛清晰异常引导接入 kode/pays。
      *
      * @see \Kode\MiniApp\Union\Bridge\PaysBridge
      */
-    public function payViaPays(Channel $channel): PayAdapter
+    public function advancedPay(Channel $channel): AdvancedPayAdapter
     {
-        return PaysBridge::adapterForKernel($channel, $this->kernel);
+        $adapter = $this->payAdapter($channel);
+        if (!$adapter instanceof AdvancedPayAdapter) {
+            throw new \RuntimeException(
+                "渠道 [{$channel->label()}] 的支付适配器不支持高级能力（分账 / 转账 / 对账），"
+                . '请使用 kode/pays 桥接（PaysBridgePayAdapter）',
+            );
+        }
+
+        return $adapter;
     }
 
     /**
      * 获取回调适配器
+     *
+     * 2.0 起回调验签 / 解密完全委托 kode/pays（{@see PaysBridgeNotifyAdapter}）。
+     * 需先 `composer require kode/pays`；未安装时调用即抛清晰异常，引导安装。
+     *
+     * @see \Kode\MiniApp\Union\Bridge\PaysBridge
      */
     public function notify(Channel $channel): NotifyAdapter
     {
@@ -935,7 +956,12 @@ final class Union
     {
         $key = $channel->value;
         if (!isset($this->payAdapters[$key])) {
-            $this->payAdapters[$key] = $this->buildPayAdapter($channel);
+            if (!PaysBridge::available()) {
+                throw new \RuntimeException(
+                    '支付能力已迁移至 kode/pays，请先执行 `composer require kode/pays` 后再调用 Union::pay()'
+                );
+            }
+            $this->payAdapters[$key] = PaysBridge::adapterForKernel($channel, $this->kernel);
         }
         return $this->payAdapters[$key];
     }
@@ -944,7 +970,12 @@ final class Union
     {
         $key = $channel->value;
         if (!isset($this->notifyAdapters[$key])) {
-            $this->notifyAdapters[$key] = $this->buildNotifyAdapter($channel);
+            if (!PaysBridge::available()) {
+                throw new \RuntimeException(
+                    '支付回调验签已迁移至 kode/pays，请先执行 `composer require kode/pays` 后再调用 Union::notify()'
+                );
+            }
+            $this->notifyAdapters[$key] = PaysBridge::notifyAdapterForKernel($channel, $this->kernel);
         }
         return $this->notifyAdapters[$key];
     }
@@ -1005,68 +1036,6 @@ final class Union
         if (!class_exists($adapter)) {
             throw new InvalidArgumentException(
                 "渠道 [{$channel->label()}] 的用户资料适配器尚未实现：{$adapter}"
-            );
-        }
-
-        return new $adapter($this->kernel);
-    }
-
-    private function buildPayAdapter(Channel $channel): PayAdapter
-    {
-        $namespace = '\\Kode\\MiniApp\\Union\\Channels';
-        $adapter = match ($channel) {
-            Channel::WechatMini,
-            Channel::WechatMp     => "{$namespace}\\Wechat\\WechatPayAdapter",   // JSAPI
-            Channel::WechatApp    => "{$namespace}\\Wechat\\WechatAppPayAdapter", // APP
-            Channel::WechatH5     => "{$namespace}\\Wechat\\WechatH5PayAdapter",  // MWEB
-            Channel::WechatPc     => "{$namespace}\\Wechat\\WechatPcPayAdapter",  // NATIVE
-            Channel::WechatWork   => "{$namespace}\\WechatWork\\WeWorkPayAdapter",
-            Channel::AlipayMini,
-            Channel::AlipayMp,
-            Channel::AlipayApp    => "{$namespace}\\Alipay\\AlipayPayAdapter",
-            Channel::DouyinMini   => "{$namespace}\\Douyin\\DouyinPayAdapter",
-            Channel::BaiduMini    => "{$namespace}\\Baidu\\BaiduPayAdapter",
-            Channel::Qq           => "{$namespace}\\Qq\\QqPayAdapter",
-            default               => throw new InvalidArgumentException(
-                "渠道 [{$channel->label()}] 不支持支付"
-            ),
-        };
-
-        if (!class_exists($adapter)) {
-            throw new InvalidArgumentException(
-                "渠道 [{$channel->label()}] 的支付适配器尚未实现：{$adapter}"
-            );
-        }
-
-        return new $adapter($this->kernel);
-    }
-
-    private function buildNotifyAdapter(Channel $channel): NotifyAdapter
-    {
-        $namespace = '\\Kode\\MiniApp\\Union\\Channels';
-        $adapter = match ($channel) {
-            Channel::WechatMini,
-            Channel::WechatMp,
-            Channel::WechatH5,
-            Channel::WechatPc,
-            Channel::WechatApp,
-            Channel::WechatOpen    => "{$namespace}\\Wechat\\WechatNotifyAdapter",
-            Channel::WechatWork    => "{$namespace}\\WechatWork\\WeWorkNotifyAdapter",
-            Channel::AlipayMini,
-            Channel::AlipayMp,
-            Channel::AlipayApp     => "{$namespace}\\Alipay\\AlipayNotifyAdapter",
-            Channel::DouyinMini,
-            Channel::DouyinMp      => "{$namespace}\\Douyin\\DouyinNotifyAdapter",
-            Channel::BaiduMini     => "{$namespace}\\Baidu\\BaiduNotifyAdapter",
-            Channel::Qq            => "{$namespace}\\Qq\\QqNotifyAdapter",
-            default                => throw new InvalidArgumentException(
-                "渠道 [{$channel->label()}] 不支持回调"
-            ),
-        };
-
-        if (!class_exists($adapter)) {
-            throw new InvalidArgumentException(
-                "渠道 [{$channel->label()}] 的回调适配器尚未实现：{$adapter}"
             );
         }
 

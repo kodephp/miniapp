@@ -27,7 +27,10 @@ final class UserInfoNormalizer
     /**
      * @param array<string, mixed> $raw 原始用户资料数组（encryptedData 解密结果）
      *
-     * @return array{nickname:string, avatar:string, gender:mixed, city:string, province:string, country:string, language:string}
+     * @return array{
+     *     nickname:string, avatar:string, gender:mixed,
+     *     city:string, province:string, country:string, language:string
+     * }
      */
     public static function normalize(array $raw): array
     {

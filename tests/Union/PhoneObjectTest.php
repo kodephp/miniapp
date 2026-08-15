@@ -138,8 +138,11 @@ class PhoneObjectTest extends TestCase
                 {
                     return $this->respond([]);
                 }
-                public function postJson(string $uri, array $data = [], array $headers = []): \Psr\Http\Message\ResponseInterface
-                {
+                public function postJson(
+                    string $uri,
+                    array $data = [],
+                    array $headers = [],
+                ): \Psr\Http\Message\ResponseInterface {
                     return $this->respond([
                         'errcode'    => 0,
                         'errmsg'     => 'ok',
@@ -151,8 +154,12 @@ class PhoneObjectTest extends TestCase
                         ],
                     ]);
                 }
-                public function upload(string $uri, string $field, string $filePath, array $form = []): \Psr\Http\Message\ResponseInterface
-                {
+                public function upload(
+                    string $uri,
+                    string $field,
+                    string $filePath,
+                    array $form = [],
+                ): \Psr\Http\Message\ResponseInterface {
                     return $this->respond([]);
                 }
                 /**
@@ -205,7 +212,9 @@ class PhoneObjectTest extends TestCase
                         }
                         public function getBody(): \Psr\Http\Message\StreamInterface
                         {
-                            return new class ((string) json_encode($this->body)) implements \Psr\Http\Message\StreamInterface {
+                            return new class ((string) json_encode($this->body)) implements
+                                \Psr\Http\Message\StreamInterface
+                            {
                                 public function __construct(private string $c)
                                 {
                                 }

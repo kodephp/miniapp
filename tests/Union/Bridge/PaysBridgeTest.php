@@ -7,10 +7,12 @@ namespace Kode\MiniApp\Tests\Union\Bridge;
 use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Kernel as KernelClass;
 use Kode\MiniApp\Tests\TestCase;
+use Kode\MiniApp\Tests\Union\Bridge\Fixtures\FakePaysHttpClient;
 use Kode\MiniApp\Union\Bridge\PaysBridge;
 use Kode\MiniApp\Union\Bridge\PaysBridgePayAdapter;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
+use Kode\Pays\Facade\Pay;
 use PHPUnit\Framework\Attributes\CoversClass;
 
 #[CoversClass(PaysBridge::class)]
@@ -35,24 +37,42 @@ final class PaysBridgeTest extends TestCase
                 'public_key'  => '-----BEGIN PUBLIC KEY-----\n...',
                 'sandbox'     => true,
             ],
+            'douyin' => [
+                'app_id' => 'tt_app_123',
+                'secret' => 'douyin-secret',
+                'salt'   => 'douyin-salt',
+            ],
+            'qq' => [
+                'app_id' => 'qq_app_123',
+                'secret' => 'qq-secret',
+            ],
         ]);
+    }
+
+    protected function setUp(): void
+    {
+        // 隔离 kode/pays 门面静态状态，避免跨测试污染
+        Pay::setHttpClient(new FakePaysHttpClient());
+        Pay::clearCache();
     }
 
     public function testAvailableReflectsPaysPresence(): void
     {
-        // 本环境未安装 kode/pays，available() 应为 false
-        self::assertFalse(PaysBridge::available());
+        // kode/pays 现已作为硬依赖安装进 vendor，available() 应为 true
+        self::assertTrue(PaysBridge::available());
     }
 
-    public function testUnifiedOrderThrowsWhenPaysMissing(): void
+    public function testInsufficientGatewayConfigThrowsViaRealPays(): void
     {
+        // 2.0 起 pays 为唯一支付路径（真实安装）。配置缺失必填项时，
+        // 真实微信网关在构造阶段即抛出清晰异常，证明走的是真实 pays 网关而非桩。
         $adapter = PaysBridge::adapter(Channel::WechatMini, static fn () => [
-            'app_id' => 'wx', 'mch_id' => 'm', 'api_key' => 'k',
+            'app_id' => 'wx',
         ]);
 
-        $this->expectException(\RuntimeException::class);
-        $this->expectExceptionMessage('composer require kode/pays');
-        $adapter->unifiedOrder(['out_trade_no' => 'T1']);
+        $this->expectException(\Throwable::class);
+        $this->expectExceptionMessage('mch_id');
+        $adapter->createOrder(['out_trade_no' => 'T1', 'total_fee' => 1, 'body' => 'x', 'trade_type' => 'JSAPI']);
     }
 
     public function testAdapterForKernelReturnsBridge(): void
@@ -89,12 +109,31 @@ final class PaysBridgeTest extends TestCase
         self::assertTrue($config['sandbox']);
     }
 
+    public function testKernelResolverMapsDouyinFields(): void
+    {
+        $resolver = PaysBridge::kernelResolver($this->kernel());
+        $config   = $resolver(Channel::DouyinMini);
+
+        self::assertSame('tt_app_123', $config['app_id']);
+        self::assertSame('douyin-secret', $config['secret']);
+        self::assertSame('douyin-salt', $config['salt']);
+    }
+
+    public function testKernelResolverMapsQqFields(): void
+    {
+        $resolver = PaysBridge::kernelResolver($this->kernel());
+        $config   = $resolver(Channel::Qq);
+
+        self::assertSame('qq_app_123', $config['app_id']);
+        self::assertSame('qq-secret', $config['secret']);
+    }
+
     public function testKernelResolverUnsupportedChannelThrows(): void
     {
         $resolver = PaysBridge::kernelResolver($this->kernel());
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('暂未覆盖渠道');
-        $resolver(Channel::DouyinMini);
+        $resolver(Channel::BaiduMini);
     }
 }

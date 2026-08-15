@@ -13,7 +13,7 @@ use Kode\MiniApp\Union\UnionUser;
  * 用法：
  *   $user = Union::work()->login('code');          // 企业微信登录
  *   $user = Union::work()->login('code', 'suite'); // 第三方套件登录
- *   $order = Union::work()->pay()->unifiedOrder([...]);
+ *   $order = Union::work()->pay()->createOrder([...]);
  */
 final class WechatWorkUnion extends PlatformUnion
 {

@@ -10,7 +10,6 @@
 ```php
 // 原来需要 use 很多模块
 use Kode\MiniApp\Providers\Wechat\Modules\Auth;
-use Kode\MiniApp\Providers\Wechat\Modules\Pay;
 use Kode\MiniApp\Providers\Wechat\WechatProvider;
 use Kode\MiniApp\Providers\Alipay\AlipayProvider;
 use Kode\MiniApp\Providers\WechatOpen\WechatOpenProvider;
@@ -67,7 +66,7 @@ $kernel->union();  // 触发 Union 初始化（之后即可用静态方法）
 // 2. 业务侧只需要 use Union 类
 $user = Union::wechat()->mini('JS_CODE');      // 微信小程序
 $user = Union::alipay()->mini('AUTH_CODE');    // 支付宝
-$order = Union::wechat()->pay()->unifiedOrder([...]);
+$order = Union::wechat()->pay()->createOrder([...]);
 ```
 
 ## 能力支持矩阵
@@ -140,19 +139,61 @@ $user = Union::wechat()->user($openId, ['raw' => $clientUserInfo], 'mini');
 //    开放平台移动 / 网站应用：传入登录时获取的 OAuth access_token
 $user = Union::wechat()->user($openId, ['access_token' => $token], 'app');
 
-// 3. 支付 - 统一下单
-$order = Union::wechat()->pay()->unifiedOrder([
+// 3. 支付 - 统一下单（本包登录拿身份 → kode/pays 收钱）
+//    需先 composer require kode/pays（2.0 起支付完全由 kode/pays 承载，二者为一对一契约）
+$user  = Union::wechat()->mini($code);   // 身份：本包登录
+$order = Union::wechat()->pay()->createOrder([
     'out_trade_no' => 'O001',
-    'body'         => '商品',
-    'total_fee'    => 100,
-    'openid'       => $openId,
-]);
-// 简写
-$order = Union::wechat()->unifiedOrder([...]);
+    'description'  => '商品',
+    'amount'       => ['total' => 100],  // 分（V3 结构）
+], $user);                               // openid 由 PaysBridge 自动注入
 
-// 4. 回调 - 验证 + 解析
+// 4. 回调 - 验证 + 解析（委托 kode/pays 验签 + 解密，返回可信业务数组）
 $data = Union::wechat()->notify()->decode($payload, $headers);
 ```
+
+### 高级支付能力（分账 / 转账 / 对账）
+
+核心下单 / 退款 / 关单 / 验签之外，kode/pays 网关还提供「特色方法」（分账、转账、对账等）。
+本包通过 {@see \Kode\MiniApp\Union\Contracts\AdvancedPayAdapter} 暴露这些能力，由
+{@see \Kode\MiniApp\Union\Bridge\PaysBridgePayAdapter} 以 `method_exists` 守卫委托真实网关，
+**方法名与 kode/pays 网关契约完全一致**，无额外封装、无参数变换：
+
+```php
+// 取得高级支付能力适配器（分账 / 转账 / 对账）
+$adv = Union::wechat()->advancedPay();   // 等价于 $union->advancedPay(Channel::WechatMini)
+
+// 分账（ProfitSharingCapableInterface）
+$adv->profitSharingCreate([
+    'transaction_id' => '微信订单号',
+    'out_order_no'   => '商户分账单号',
+    'receivers'      => [['type' => 'MERCHANT_ID', 'account' => 'mch_2', 'amount' => 100, 'description' => '分账']],
+]);
+$adv->profitSharingQuery('商户分账单号', '微信订单号');     // 查询分账结果（微信需传 transaction_id）
+$adv->profitSharingReturn(['out_order_no' => 'X', 'out_return_no' => 'R', 'return_amount' => 100]); // 分账回退
+$adv->profitSharingQueryReturn('商户回退单号');             // 查询分账回退结果
+$adv->profitSharingUnfreeze('微信订单号');                  // 解冻未分账的剩余资金
+
+// 转账 / 企业付款（TransferCapableInterface）
+$adv->transferSingle([
+    'out_biz_no' => '商户转账单号',
+    'amount'     => 100,
+    'recipient'  => ['type' => 'openid', 'account' => $openId, 'name' => '张三'],
+]);
+$adv->transferBatch([/* out_biz_no + transfer_detail_list */]); // 批量转账
+$adv->transferQuery('商户转账单号');                        // 查询转账结果
+$adv->transferReceipt('商户转账单号');                      // 查询转账电子回单
+
+// 对账（ReconciliationCapableInterface）
+$bill = $adv->reconciliationDownloadBill(['bill_date' => '20260814']); // 下载交易对账单
+$flow = $adv->reconciliationDownloadFundFlow(['bill_date' => '20260814']); // 下载资金账单
+$records = $adv->reconciliationParseBill($bill['raw_data']);     // 解析对账单原始数据（CSV / JSON）
+```
+
+> **能力可用性**：分账 / 转账 / 对账并非所有平台 / 网关都具备（如百度、企业微信网关未实现；
+> 微信分账需先在商户平台开通）。当某渠道的网关未实现对应特色方法时，`advancedPay()` 返回的适配器
+> 会抛清晰异常（含「分账 / 转账 / 对账」字样），不会触发难以定位的「Call to undefined method」。
+> 是否需要该能力由调用方按业务自行判断，本包不替业务做能力裁剪。
 
 ### 透传底层 Provider / App
 
@@ -758,69 +799,104 @@ $outTradeNo = $payload['out_trade_no'];
 | QQ | ✅ | ✅ | 验签内置 `Qq\Modules\Notify`（XML+MD5） |
 | 钉钉 / 飞书 | — | — | 无消费者支付回调 |
 
-## 支付能力归属说明（软移交）
+## 支付能力归属：miniapp 只管身份，收钱交给 kode/pays
 
-本包内置了各端支付适配器（`Providers/{wechat,qq,alipay,douyin,baidu}/Modules/Pay.php`、`Union/Channels/*/PayAdapter.php`、`PlatformUnion::pay()/unifiedOrder()/notify()`），可独立完成小程序 / 公众号 / App 的下单与回调适配。
+两个包的关注点完全不同，且互不依赖：
 
-> ✅ **内置支付 = 微信生态全端统一 V3（含服务商模式）**
->
-> 以微信为例，本包内置 `Wechat\Modules\Pay` 已覆盖**直连商户**与**服务商**两种模式，并支持按渠道分派交易类型：
-> - **交易类型**：JSAPI（公众号 / 小程序）、APP（移动应用）、H5（MWEB）、NATIVE（PC 扫码）；
-> - **服务商模式**：配置 `sp_mchid` + `sub_mchid`（+ `sub_appid`）即自动切换，body 使用 `sp_mchid` / `sub_mchid` / `sub_appid`，V3 签名头 `mchid` 取 `sp_mchid`；
-> - 所有请求自动附加 V3 `Authorization` 签名头。
->
-> 也就是说，微信「支付 ✅」现已是**多端 + 服务商**的完整实现，开放平台关联各公众号 / 服务号 / App / H5 的统一支付均可经此完成。
->
-> `kode/pays` 仍是可选的**增强插件**（对账、沙箱、事件等更重的能力），内置支付则作为轻量 / 向后兼容路径。
+- **kode/miniapp（本包）=「你是谁」**：OAuth 授权、拿 `openid` / `unionid` / `session_key` / `access_token`、JS-SDK 票据。哪怕不收一分钱（只做登录 / 授权）也用得到本包。
+- **kode/pays =「收钱」**：下单、签名、调起支付、异步回调验签、退款、分账、转账、对账、沙箱、多渠道聚合。一个纯 Web 后端只接 Stripe / PayPal 也用得到它，跟本包毫无关系。
 
-### 本包基础支付 与 kode/pays 的关系（分工，不是替代）
+因此**本包不应内置支付业务逻辑，也不保留任何内置支付实现**。本包在「支付」这件事上只做两件事，其余全部交给 kode/pays：
 
-> ⚠️ 旧文档曾把内置支付描述为「历史保留 / 将被移交」。这已不准确：本包内置支付
-> 现已是**生产级**实现（含 V3 签名、服务商模式、H5 / PC / App 全端、openid 自动关联），
-> 可独立承载下单 + 回调。**kode/pays 不是替代品，而是可选的「支付中枢增强」**。
+1. **产出付款人身份**：`UnionUser`（含 `openId`），这是支付的唯一可信付款人来源；
+2. **翻译并桥接**：把 Kernel 凭证 + `UnionUser` 翻译为 kode/pays 的原生形参后下单（见下方 `PaysBridge`）。
 
-两者的定位是「**身份 → 支付**」的上下游，而非二选一：
+> ⚠️ **2.0 破坏性变更**：自 v2.0 起，所有内置支付实现（`Providers/*/Modules/Pay.php`、
+> `Union/Channels/*/PayAdapter.php`、各端 `QqNotifyAdapter` 等）已**彻底移除**，kode/pays
+> 成为**唯一**支付路径，且为本包 `composer require` 级别的**硬依赖**。调用 `Union::pay()` /
+> `Union::notify()` 前必须先 `composer require kode/pays`；未安装时这两个方法会抛清晰异常，
+> 引导你先安装 kode/pays，而不会再静默回退到任何内置实现。
+
+### 命名统一（核心体验）
+
+本包对外暴露的支付方法名**与 kode/pays 网关契约完全一致**（pays 包本身不改任何命名）：
+
+| 能力 | 本包 / pays 统一方法名 |
+| --- | --- |
+| 下单 | `createOrder(array $order, ?UnionUser $user = null)` |
+| 查询订单 | `queryOrder(string $orderId)` |
+| 申请退款 | `refund(array $params)` |
+| 查询退款 | `queryRefund(string $refundId)` |
+| 关闭订单 | `closeOrder(string $orderId)` |
+| 回调验签 | `verifyNotify(array $payload, array $headers = []): array` |
+
+`?UnionUser $user` 是相对 pays 的「超集」参数（pays 同名方法无此参数），用于把登录得到的付款人身份
+自动注入下单；其余方法名、参数顺序与 pays 一模一样，因此业务侧调用方式与 kode/pays 完全一致。
+
+**业务侧只需 `composer require kode/pays`**，随后 `Union::pay()->createOrder(...)` / `Union::notify()->decode(...)`
+即可完成下单与回调验签，付款人 `openid` / `buyer_id` 由桥接自动注入：
+
+```php
+// 装了 kode/pays：下单 + 回调验签都走 pays（全生命周期统一）
+$user  = Union::wechat()->mini($code);
+$order = Union::wechat()->pay()->createOrder($payload, $user);            // openid 自动注入
+$data  = Union::wechat()->notify()->decode($payload, $headers);           // 验签 + 解密，返回可信业务数组
+```
+
+### 本包 与 kode/pays 的边界（单向、可选胶水）
 
 | 层 | 职责 | 是否拿得到 openid |
 | --- | --- | --- |
-| **本包 miniapp** | 登录 + 平台身份（OAuth / code2session）、openid / unionid、用户体系；内置「基础支付」 | ✅ 登录时即可拿到，是唯一 openid 来源 |
-| **kode/pays（可选）** | 支付编排：下单、回调验签、退款、对账、沙箱、多渠道聚合 | ❌ 不处理登录，付款人标识仍需由本包登录提供 |
+| **本包 miniapp** | 登录 + 平台身份（OAuth / code2session）、openid / unionid、用户体系；产出 `UnionUser` 并经 `PaysBridge` 翻译给 pays | ✅ 登录时即可拿到，是唯一 openid 来源 |
+| **kode/pays** | 支付编排：下单、回调验签、退款、对账、分账、转账、沙箱、多渠道聚合 | ❌ 不处理登录、不知道 miniapp 的存在；付款人只是其 `createOrder(array $params)` 里的一个原生字段（`openid` / `buyer_id`） |
 
-也就是说：
+- **kode/pays 不依赖 miniapp**：它的 `createOrder(array $params)` 签名里没有任何 miniapp 类型，付款人只是一个字符串字段，因此对纯 Web / Stripe 后端零耦合。
+- **miniapp 在 composer 里把 kode/pays 列为 `require`**（2.0 起为硬依赖）：未安装时 `Union::pay()` / `Union::notify()` 会抛清晰异常，引导先 `composer require kode/pays`。
+- **桥接是单向胶水、落在 miniapp 一侧**：`PaysBridge` 知道 kode/pays，kode/pays 不知道 miniapp。
 
-- **只需下单 + 回调**：用本包内置基础支付即可，已生产级，无需安装 kode/pays；
-- **需要退款 / 对账 / 多支付渠道统一编排 / 沙箱 / 事件**：安装 kode/pays，经 `PaysBridge` 桥接，
-  调用契约（`unifiedOrder(array, ?UnionUser)`）与本包基础支付**完全一致**，业务侧零改动切换；
-- 无论走哪条路，**openid 都来自本包的登录流程**（见上方「登录与支付强绑定」），
-  kode/pays 只是拿你给的 openid 去做支付编排——它不会、也无法替你做微信登录。
+> ✅ kode/pays 的微信网关在 JSAPI / 小程序下单时**强制要求 `openid`**，且源码注释明确
+> 「openid 来自公众号 / 小程序 OAuth 授权，**如 kode/miniapp**」。这从侧面印证了上述边界：
+> pays 负责验「有没有 openid」并拿它去下单，但 openid 必须由本包登录提供。
 
-```php
-// 方案 A：本包内置基础支付（已生产级，推荐轻量场景）
-$order = $kernel->union()->wechat()->unifiedOrder($payload, user: $user);
+### 付款人身份如何桥接（关键）
 
-// 方案 B：安装 kode/pays 后，桥接切换（业务侧调用方式零改动）
-//    需要先：composer require kode/pays
-$order = $kernel->union()->wechat()->payViaPays()->unifiedOrder($payload, user: $user);
-```
+pays 的 `createOrder` 不接受付款人对象，所以**由 `PaysBridge` 把 `UnionUser.openId` 映射进 `$params` 的原生付款人字段**再下单：
 
-### kode/pays 桥接（可选、健壮支付）
+- 微信 / QQ → `$params['openid']`（服务商模式由 pays config 的 `sub_appid` 自动落到子商户，桥接只注入 `openid`）；
+- 支付宝 → `$params['buyer_id']`；
+- `$order` 中已显式提供该字段时不会被覆盖；传 `null` 用户则需业务侧自行提供。
 
-如果既想保留 miniapp 的统一入口，又想直接获得 `kode/pays` 的健壮能力（V3 签名、回调验签 `verifyNotify`、退款 `RefundPlugin`、对账、沙箱、事件），可以用**桥接适配器**——它实现与 `PayAdapter` 完全相同的 `unifiedOrder(array):array` 契约，返回平台原始数组，因此**业务侧调用方式零改动**。
-
-> ⚠️ `kode/pays` 为**可选依赖**：本包不强制 `require`。未安装时桥接适配器会在调用时抛出清晰异常，回退到上面的基础支付适配器即可。
+桥接还做了**渠道守卫**：付款人必须来自与本次支付同一平台（跨平台 openid 不互通），否则直接抛 `InvalidArgumentException`——这同时根除旧「查库取 openid 再拼」方案中「没在公众号登录关联的用户无法支付」的痛点：没登录就没有 `UnionUser`，桥接 fail-fast。
 
 ```php
-// 1) 一行切换：用 Kernel 中已配置的凭证自动拼装 kode/pays config
-//    需要先在业务项目 composer require kode/pays
-//    openid 仍来自本包登录（user: $user 自动注入），kode/pays 不会替你登录
-$user  = Union::wechat()->mini($code);     // 当次登录拿 openid
-$order = $kernel->union()->wechat()->payViaPays()->unifiedOrder([
+// 推荐路径：本包登录拿身份 → 装 pays 后 pay() 走 pays（openid 由桥接注入）
+// 步骤 1：composer require kode/pays（2.0 起支付完全由 kode/pays 承载）
+$user  = Union::wechat()->mini($code);            // ① 身份：本包登录
+$order = Union::wechat()->pay()->createOrder([   // ② 收钱：kode/pays
     'out_trade_no' => 'ORDER_' . time(),
     'description'  => '商品',
-    'amount'       => ['total' => 100],    // 分（V3 结构）
+    'amount'       => ['total' => 100],           // 分（V3 结构）
+], $user);
+```
+
+### kode/pays 桥接（首选支付入口）
+
+`PaysBridge` 实现与 `PayAdapter` 完全相同的 `createOrder(array, ?UnionUser):array` 契约、返回平台原始数组，因此业务侧调用方式零改动即可从内置适配器切换到 kode/pays。
+
+> ⚠️ `kode/pays` 为**硬依赖**：业务侧必须先 `composer require kode/pays`。未安装时
+> `Union::pay()` / `Union::notify()` 会抛清晰异常，引导先安装；不再有任何内置 fallback。
+
+```php
+// 1) 一行调用：用 Kernel 中已配置的凭证自动拼装 kode/pays config
+//    openid 来自本包登录（user: $user 自动注入），kode/pays 不会替你登录
+$user  = Union::wechat()->mini($code);
+$order = $kernel->union()->wechat()->pay()->createOrder([
+    'out_trade_no' => 'ORDER_' . time(),
+    'description'  => '商品',
+    'amount'       => ['total' => 100],
 ], $user);
 
-// 2) 自定义凭证来源（单独维护 kode/pays config 时）
+// 2) 自定义凭证来源（单独维护 kode/pays config，或覆盖百度 / 企业微信等默认 resolver 未覆盖的渠道时）
 use Kode\MiniApp\Union\Bridge\PaysBridge;
 use Kode\MiniApp\Union\Channel;
 
@@ -829,11 +905,11 @@ $pay = PaysBridge::adapter(Channel::WechatMini, static fn () => [
     'mch_id'  => '...',
     'api_key' => '...',         // 微信 v2 商户密钥
 ]);
-$order = $pay->unifiedOrder([/* ... */]);
+$order = $pay->createOrder([/* ... */], $user);
 
 // 运行时判断 kode/pays 是否就绪
 if (PaysBridge::available()) {
-    $pay = $kernel->union()->wechat()->payViaPays();
+    $pay = $kernel->union()->wechat()->pay();
 }
 ```
 
@@ -846,7 +922,7 @@ if (PaysBridge::available()) {
 | `api_v3_key` / `cert_path` / `key_path` / `mch_serial_no` | 同名 | 仅非空时透传 |
 | `app_id` / `private_key` / `public_key` / `sandbox` | 同名 | 支付宝 |
 
-覆盖渠道：默认 resolver 支持**微信 / 支付宝**（kode/pays 文档已确认 `Pay::wechat()` / `Pay::alipay()`）；抖音 / QQ 的 kode/pays 配置字段尚未经源码核实，请使用 `PaysBridge::adapter()` 注入自定义 resolver。
+覆盖渠道：默认 resolver 支持**微信 / 支付宝 / 抖音 / QQ**；百度 / 企业微信等 kode/pays 暂未覆盖的渠道，请使用 `PaysBridge::adapter()` 注入自定义 resolver（`PaysBridge::kernelResolver()` 会抛清晰引导）。
 
 ## 能力发现与配置契约
 
@@ -914,7 +990,7 @@ $missing = array_diff(
 
 `Union::capabilities()` 返回的 `required_config` 已将上述两类键**合并去重**，是「接入某渠道需要配哪些键」的一站式答案。
 
-> 说明：内置支付目前为**直连商户 JSAPI**（见上文支付能力归属），因此微信支付的 `requiredKeysFor(Pay)` 仅包含直连商户所需键；服务商 / 开放平台统一支付所需的 `sub_mchid` 等由 `kode/pays` 各自约束。
+> 说明：本包只负责登录与平台身份，**不内置任何支付实现**。因此微信渠道 `requiredKeysFor(Pay)` 仅含直连商户 JSAPI 所需的 `mch_id` / `key_path` / `mch_serial_no` 等键；服务商 / 开放平台统一支付所需的 `sub_mchid` 等，由 `kode/pays` 各自在网关层约束，不在此处展开。
 
 ## 自定义适配器（业务扩展）
 
@@ -982,14 +1058,14 @@ $user13 = Union::dingtalk()->mini('CODE');           // 钉钉
 $user14 = Union::lark()->mini('CODE');               // 飞书
 
 // ===== 2. 跨平台支付 =====
-$order1 = Union::wechat()->pay()->unifiedOrder([
+$order1 = Union::wechat()->pay()->createOrder([
     'out_trade_no' => 'O001',
     'body'         => '商品',
     'total_fee'    => 100,
     'openid'       => $user1->openId,
 ]);
-$order2 = Union::alipay()->pay()->unifiedOrder([...]);
-$order3 = Union::work()->pay()->unifiedOrder([...]);
+$order2 = Union::alipay()->pay()->createOrder([...]);
+$order3 = Union::work()->pay()->createOrder([...]);
 
 // ===== 3. 跨平台回调 =====
 $data1 = Union::wechat()->notify()->decode($payload, $headers);

@@ -10,7 +10,7 @@
 
 1. [配置说明](#配置说明)
 2. [登录认证](#登录认证)
-3. [基础支付](#基础支付)
+3. [支付（kode/pays）](#支付kodepays)
 4. [转账](#转账)
 5. [账单](#账单)
 6. [营销](#营销)
@@ -60,18 +60,22 @@ $userInfo = $app->auth()->user($accessToken);
 
 ---
 
-## 基础支付
+## 支付（kode/pays）
+
+> 2.0 起支付宝支付完全由 `kode/pays` 承载（composer 硬依赖），下单 / 验签 / 退款 / 分账 / 转账 / 对账统一经 kode/pays。付款人身份（buyer_id）由本包登录后自动注入。
 
 ### 创建支付订单
 
 ```php
-$order = $app->pay()->create([
+// 先登录拿到 UnionUser（buyer_id 由桥接自动注入）
+$user  = $kernel->union()->alipay()->appInstance()->auth()->token($code);
+$order = $kernel->union()->alipay()->pay()->createOrder([
     'out_trade_no' => 'ORDER_001',
     'total_amount' => '99.99',
     'subject'      => '测试商品',
     'body'         => '商品详细描述',
     'product_code' => 'QUICK_MSECURITY_PAY',  // 小程序支付
-]);
+], $user);
 
 // 返回订单字符串，前端调用 my.tradePay({orderStr: orderString})
 ```
@@ -79,23 +83,26 @@ $order = $app->pay()->create([
 ### 查询订单
 
 ```php
-$result = $app->pay()->query('ORDER_001');
+$result = $kernel->union()->alipay()->pay()->queryOrder('ORDER_001');
 // 返回：['trade_no' => '2024xxx', 'out_trade_no' => 'ORDER_001', 'total_amount' => '99.99', 'trade_status' => 'TRADE_SUCCESS']
 ```
 
 ### 关闭订单
 
 ```php
-$app->pay()->close('ORDER_001');
+$kernel->union()->alipay()->pay()->closeOrder('ORDER_001');
 ```
 
-### 企业级支付（需安装 kode/pays）
+### 退款 / 分账 / 转账
 
 ```php
-$pay = $app->payBridge();
-if ($pay !== null) {
-    $pay->create([...]);
-}
+$pay = $kernel->union()->alipay()->pay();
+$pay->refund([
+    'out_trade_no'  => 'ORDER_001',
+    'refund_amount' => '99.99',
+    'refund_reason' => '用户申请退款',
+]);
+// 分账 / 转账等能力由 kode/pays 网关直接提供
 ```
 
 ---

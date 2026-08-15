@@ -12,7 +12,7 @@ use Kode\MiniApp\Union\UnionUser;
  *
  * 用法：
  *   $user = Union::baidu()->mini('code');   // 百度小程序
- *   $order = Union::baidu()->pay()->unifiedOrder([...]);
+ *   $order = Union::baidu()->pay()->createOrder([...]);
  */
 final class BaiduUnion extends PlatformUnion
 {

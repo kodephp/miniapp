@@ -11,7 +11,6 @@ use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Providers\Baidu\Modules\Auth;
 use Kode\MiniApp\Providers\Baidu\Modules\Decrypt;
 use Kode\MiniApp\Providers\Baidu\Modules\Message;
-use Kode\MiniApp\Providers\Baidu\Modules\Pay;
 
 /**
  * 百度应用实例
@@ -19,7 +18,6 @@ use Kode\MiniApp\Providers\Baidu\Modules\Pay;
 final readonly class BaiduApp implements AppInterface
 {
     private Auth $auth;
-    private Pay $pay;
     private Message $message;
     private Decrypt $decrypt;
 
@@ -30,7 +28,6 @@ final readonly class BaiduApp implements AppInterface
         private HttpClientInterface $http,
     ) {
         $this->auth = new Auth($this);
-        $this->pay  = new Pay($this);
         $this->message = new Message($this);
         $this->decrypt = new Decrypt($this);
     }
@@ -62,11 +59,6 @@ final readonly class BaiduApp implements AppInterface
     public function auth(): Auth
     {
         return $this->auth;
-    }
-
-    public function pay(): Pay
-    {
-        return $this->pay;
     }
 
     public function message(): Message

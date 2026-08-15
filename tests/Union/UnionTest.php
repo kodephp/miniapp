@@ -10,6 +10,7 @@ use Kode\MiniApp\Union\Contracts\LoginAdapter;
 use Kode\MiniApp\Union\Contracts\UserAdapter;
 use Kode\MiniApp\Union\Union;
 use Kode\MiniApp\Union\UnionUser;
+use PHPUnit\Framework\Attributes\RunInSeparateProcess;
 use PHPUnit\Framework\TestCase;
 
 class UnionTest extends TestCase
@@ -116,12 +117,16 @@ class UnionTest extends TestCase
         self::assertSame('mock_open', $user->openId);
     }
 
+    #[RunInSeparateProcess]
     public function testUnsupportedPayChannelThrows(): void
     {
+        // 2.0：支付完全由 kode/pays 承载。渠道守卫在 createOrder 时触发——
+        // Lark 等非支付渠道经桥接 gatewayMethod 默认分支抛出清晰 InvalidArgumentException。
         $kernel = new Kernel([]);
 
         $this->expectException(\InvalidArgumentException::class);
-        $kernel->union()->pay(Channel::Lark);
+        $this->expectExceptionMessage('渠道');
+        $kernel->union()->pay(Channel::Lark)->createOrder(['out_trade_no' => 'X']);
     }
 
     public function testRegisterCustomLoginAdapter(): void
