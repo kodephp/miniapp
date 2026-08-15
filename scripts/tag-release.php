@@ -35,7 +35,12 @@ if (!empty($status)) {
     exit(1);
 }
 
-// 打 tag
+// 先推送 master（避免只推 tag 导致远端 master 落后于本地），再打 tag 并推送
+$pushMaster = sprintf('cd %s && git push origin master', escapeshellarg($root));
+echo "执行：{$pushMaster}\n";
+$outMaster = shell_exec($pushMaster);
+echo $outMaster ?? '';
+
 $cmd = sprintf(
     'cd %s && git tag -a %s -m "Release %s" && git push origin %s',
     escapeshellarg($root),
