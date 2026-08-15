@@ -152,7 +152,10 @@ final class PaysBridgeCryptoAdapter implements CryptoAdapter
         /** @var callable(array<string, mixed>):bool $fn */
         $fn = [$gateway, 'verifyNotify'];
 
-        return $fn($data);
+        /** @var bool $ok */
+        $ok = PaysBridge::invokeGateway(fn () => $fn($data), $this->channel, '加密货币异步验签');
+
+        return $ok;
     }
 
     /**
@@ -181,7 +184,7 @@ final class PaysBridgeCryptoAdapter implements CryptoAdapter
         $fn = [$gateway, $method];
 
         /** @var array<string, mixed> $result */
-        $result = $fn(...$args);
+        $result = PaysBridge::invokeGateway(fn () => $fn(...$args), $this->channel, $capability);
 
         return $result;
     }

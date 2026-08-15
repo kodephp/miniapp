@@ -87,7 +87,7 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
         $gateway = $this->paysGateway();
 
         /** @var array<string, mixed> $result */
-        $result = $gateway->createOrder($order);
+        $result = PaysBridge::invokeGateway(fn () => $gateway->createOrder($order), $this->channel, '下单');
 
         return $result;
     }
@@ -104,7 +104,7 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
         $gateway = $this->paysGateway();
 
         /** @var array<string, mixed> $result */
-        $result = $gateway->queryOrder($orderId);
+        $result = PaysBridge::invokeGateway(fn () => $gateway->queryOrder($orderId), $this->channel, '查单');
 
         return $result;
     }
@@ -120,7 +120,7 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
         $gateway = $this->paysGateway();
 
         /** @var array<string, mixed> $result */
-        $result = $gateway->refund($params);
+        $result = PaysBridge::invokeGateway(fn () => $gateway->refund($params), $this->channel, '退款');
 
         return $result;
     }
@@ -133,7 +133,7 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
         $gateway = $this->paysGateway();
 
         /** @var array<string, mixed> $result */
-        $result = $gateway->queryRefund($refundId);
+        $result = PaysBridge::invokeGateway(fn () => $gateway->queryRefund($refundId), $this->channel, '退款查询');
 
         return $result;
     }
@@ -146,7 +146,7 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
         $gateway = $this->paysGateway();
 
         /** @var array<string, mixed> $result */
-        $result = $gateway->closeOrder($orderId);
+        $result = PaysBridge::invokeGateway(fn () => $gateway->closeOrder($orderId), $this->channel, '关单');
 
         return $result;
     }
@@ -170,7 +170,7 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
         $gateway = $this->paysGateway();
 
         /** @var bool $ok */
-        $ok = $gateway->verifyNotify($payload);
+        $ok = PaysBridge::invokeGateway(fn () => $gateway->verifyNotify($payload), $this->channel, '回调验签');
         if (!$ok) {
             throw new \RuntimeException(
                 "支付回调验签失败（渠道 [{$this->channel->label()}]）：请检查 APIv3 密钥 / 公钥配置",
@@ -187,7 +187,7 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
             $fn = [$gateway, 'decryptResource'];
 
             /** @var array<string, mixed> $decrypted */
-            $decrypted = $fn($payload['resource']);
+            $decrypted = PaysBridge::invokeGateway(fn () => $fn($payload['resource']), $this->channel, '回调解密');
 
             return $decrypted;
         }
@@ -701,7 +701,7 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
         $fn = [$gateway, $method];
 
         /** @var array<string, mixed> $result */
-        $result = $fn(...$args);
+        $result = PaysBridge::invokeGateway(fn () => $fn(...$args), $this->channel, $capability);
 
         return $result;
     }

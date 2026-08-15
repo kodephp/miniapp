@@ -73,7 +73,10 @@ final class PaysBridgeWebhookAdapter implements WebhookAdapter
         /** @var callable(string, array<string, string>):bool $fn */
         $fn = [$gateway, 'verifyWebhook'];
 
-        return $fn($payload, $headers);
+        /** @var bool $ok */
+        $ok = PaysBridge::invokeGateway(fn () => $fn($payload, $headers), $this->channel, 'Webhook 验签');
+
+        return $ok;
     }
 
     /**
@@ -98,7 +101,7 @@ final class PaysBridgeWebhookAdapter implements WebhookAdapter
         $fn = [$gateway, 'parseWebhook'];
 
         /** @var array<string, mixed> $result */
-        $result = $fn($payload);
+        $result = PaysBridge::invokeGateway(fn () => $fn($payload), $this->channel, 'Webhook 解析');
 
         return $result;
     }

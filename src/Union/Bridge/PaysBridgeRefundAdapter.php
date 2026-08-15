@@ -111,7 +111,7 @@ final class PaysBridgeRefundAdapter implements RefundAdapter
         $fn = [$gateway, $method];
 
         /** @var array<string, mixed> $result */
-        $result = $fn(...$args);
+        $result = PaysBridge::invokeGateway(fn () => $fn(...$args), $this->channel, $capability);
 
         return $result;
     }

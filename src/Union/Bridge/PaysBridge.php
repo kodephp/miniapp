@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Kode\MiniApp\Union\Bridge;
 
 use Kode\MiniApp\Contracts\KernelInterface;
+use Kode\MiniApp\Exceptions\ApiException;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
 use Kode\MiniApp\Union\Contracts\RefundAdapter;
 use Kode\MiniApp\Union\Contracts\CryptoAdapter;
 use Kode\MiniApp\Union\Contracts\WebhookAdapter;
+use Kode\Pays\Core\PayException;
 
 /**
  * kode/pays 桥接工厂
@@ -42,6 +44,44 @@ final class PaysBridge
     public static function available(): bool
     {
         return class_exists('Kode\\Pays\\Facade\\Pay');
+    }
+
+    /**
+     * 统一调用 kode/pays 网关方法，将其 {@see PayException} 归一化为本包 {@see ApiException}。
+     *
+     * 此前网关在「参数校验 / 签名 / 报文拼装 / 响应解析」阶段抛出的 Kode\Pays\Core\PayException
+     * 会以原始类型直接冒泡，与本包「平台业务错误统一为 ApiException（无静默成功）」的约定不一致。
+     * 本方法在桥接层**唯一出口**捕获并包裹为 ApiException（保留原始 code / message / gateway 原始
+     * 错误码与错误信息，并链入原始异常作为 previous），使业务侧只需捕获 ApiException 一种类型即可
+     * 覆盖身份层与支付层全部业务错误，无需感知 kode/pays 的异常体系。
+     *
+     * 仅归一化网关业务异常（PayException）；桥接层自身的契约错误
+     * （未安装 kode/pays、渠道不支持某能力、付款人渠道不匹配等抛出的 RuntimeException /
+     * InvalidArgumentException）仍按原样抛出，不受影响。
+     *
+     * @template T
+     * @param \Closure():T $fn
+     * @return T
+     */
+    public static function invokeGateway(\Closure $fn, Channel $channel, string $capability): mixed
+    {
+        try {
+            return $fn();
+        } catch (PayException $e) {
+            throw new ApiException(
+                $e->getMessage(),
+                $e->getCode(),
+                null,
+                [
+                    'gateway'          => $channel->label(),
+                    'capability'       => $capability,
+                    'gateway_code'     => $e->getGatewayCode(),
+                    'gateway_message'  => $e->getGatewayMessage(),
+                ],
+                "支付[{$channel->label()}]{$capability}",
+                $e,
+            );
+        }
     }
 
     /**
