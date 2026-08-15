@@ -292,6 +292,17 @@ if ($adv->supportsSettlement()) {      // 结算 / 提现
 > 调用方用 `supportsRedPacket()` / `supportsSubscription()` 优雅降级即可。
 > 程序化对齐：{@see \Kode\MiniApp\Union\Contracts\AdvancedPayAdapter::paymentCapabilities()}
 > 一次性返回上述 10 项能力开关（无需支付配置），可直接喂给前端渲染能力菜单。
+> 门面级便捷入口：{@see \Kode\MiniApp\Union\Platforms\PlatformUnion::paymentCapabilities()} 与
+> {@see \Kode\MiniApp\Union\Union::paymentCapabilities()} 等价于 `advancedPay()->paymentCapabilities()`，
+> 但无需先持有高级适配器实例，更适合「按渠道动态渲染能力菜单」：
+>
+> ```php
+> $caps = Union::wechat()->paymentCapabilities();
+> // => ['profit_sharing' => true, 'transfer' => true, ... 'balance' => false, 'webhook' => false]
+> if ($caps['red_packet']) {
+>     // 仅微信 V2 支持红包，V3 为 false
+> }
+> ```
 
 ### Webhook 事件回调（异步事件，区别于同步结果通知）
 

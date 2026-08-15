@@ -208,6 +208,31 @@ abstract class PlatformUnion
     }
 
     /**
+     * 当前渠道「全部高级支付能力」汇总（能力菜单发现，门面级便捷入口）
+     *
+     * 等价于 {@see self::advancedPay()}()->paymentCapabilities()，但无需持有高级适配器实例，
+     * 直接用于「前端按渠道动态渲染能力菜单」或调用前的「一次性自检」：
+     *
+     *   $caps = Union::wechat()->paymentCapabilities();
+     *   // => ['profit_sharing' => true, 'transfer' => true, ...]
+     *   if ($caps['red_packet']) {
+     *       // 仅微信 V2 支持红包，V3 为 false
+     *   }
+     *
+     * 返回分账 / 转账 / 对账 / 红包 / 订阅 / 余额 / 结算 / 个人收款 / Webhook / 退款
+     * 共 10 项能力的布尔开关，**无需完整支付配置**即可调用（基于 kode/pays 网关类能力发现）。
+     *
+     * @return array<string, bool>
+     */
+    public function paymentCapabilities(?string $scene = null): array
+    {
+        $channel = $scene !== null
+            ? $this->channelForScene($scene)
+            : $this->defaultPayChannel();
+        return $this->union->paymentCapabilities($channel);
+    }
+
+    /**
      * 统一下单（直接调用）
      *
      * 便捷写法：把已登录的 {@see UnionUser} 传入，支付适配器会自动注入

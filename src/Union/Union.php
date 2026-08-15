@@ -740,6 +740,21 @@ final class Union
     }
 
     /**
+     * 当前渠道「全部高级支付能力」汇总（能力菜单发现，门面级便捷入口）
+     *
+     * 等价于 {@see self::advancedPay()}()->paymentCapabilities()：一次性返回分账 / 转账 / 对账 /
+     * 红包 / 订阅 / 余额 / 结算 / 个人收款 / Webhook / 退款共 10 项能力的布尔开关，**无需完整支付配置**
+     * 即可调用（基于 kode/pays 网关类能力发现）。主要用于「前端按渠道动态渲染能力菜单」或调用前的
+     * 一次性自检，无需先持有高级适配器实例。
+     *
+     * @return array<string, bool>
+     */
+    public function paymentCapabilities(Channel $channel): array
+    {
+        return $this->advancedPay($channel)->paymentCapabilities();
+    }
+
+    /**
      * 获取回调适配器
      *
      * 2.0 起回调验签 / 解密完全委托 kode/pays（{@see PaysBridgeNotifyAdapter}）。
