@@ -12,6 +12,7 @@ use Kode\MiniApp\Session\SessionManager;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\LoginAdapter;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
+use Kode\MiniApp\Union\Contracts\WebhookAdapter;
 use Kode\MiniApp\Union\Bridge\PaysBridge;
 use Kode\MiniApp\Union\Contracts\AdvancedPayAdapter;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
@@ -231,6 +232,28 @@ abstract class PlatformUnion
             ? $this->channelForScene($scene)
             : $this->defaultPayChannel();
         return $this->union->notify($channel);
+    }
+
+    /**
+     * 统一 Webhook 事件回调适配器
+     *
+     * 与 {@see self::notify()}（同步支付结果通知）不同，面向平台异步推送的「事件型 Webhook」。
+     * 返回的 {@see WebhookAdapter} 委托 kode/pays 网关的 WebhookCapableInterface 完成验签 + 解析。
+     *
+     * 用法：
+     *   $wh = Union::wechat()->webhook();
+     *   if ($wh->verify($rawBody, $headers)) {
+     *       $event = $wh->parse($rawBody);
+     *   }
+     *
+     * @see \Kode\MiniApp\Union\Contracts\WebhookAdapter
+     */
+    public function webhook(?string $scene = null): WebhookAdapter
+    {
+        $channel = $scene !== null
+            ? $this->channelForScene($scene)
+            : $this->defaultPayChannel();
+        return $this->union->webhook($channel);
     }
 
     /**

@@ -143,6 +143,13 @@ $adv->profitSharingCreate([
 ]);
 $adv->transferSingle(['out_biz_no' => 'BIZ_1', 'amount' => 100, 'recipient' => ['type' => 'openid', 'account' => $openId, 'name' => '张三']]);
 $bill = $adv->reconciliationDownloadBill(['bill_date' => '20260814']);
+
+// Webhook 异步事件回调（与 notify() 同步结果通知对称）：webhook() 返回 WebhookAdapter。
+// 需 kode/pays >= 2.6.0（WebhookCapableInterface）；2.3.0 上 supportsWebhook() 返回 false。
+$wh = $kernel->union()->wechat()->webhook();
+if ($wh->verify($rawBody, $headers)) {
+    $event = $wh->parse($rawBody);   // ['gateway'=>..., 'event_type'=>..., 'data'=>...]
+}
 ```
 
 ## 架构设计

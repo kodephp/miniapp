@@ -21,6 +21,7 @@ use Kode\MiniApp\Union\Contracts\LoginAdapter;
 use Kode\MiniApp\Union\UnionPhone;
 use Kode\MiniApp\Union\UnionUser;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
+use Kode\MiniApp\Union\Contracts\WebhookAdapter;
 use Kode\MiniApp\Union\Bridge\PaysBridge;
 use Kode\MiniApp\Union\Contracts\AdvancedPayAdapter;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
@@ -96,6 +97,9 @@ final class Union
 
     /** @var array<string, NotifyAdapter> */
     private array $notifyAdapters = [];
+
+    /** @var array<string, WebhookAdapter> */
+    private array $webhookAdapters = [];
 
     /**
      * 全局 Kernel 引用（供静态方法使用）
@@ -741,6 +745,20 @@ final class Union
     }
 
     /**
+     * 获取 Webhook 事件回调适配器
+     *
+     * 与 {@see self::notify()}（同步支付结果通知）不同，本方法面向平台异步推送的「事件型 Webhook」
+     * （订阅续费、退款状态、转账到账、争议 / 拒付等）。返回的 {@see WebhookAdapter} 委托 kode/pays
+     * 网关的 WebhookCapableInterface 完成验签 + 解析，需先 `composer require kode/pays`。
+     *
+     * @see \Kode\MiniApp\Union\Bridge\PaysBridge
+     */
+    public function webhook(Channel $channel): WebhookAdapter
+    {
+        return $this->webhookAdapter($channel);
+    }
+
+    /**
      * 通用平台访问入口
      *
      * 业务侧可直接通过 `Union::wechat()` / `$kernel->union()->wechat()` 访问。
@@ -978,6 +996,20 @@ final class Union
             $this->notifyAdapters[$key] = PaysBridge::notifyAdapterForKernel($channel, $this->kernel);
         }
         return $this->notifyAdapters[$key];
+    }
+
+    private function webhookAdapter(Channel $channel): WebhookAdapter
+    {
+        $key = $channel->value;
+        if (!isset($this->webhookAdapters[$key])) {
+            if (!PaysBridge::available()) {
+                throw new \RuntimeException(
+                    'Webhook 事件验签已迁移至 kode/pays，请先执行 `composer require kode/pays` 后再调用 Union::webhook()'
+                );
+            }
+            $this->webhookAdapters[$key] = PaysBridge::webhookAdapterForKernel($channel, $this->kernel);
+        }
+        return $this->webhookAdapters[$key];
     }
 
     private function buildLoginAdapter(Channel $channel): LoginAdapter

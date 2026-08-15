@@ -302,4 +302,13 @@ interface AdvancedPayAdapter extends PayAdapter
      * 基于 kode/pays 网关类是否实现 SettlementCapableInterface 判断，无需完整支付配置即可调用。
      */
     public function supportsSettlement(): bool;
+
+    /**
+     * 当前渠道是否支持「Webhook 事件」能力
+     *
+     * 基于 kode/pays 网关类是否实现 WebhookCapableInterface 判断，无需完整支付配置即可调用。
+     * 返回 false 时调用 {@see \Kode\MiniApp\Union\Contracts\WebhookAdapter::verify()} /
+     * {@see \Kode\MiniApp\Union\Contracts\WebhookAdapter::parse()} 会抛清晰异常。
+     */
+    public function supportsWebhook(): bool;
 }

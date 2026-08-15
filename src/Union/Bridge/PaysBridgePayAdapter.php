@@ -591,6 +591,25 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
     }
 
     /**
+     * 当前渠道是否支持「Webhook 事件」能力（无需完整支付配置即可判断）
+     */
+    #[\Override]
+    public function supportsWebhook(): bool
+    {
+        return $this->gatewaySupports('verifyWebhook');
+    }
+
+    /**
+     * 取得当前渠道的 kode/pays 网关实例（供 Webhook 适配器等兄弟适配器委托）
+     *
+     * @return mixed kode/pays 网关实例
+     */
+    public function gateway(): mixed
+    {
+        return $this->paysGateway();
+    }
+
+    /**
      * 委托真实 kode/pays 网关的「特色方法」（分账 / 转账 / 对账 / ...）
      *
      * 以 `method_exists` 守卫：仅当当前渠道的网关真正实现了该方法时才转发，

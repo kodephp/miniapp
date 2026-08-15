@@ -285,6 +285,44 @@ if ($adv->supportsSettlement()) {      // 结算 / 提现
 > Subscription / Settlement / BalanceCapableInterface）实测。具体平台以 kode/pays 最新版本为准；
 > 调用前用 `supports*()` 判断最稳妥。
 
+### Webhook 事件回调（异步事件，区别于同步结果通知）
+
+`Union::notify()` 处理的是**同步支付结果通知**（平台把「已解析数组」POST 过来，kode/pays 验签 +
+解密）；而很多场景（订阅续费、退款状态变更、转账到账、争议 / 拒付、账户风控）平台推送的是
+**异步事件 Webhook**——它把**原始请求体字符串 + 签名头** POST 过来，需单独验签再解析为统一事件结构。
+
+本包通过 {@see \Kode\MiniApp\Union\Contracts\WebhookAdapter} 暴露这一能力，由
+{@see \Kode\MiniApp\Union\Bridge\PaysBridgeWebhookAdapter} 委托 kode/pays 网关的
+`verifyWebhook(string $payload, array $headers)` / `parseWebhook(string $payload)`：
+
+```php
+// 取得 Webhook 事件适配器（与 notify() 对称）
+$wh = Union::wechat()->webhook();
+
+$raw = file_get_contents('php://input');
+$headers = getallheaders();
+
+if (!$wh->verify($raw, $headers)) {            // 验签（method_exists 守卫，不抛异常）
+    http_response_code(400);
+    exit;
+}
+$event = $wh->parse($raw);                     // 统一事件结构
+//   $event = ['gateway' => 'wechat', 'event_id' => 'EV_1', 'event_type' => 'refund.success',
+//             'data' => [...], 'raw' => $raw]
+
+// 调用前可优雅判断当前渠道是否支持 Webhook（无需支付配置）
+if ($wh->channel()->supportsWebhook()) {       // 见下方版本说明
+    // ...
+}
+```
+
+> **版本门槛（重要）**：kode/pays 的 `WebhookCapableInterface` 自 **2.6.0** 起才提供，而 packagist
+> 当前已发布最新为 **2.3.0**（微信网关尚未实现 `verifyWebhook` / `parseWebhook`）。因此：
+>  - 在 **2.3.0** 上，`supportsWebhook()` 对微信等返回 `false`，调用 `verify()` / `parse()` 会抛
+>    清晰异常（`...不支持 [Webhook 事件] 能力...`），**不会**触发「Call to undefined method」；
+>  - 待 kode/pays **2.6.0+** 发布后，`composer update kode/pays` 升级即自动激活，无需改业务代码。
+>  - 设计上与分账 / 转账等高级能力完全一致：均以 `method_exists` 守卫委托真实网关，版本就绪即生效。
+
 ### 透传底层 Provider / App
 
 如需细粒度控制（如素材管理、菜单管理、JS-SDK 等）：

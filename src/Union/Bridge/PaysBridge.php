@@ -8,6 +8,7 @@ use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\NotifyAdapter;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
+use Kode\MiniApp\Union\Contracts\WebhookAdapter;
 
 /**
  * kode/pays 桥接工厂
@@ -82,6 +83,29 @@ final class PaysBridge
     public static function notifyAdapterForKernel(Channel $channel, KernelInterface $kernel): PaysBridgeNotifyAdapter
     {
         return new PaysBridgeNotifyAdapter($channel, self::adapterForKernel($channel, $kernel));
+    }
+
+    /**
+     * 用自定义 config resolver 构造「Webhook 事件」桥接适配器（与 {@see self::adapter()} 对称）
+     *
+     * 返回的 {@see PaysBridgeWebhookAdapter} 实现 {@see WebhookAdapter}，其 `verify()` / `parse()`
+     * 委托 kode/pays 网关的 WebhookCapableInterface 方法完成异步事件验签 + 解析，
+     * 与 {@see self::adapter()} 共用同一凭证 source。
+     */
+    public static function webhookAdapter(Channel $channel, \Closure $resolver): PaysBridgeWebhookAdapter
+    {
+        return new PaysBridgeWebhookAdapter($channel, new PaysBridgePayAdapter($channel, $resolver));
+    }
+
+    /**
+     * 从 miniapp Kernel 凭证自动拼装 kode/pays config 的「Webhook 事件」桥接适配器
+     *
+     * 与 {@see self::adapterForKernel()} 对称：下单走 {@see PaysBridgePayAdapter}，
+     * 异步事件走 {@see PaysBridgeWebhookAdapter}，二者共用同一份 Kernel 凭证与渠道映射。
+     */
+    public static function webhookAdapterForKernel(Channel $channel, KernelInterface $kernel): PaysBridgeWebhookAdapter
+    {
+        return new PaysBridgeWebhookAdapter($channel, self::adapterForKernel($channel, $kernel));
     }
 
     /**
