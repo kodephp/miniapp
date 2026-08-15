@@ -22,6 +22,11 @@ namespace Kode\MiniApp\Union\Contracts;
  *
  * 调用前无需关心底层实现：本接口的唯一实现 {@see \Kode\MiniApp\Union\Bridge\PaysBridgePayAdapter}
  * 会以 `method_exists` 守卫委托真实网关的特色方法，网关不支持某项能力时抛清晰异常。
+ *
+ * 能力发现：部分平台 / 网关并不支持全部能力（例如百度、企业微信网关未实现，QQ 不支持分账 /
+ * 转账 / 对账，抖音仅支持分账）。调用前可用 {@see self::supportsProfitSharing()} /
+ * {@see self::supportsTransfer()} / {@see self::supportsReconciliation()} 优雅判断，避免依赖
+ * 捕获异常来决定分支。
  */
 interface AdvancedPayAdapter extends PayAdapter
 {
@@ -122,4 +127,26 @@ interface AdvancedPayAdapter extends PayAdapter
      * @return array<int, array<string, mixed>> 解析后的交易记录列表
      */
     public function reconciliationParseBill(string $rawData): array;
+
+    /**
+     * 当前渠道是否支持「分账」能力
+     *
+     * 基于 kode/pays 网关类是否实现 ProfitSharingCapableInterface 判断，**无需完整支付配置**
+     * 即可调用。返回 false 时调用 {@see self::profitSharingCreate()} 等会抛清晰异常。
+     */
+    public function supportsProfitSharing(): bool;
+
+    /**
+     * 当前渠道是否支持「转账」能力
+     *
+     * 基于 kode/pays 网关类是否实现 TransferCapableInterface 判断，无需完整支付配置即可调用。
+     */
+    public function supportsTransfer(): bool;
+
+    /**
+     * 当前渠道是否支持「对账」能力
+     *
+     * 基于 kode/pays 网关类是否实现 ReconciliationCapableInterface 判断，无需完整支付配置即可调用。
+     */
+    public function supportsReconciliation(): bool;
 }

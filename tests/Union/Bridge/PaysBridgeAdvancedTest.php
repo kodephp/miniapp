@@ -74,6 +74,34 @@ final class PaysBridgeAdvancedTest extends TestCase
         }
     }
 
+    public function testWechatSupportsAllThreeCapabilities(): void
+    {
+        $adapter = PaysBridge::adapter(Channel::WechatMini, fn () => $this->wechatConfig());
+
+        self::assertTrue($adapter->supportsProfitSharing());
+        self::assertTrue($adapter->supportsTransfer());
+        self::assertTrue($adapter->supportsReconciliation());
+    }
+
+    public function testQqSupportsNoAdvancedCapability(): void
+    {
+        $adapter = PaysBridge::adapter(Channel::Qq, fn () => $this->wechatConfig());
+
+        self::assertFalse($adapter->supportsProfitSharing());
+        self::assertFalse($adapter->supportsTransfer());
+        self::assertFalse($adapter->supportsReconciliation());
+    }
+
+    public function testBaiduSupportsNoAdvancedCapability(): void
+    {
+        // 百度网关未在 kode/pays 注册，能力发现须返回 false（而非抛异常）
+        $adapter = PaysBridge::adapter(Channel::BaiduMini, fn () => $this->wechatConfig());
+
+        self::assertFalse($adapter->supportsProfitSharing());
+        self::assertFalse($adapter->supportsTransfer());
+        self::assertFalse($adapter->supportsReconciliation());
+    }
+
     public function testProfitSharingCreateDelegatesToWechatGateway(): void
     {
         $adapter = PaysBridge::adapter(Channel::WechatMini, fn () => $this->wechatConfig());

@@ -195,6 +195,43 @@ $records = $adv->reconciliationParseBill($bill['raw_data']);     // 解析对账
 > 会抛清晰异常（含「分账 / 转账 / 对账」字样），不会触发难以定位的「Call to undefined method」。
 > 是否需要该能力由调用方按业务自行判断，本包不替业务做能力裁剪。
 
+#### 能力发现（调用前判断，无需支付配置）
+
+可用 `supports*()` 在调用真实能力前**优雅判断**某渠道是否支持该项能力（基于 kode/pays 网关类
+是否实现对应能力接口判断，不构造实例、不需要完整支付配置）：
+
+```php
+$adv = Union::wechat()->advancedPay();
+
+if ($adv->supportsProfitSharing()) {
+    $adv->profitSharingCreate([/* ... */]);
+}
+if ($adv->supportsTransfer()) {
+    $adv->transferSingle([/* ... */]);
+}
+if ($adv->supportsReconciliation()) {
+    $records = $adv->reconciliationParseBill($raw);
+}
+```
+
+#### 渠道能力矩阵（kode/pays 实测）
+
+| 渠道 | 分账 | 转账 | 对账 |
+| --- | :---: | :---: | :---: |
+| 微信（V2 / V3） | ✅ | ✅ | ✅ |
+| 支付宝 | ✅ | ✅ | ✅ |
+| 抖音 | ✅ | — | — |
+| 京东 / 美团 | ✅ | ✅ | ✅ |
+| 银联 | ✅ | — | — |
+| Stripe | ✅ | ✅ | ✅ |
+| Adyen / Revolut | — | ✅ | ✅ |
+| QQ | — | — | — |
+| 百度 / 企业微信 | — | — | — |
+
+> 矩阵依据 kode/pays 网关能力接口（ProfitSharingCapableInterface / TransferCapableInterface /
+> ReconciliationCapableInterface）实测。具体平台以 kode/pays 最新版本为准；调用前用 `supports*()`
+> 判断最稳妥。
+
 ### 透传底层 Provider / App
 
 如需细粒度控制（如素材管理、菜单管理、JS-SDK 等）：

@@ -8,6 +8,7 @@ use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Contracts\AdvancedPayAdapter;
 use Kode\MiniApp\Union\Contracts\PayAdapter;
 use Kode\MiniApp\Union\UnionUser;
+use Kode\Pays\Core\GatewayFactory;
 
 /**
  * kode/pays 桥接支付适配器（首选支付实现）
@@ -343,6 +344,33 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
     }
 
     /**
+     * 当前渠道是否支持「分账」能力（无需完整支付配置即可判断）
+     */
+    #[\Override]
+    public function supportsProfitSharing(): bool
+    {
+        return $this->gatewaySupports('createProfitSharing');
+    }
+
+    /**
+     * 当前渠道是否支持「转账」能力（无需完整支付配置即可判断）
+     */
+    #[\Override]
+    public function supportsTransfer(): bool
+    {
+        return $this->gatewaySupports('singleTransfer');
+    }
+
+    /**
+     * 当前渠道是否支持「对账」能力（无需完整支付配置即可判断）
+     */
+    #[\Override]
+    public function supportsReconciliation(): bool
+    {
+        return $this->gatewaySupports('downloadBill');
+    }
+
+    /**
      * 委托真实 kode/pays 网关的「特色方法」（分账 / 转账 / 对账 / ...）
      *
      * 以 `method_exists` 守卫：仅当当前渠道的网关真正实现了该方法时才转发，
@@ -372,6 +400,27 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
         $result = $fn(...$args);
 
         return $result;
+    }
+
+    /**
+     * 判断当前渠道的 kode/pays 网关类是否实现了某特色方法（能力发现）
+     *
+     * 直接查 kode/pays 网关注册表拿到类名的「类级」method_exists，**无需构造实例、无需完整支付配置**，
+     * 因此可在调用真实能力方法之前优雅判断（例如抖音仅支持分账、QQ 均不支持、百度未在注册表）。
+     *
+     * @param string $method 网关特色方法名（如 createProfitSharing）
+     */
+    private function gatewaySupports(string $method): bool
+    {
+        $facade = self::PAYS_FACADE;
+        if (!class_exists($facade) || !class_exists(GatewayFactory::class)) {
+            return false;
+        }
+
+        /** @var class-string|null $gatewayClass */
+        $gatewayClass = GatewayFactory::getGatewayClass(self::gatewayMethod($this->channel));
+
+        return $gatewayClass !== null && method_exists($gatewayClass, $method);
     }
 
     /**
