@@ -29,8 +29,8 @@ use Kode\MiniApp\Union\UnionUser;
  *  - 本接口的唯一实现 {@see \Kode\MiniApp\Union\Bridge\PaysBridgePayAdapter}：透传全部能力到
  *    kode/pays；{@see \Kode\MiniApp\Union\Platforms\PlatformUnion::pay()} 直接返回它（需先
  *    `composer require kode/pays`）。
- *  - 分账 / 转账 / 对账等高级能力不在本核心契约内（并非所有网关都支持），改由子接口
- *    {@see \Kode\MiniApp\Union\Contracts\AdvancedPayAdapter} 提供，业务侧通过
+ *  - 分账 / 转账 / 对账 / 红包 / 订阅 / 余额 / 结算等高级能力不在本核心契约内（并非所有网关都
+ *    支持），改由子接口 {@see \Kode\MiniApp\Union\Contracts\AdvancedPayAdapter} 提供，业务侧通过
  *    {@see \Kode\MiniApp\Union\Platforms\PlatformUnion::advancedPay()} 取得。
  *
  * 回调验签语义对齐：pays 的 `verifyNotify` 返回 bool（仅验签），本接口补全为

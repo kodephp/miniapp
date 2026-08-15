@@ -13,12 +13,13 @@ use Kode\Pays\Core\GatewayFactory;
 /**
  * kode/pays 桥接支付适配器（首选支付实现）
  *
- * 把 miniapp 的「身份层」接入企业级聚合支付 SDK {@see https://github.com/kodephp/pays kode/pays}，
- * 让支付这件事完全由 kode/pays 负责（下单 / 查询 / 退款 / 关单 / 回调验签 / 对账 / 沙箱 / 分账 / 转账 / 事件），
- * 而不必在 miniapp 内重复实现一套支付逻辑。
- *
- * 除核心下单 / 退款 / 关单 / 验签外，本适配器还实现 {@see AdvancedPayAdapter}，以 `method_exists`
- * 守卫委托 kode/pays 网关的「特色方法」暴露分账 / 转账 / 对账等高级能力；网关不支持时抛清晰异常。
+     * 把 miniapp 的「身份层」接入企业级聚合支付 SDK {@see https://github.com/kodephp/pays kode/pays}，
+     * 让支付这件事完全由 kode/pays 负责（下单 / 查询 / 退款 / 关单 / 回调验签 / 对账 / 沙箱 / 分账 /
+     * 转账 / 红包 / 订阅 / 余额 / 结算 / 事件），而不必在 miniapp 内重复实现一套支付逻辑。
+     *
+     * 除核心下单 / 退款 / 关单 / 验签外，本适配器还实现 {@see AdvancedPayAdapter}，以 `method_exists`
+     * 守卫委托 kode/pays 网关的「特色方法」暴露分账 / 转账 / 对账 / 红包 / 订阅 / 余额 / 结算等高级能力；
+     * 网关不支持时抛清晰异常。
  *
  * 分工（参照 kode/miniapp =「你是谁」、kode/pays =「收钱」）：
  *  - miniapp 负责身份：OAuth / code2session 登录、产出 {@see UnionUser}（openid / unionid /
@@ -344,6 +345,187 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
     }
 
     /**
+     * 发放普通红包（委托 kode/pays 网关 sendRedPacket）
+     *
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function redPacketSend(array $params): array
+    {
+        return $this->callGatewayFeature('sendRedPacket', '红包', $params);
+    }
+
+    /**
+     * 发放裂变红包 / 群红包（委托 kode/pays 网关 groupRedPacket）
+     *
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function redPacketGroup(array $params): array
+    {
+        return $this->callGatewayFeature('groupRedPacket', '红包', $params);
+    }
+
+    /**
+     * 查询红包发放记录（委托 kode/pays 网关 queryRedPacket）
+     *
+     * @param string $mchBillNo
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function redPacketQuery(string $mchBillNo): array
+    {
+        return $this->callGatewayFeature('queryRedPacket', '红包', $mchBillNo);
+    }
+
+    /**
+     * 创建订阅计划（委托 kode/pays 网关 createPlan）
+     *
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function subscriptionCreatePlan(array $params): array
+    {
+        return $this->callGatewayFeature('createPlan', '订阅', $params);
+    }
+
+    /**
+     * 发起订阅（签约并首次扣款，委托 kode/pays 网关 createSubscription）
+     *
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function subscriptionSubscribe(array $params): array
+    {
+        return $this->callGatewayFeature('createSubscription', '订阅', $params);
+    }
+
+    /**
+     * 取消订阅（委托 kode/pays 网关 cancelSubscription）
+     *
+     * @param string $subscriptionId
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function subscriptionCancel(string $subscriptionId): array
+    {
+        return $this->callGatewayFeature('cancelSubscription', '订阅', $subscriptionId);
+    }
+
+    /**
+     * 暂停订阅（委托 kode/pays 网关 pauseSubscription）
+     *
+     * @param string $subscriptionId
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function subscriptionPause(string $subscriptionId): array
+    {
+        return $this->callGatewayFeature('pauseSubscription', '订阅', $subscriptionId);
+    }
+
+    /**
+     * 恢复订阅（委托 kode/pays 网关 resumeSubscription）
+     *
+     * @param string $subscriptionId
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function subscriptionResume(string $subscriptionId): array
+    {
+        return $this->callGatewayFeature('resumeSubscription', '订阅', $subscriptionId);
+    }
+
+    /**
+     * 查询订阅详情（委托 kode/pays 网关 getSubscription）
+     *
+     * @param string $subscriptionId
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function subscriptionGet(string $subscriptionId): array
+    {
+        return $this->callGatewayFeature('getSubscription', '订阅', $subscriptionId);
+    }
+
+    /**
+     * 查询账户余额（委托 kode/pays 网关 queryBalance）
+     *
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function balanceQuery(array $params = []): array
+    {
+        return $this->callGatewayFeature('queryBalance', '余额', $params);
+    }
+
+    /**
+     * 查询日终余额（委托 kode/pays 网关 queryDayEndBalance）
+     *
+     * @param string               $date
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function balanceQueryDayEnd(string $date, array $params = []): array
+    {
+        return $this->callGatewayFeature('queryDayEndBalance', '余额', $date, $params);
+    }
+
+    /**
+     * 结算到钱包（委托 kode/pays 网关 settleToWallet）
+     *
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function settlementToWallet(array $params): array
+    {
+        return $this->callGatewayFeature('settleToWallet', '结算', $params);
+    }
+
+    /**
+     * 结算到银行卡（委托 kode/pays 网关 settleToBankCard）
+     *
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function settlementToBankCard(array $params): array
+    {
+        return $this->callGatewayFeature('settleToBankCard', '结算', $params);
+    }
+
+    /**
+     * 结算到代付（委托 kode/pays 网关 settleToPayout）
+     *
+     * @param array<string, mixed> $params
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function settlementToPayout(array $params): array
+    {
+        return $this->callGatewayFeature('settleToPayout', '结算', $params);
+    }
+
+    /**
+     * 查询结算单（委托 kode/pays 网关 querySettlement）
+     *
+     * @param string $outBizNo
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function settlementQuery(string $outBizNo): array
+    {
+        return $this->callGatewayFeature('querySettlement', '结算', $outBizNo);
+    }
+
+    /**
      * 当前渠道是否支持「分账」能力（无需完整支付配置即可判断）
      */
     #[\Override]
@@ -368,6 +550,44 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
     public function supportsReconciliation(): bool
     {
         return $this->gatewaySupports('downloadBill');
+    }
+
+    /**
+     * 当前渠道是否支持「红包」能力（无需完整支付配置即可判断）
+     */
+    #[\Override]
+    public function supportsRedPacket(): bool
+    {
+        return $this->gatewaySupports('sendRedPacket');
+    }
+
+    /**
+     * 当前渠道是否支持「订阅」能力（无需完整支付配置即可判断）
+     */
+    #[\Override]
+    public function supportsSubscription(): bool
+    {
+        return $this->gatewaySupports('createSubscription');
+    }
+
+    /**
+     * 当前渠道是否支持「余额」能力（无需完整支付配置即可判断）
+     *
+     * 注意：微信 V2 网关（WechatMini 等）不实现 BalanceCapableInterface，故返回 false。
+     */
+    #[\Override]
+    public function supportsBalance(): bool
+    {
+        return $this->gatewaySupports('queryBalance');
+    }
+
+    /**
+     * 当前渠道是否支持「结算」能力（无需完整支付配置即可判断）
+     */
+    #[\Override]
+    public function supportsSettlement(): bool
+    {
+        return $this->gatewaySupports('settleToWallet');
     }
 
     /**

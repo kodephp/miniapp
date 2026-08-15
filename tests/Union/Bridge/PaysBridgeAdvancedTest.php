@@ -20,14 +20,14 @@ use Kode\Pays\Gateway\Wechat\WechatPayGateway;
 use PHPUnit\Framework\TestCase;
 
 /**
- * 验证 PaysBridge 高级支付能力（分账 / 转账 / 对账）委托到真实 kode/pays 网关。
+ * 验证 PaysBridge 高级支付能力（分账 / 转账 / 对账 / 红包 / 订阅 / 余额 / 结算）委托到真实 kode/pays 网关。
  *
  * 2.0 起 kode/pays 为硬依赖（vendor 已安装真实 kode/pays）。本测试通过 {@see FakePaysHttpClient}
- * 注入真实网关实例，走通「参数校验 / 签名 / 报文拼装 / 响应解析」真实代码路径（含分账 / 转账 /
- * 对账特色方法）而不触网，并验证：
+ * 注入真实网关实例，走通「参数校验 / 签名 / 报文拼装 / 响应解析」真实代码路径（含各项特色方法）
+ * 而不触网，并验证：
  *  - 适配器实现 {@see AdvancedPayAdapter}；
- *  - 分账 / 转账 / 对账方法正确转发到对应网关方法并返回解析后的业务数组；
- *  - 网关不支持某项能力时（method_exists 守卫）抛清晰异常。
+ *  - 各项能力方法正确转发到对应网关方法并返回解析后的业务数组；
+ *  - 网关不支持某项能力时（method_exists 守卫 / 类级能力发现）抛清晰异常或返回 false。
  */
 final class PaysBridgeAdvancedTest extends TestCase
 {
@@ -68,19 +68,30 @@ final class PaysBridgeAdvancedTest extends TestCase
                 'profitSharingQueryReturn', 'profitSharingUnfreeze', 'transferSingle',
                 'transferBatch', 'transferQuery', 'transferReceipt',
                 'reconciliationDownloadBill', 'reconciliationDownloadFundFlow', 'reconciliationParseBill',
+                'redPacketSend', 'redPacketGroup', 'redPacketQuery',
+                'subscriptionCreatePlan', 'subscriptionSubscribe', 'subscriptionCancel',
+                'subscriptionPause', 'subscriptionResume', 'subscriptionGet',
+                'balanceQuery', 'balanceQueryDayEnd',
+                'settlementToWallet', 'settlementToBankCard', 'settlementToPayout', 'settlementQuery',
             ] as $method
         ) {
             self::assertTrue(method_exists($adapter, $method), "PaysBridgePayAdapter 缺少高级方法 {$method}");
         }
     }
 
-    public function testWechatSupportsAllThreeCapabilities(): void
+    public function testWechatSupportsCoreAndExtendedCapabilities(): void
     {
         $adapter = PaysBridge::adapter(Channel::WechatMini, fn () => $this->wechatConfig());
 
+        // 微信 V2 支持：分账 / 转账 / 对账 / 红包 / 订阅 / 结算
         self::assertTrue($adapter->supportsProfitSharing());
         self::assertTrue($adapter->supportsTransfer());
         self::assertTrue($adapter->supportsReconciliation());
+        self::assertTrue($adapter->supportsRedPacket());
+        self::assertTrue($adapter->supportsSubscription());
+        self::assertTrue($adapter->supportsSettlement());
+        // 微信 V2 网关未实现 BalanceCapableInterface，余额查询不被支持
+        self::assertFalse($adapter->supportsBalance());
     }
 
     public function testQqSupportsNoAdvancedCapability(): void
@@ -90,6 +101,10 @@ final class PaysBridgeAdvancedTest extends TestCase
         self::assertFalse($adapter->supportsProfitSharing());
         self::assertFalse($adapter->supportsTransfer());
         self::assertFalse($adapter->supportsReconciliation());
+        self::assertFalse($adapter->supportsRedPacket());
+        self::assertFalse($adapter->supportsSubscription());
+        self::assertFalse($adapter->supportsSettlement());
+        self::assertFalse($adapter->supportsBalance());
     }
 
     public function testBaiduSupportsNoAdvancedCapability(): void
@@ -100,6 +115,20 @@ final class PaysBridgeAdvancedTest extends TestCase
         self::assertFalse($adapter->supportsProfitSharing());
         self::assertFalse($adapter->supportsTransfer());
         self::assertFalse($adapter->supportsReconciliation());
+        self::assertFalse($adapter->supportsRedPacket());
+        self::assertFalse($adapter->supportsSubscription());
+        self::assertFalse($adapter->supportsSettlement());
+        self::assertFalse($adapter->supportsBalance());
+    }
+
+    public function testWechatBalanceUnsupportedThrowsClearException(): void
+    {
+        $adapter = PaysBridge::adapter(Channel::WechatMini, fn () => $this->wechatConfig());
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('余额');
+
+        $adapter->balanceQuery(['account_type' => 'BASIC']);
     }
 
     public function testProfitSharingCreateDelegatesToWechatGateway(): void
@@ -143,6 +172,55 @@ final class PaysBridgeAdvancedTest extends TestCase
         // 微信对账单接口返回含 bill_date 与解析后记录列表的结构
         self::assertSame('20260814', $result['bill_date']);
         self::assertIsArray($result['records']);
+    }
+
+    public function testRedPacketSendDelegatesToWechatGateway(): void
+    {
+        $adapter = PaysBridge::adapter(Channel::WechatMini, fn () => $this->wechatConfig());
+
+        $result = $adapter->redPacketSend([
+            'mch_billno' => 'RP_1',
+            'send_name'  => '测试商户',
+            're_openid'  => 'OPEN_RP',
+            'total_amount' => 100,
+            'wishing'    => '恭喜发财',
+            'act_name'   => '营销活动',
+            'remark'     => '测试红包',
+        ]);
+
+        self::assertSame('SUCCESS', $result['return_code']);
+        self::assertStringContainsString('mmpaymkttransfers/sendredpack', $this->fake->lastUrl ?? '');
+    }
+
+    public function testSubscriptionSubscribeReturnsEntrustRedirect(): void
+    {
+        $adapter = PaysBridge::adapter(Channel::WechatMini, fn () => $this->wechatConfig());
+
+        $result = $adapter->subscriptionSubscribe([
+            'customer_id' => 'CUST_1',
+            'plan_id'     => 'PLAN_1',
+            'notify_url'  => 'https://example.com/notify',
+        ]);
+
+        // 微信委托代扣返回签约跳转链接（无需触网）
+        self::assertSame('GET', $result['method']);
+        self::assertStringContainsString('papay/entrustweb', $result['url']);
+        self::assertSame('CUST_1', $result['contract_code']);
+    }
+
+    public function testSettlementToWalletDelegatesToWechatGateway(): void
+    {
+        $adapter = PaysBridge::adapter(Channel::WechatMini, fn () => $this->wechatConfig());
+
+        $result = $adapter->settlementToWallet([
+            'out_biz_no' => 'SET_1',
+            'amount'     => 200,
+            'account'    => 'OPEN_SET',
+            'real_name'  => '张三',
+        ]);
+
+        self::assertSame('SUCCESS', $result['return_code']);
+        self::assertStringContainsString('mmpaymkttransfers/promotion/transfers', $this->fake->lastUrl ?? '');
     }
 
     public function testReconciliationParseBillParsesCsv(): void

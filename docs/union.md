@@ -152,15 +152,15 @@ $order = Union::wechat()->pay()->createOrder([
 $data = Union::wechat()->notify()->decode($payload, $headers);
 ```
 
-### 高级支付能力（分账 / 转账 / 对账）
+### 高级支付能力（分账 / 转账 / 对账 / 红包 / 订阅 / 余额 / 结算）
 
-核心下单 / 退款 / 关单 / 验签之外，kode/pays 网关还提供「特色方法」（分账、转账、对账等）。
-本包通过 {@see \Kode\MiniApp\Union\Contracts\AdvancedPayAdapter} 暴露这些能力，由
+核心下单 / 退款 / 关单 / 验签之外，kode/pays 网关还提供「特色方法」。本包通过
+{@see \Kode\MiniApp\Union\Contracts\AdvancedPayAdapter} 暴露这些能力，由
 {@see \Kode\MiniApp\Union\Bridge\PaysBridgePayAdapter} 以 `method_exists` 守卫委托真实网关，
 **方法名与 kode/pays 网关契约完全一致**，无额外封装、无参数变换：
 
 ```php
-// 取得高级支付能力适配器（分账 / 转账 / 对账）
+// 取得高级支付能力适配器（分账 / 转账 / 对账 / 红包 / 订阅 / 余额 / 结算）
 $adv = Union::wechat()->advancedPay();   // 等价于 $union->advancedPay(Channel::WechatMini)
 
 // 分账（ProfitSharingCapableInterface）
@@ -188,12 +188,51 @@ $adv->transferReceipt('商户转账单号');                      // 查询转�
 $bill = $adv->reconciliationDownloadBill(['bill_date' => '20260814']); // 下载交易对账单
 $flow = $adv->reconciliationDownloadFundFlow(['bill_date' => '20260814']); // 下载资金账单
 $records = $adv->reconciliationParseBill($bill['raw_data']);     // 解析对账单原始数据（CSV / JSON）
+
+// 红包（RedPacketCapableInterface，微信 / 支付宝 / 美团 / 京东 支持）
+$adv->redPacketSend([
+    'mch_billno' => '商户红包单号',
+    'send_name'  => '商户名称',
+    're_openid'  => $openId,
+    'total_amount' => 100,
+    'wishing'    => '恭喜发财',
+    'act_name'   => '活动名称',
+    'remark'     => '测试红包',
+]);
+$adv->redPacketGroup([/* 在普通红包基础上需 total_num >= 3（裂变红包） */]);
+$adv->redPacketQuery('商户红包单号');                       // 查询红包发放记录
+
+// 订阅 / 委托代扣（SubscriptionCapableInterface，微信 papay / 支付宝 / Stripe 等支持）
+$adv->subscriptionCreatePlan([/* product_id / name / amount / interval 等（按平台） */]);
+$redirect = $adv->subscriptionSubscribe([                   // 微信委托代扣返回签约跳转链接
+    'customer_id' => '商户侧协议号',
+    'plan_id'     => '模板 ID',
+    'notify_url'  => 'https://example.com/notify',
+]);
+// header('Location: ' . $redirect['url']);                 // 跳转用户签约，结果异步回调
+$adv->subscriptionCancel('协议号');                         // 解约
+$adv->subscriptionGet('协议号');                            // 查询签约关系
+
+// 余额（BalanceCapableInterface，微信 V3 / 支付宝 / Stripe 等支持；微信 V2 不支持）
+$adv->balanceQuery(['account_type' => 'BASIC']);
+$adv->balanceQueryDayEnd('20260814');                      // 日终余额（对账用）
+
+// 结算 / 提现（SettlementCapableInterface）
+$adv->settlementToWallet([
+    'out_biz_no' => '商户结算单号',
+    'amount'     => 200,
+    'account'    => $openId,
+    'real_name'  => '张三',
+]);
+$adv->settlementToBankCard([/* out_biz_no + amount + bank_card_no + real_name */]);
+$adv->settlementQuery('商户结算单号');                      // 查询结算结果
 ```
 
-> **能力可用性**：分账 / 转账 / 对账并非所有平台 / 网关都具备（如百度、企业微信网关未实现；
-> 微信分账需先在商户平台开通）。当某渠道的网关未实现对应特色方法时，`advancedPay()` 返回的适配器
-> 会抛清晰异常（含「分账 / 转账 / 对账」字样），不会触发难以定位的「Call to undefined method」。
-> 是否需要该能力由调用方按业务自行判断，本包不替业务做能力裁剪。
+> **能力可用性**：上述各项能力并非所有平台 / 网关都具备（如百度、企业微信网关未实现；微信 V2
+> 不支持余额查询，微信委托代扣无「暂停 / 恢复」端点）。当某渠道的网关未实现对应特色方法时，
+> `advancedPay()` 返回的适配器会抛清晰异常（含「分账 / 转账 / 红包 / 订阅 / 余额 / 结算」字样），
+> 不会触发难以定位的「Call to undefined method」。是否需要该能力由调用方按业务自行判断，本包不替
+> 业务做能力裁剪。
 
 #### 能力发现（调用前判断，无需支付配置）
 
@@ -203,34 +242,48 @@ $records = $adv->reconciliationParseBill($bill['raw_data']);     // 解析对账
 ```php
 $adv = Union::wechat()->advancedPay();
 
-if ($adv->supportsProfitSharing()) {
+if ($adv->supportsProfitSharing()) {   // 分账
     $adv->profitSharingCreate([/* ... */]);
 }
-if ($adv->supportsTransfer()) {
+if ($adv->supportsTransfer()) {        // 转账
     $adv->transferSingle([/* ... */]);
 }
-if ($adv->supportsReconciliation()) {
+if ($adv->supportsReconciliation()) {  // 对账
     $records = $adv->reconciliationParseBill($raw);
+}
+if ($adv->supportsRedPacket()) {       // 红包
+    $adv->redPacketSend([/* ... */]);
+}
+if ($adv->supportsSubscription()) {    // 订阅 / 委托代扣
+    $adv->subscriptionSubscribe([/* ... */]);
+}
+if ($adv->supportsBalance()) {         // 余额（微信 V2 返回 false）
+    $adv->balanceQuery([/* ... */]);
+}
+if ($adv->supportsSettlement()) {      // 结算 / 提现
+    $adv->settlementToWallet([/* ... */]);
 }
 ```
 
 #### 渠道能力矩阵（kode/pays 实测）
 
-| 渠道 | 分账 | 转账 | 对账 |
-| --- | :---: | :---: | :---: |
-| 微信（V2 / V3） | ✅ | ✅ | ✅ |
-| 支付宝 | ✅ | ✅ | ✅ |
-| 抖音 | ✅ | — | — |
-| 京东 / 美团 | ✅ | ✅ | ✅ |
-| 银联 | ✅ | — | — |
-| Stripe | ✅ | ✅ | ✅ |
-| Adyen / Revolut | — | ✅ | ✅ |
-| QQ | — | — | — |
-| 百度 / 企业微信 | — | — | — |
+| 渠道 | 分账 | 转账 | 对账 | 红包 | 订阅 | 结算 | 余额 |
+| --- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| 微信 V2（小程序等） | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — |
+| 微信 V3 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 支付宝 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 抖音 | ✅ | — | — | — | — | — | — |
+| 京东 / 美团 | ✅ | ✅ | ✅ | ✅ | — | ✅ | — |
+| 银联 | ✅ | — | — | — | — | — | — |
+| Stripe | ✅ | ✅ | ✅ | — | ✅ | ✅ | ✅ |
+| Adyen / Revolut | — | ✅ | ✅ | — | ✅ | ✅ | ✅ |
+| PayPal | — | — | — | — | ✅ | ✅ | ✅ |
+| QQ | — | — | — | — | — | — | — |
+| 百度 / 企业微信 | — | — | — | — | — | — | — |
 
-> 矩阵依据 kode/pays 网关能力接口（ProfitSharingCapableInterface / TransferCapableInterface /
-> ReconciliationCapableInterface）实测。具体平台以 kode/pays 最新版本为准；调用前用 `supports*()`
-> 判断最稳妥。
+> 矩阵依据 kode/pays 网关能力接口（ProfitSharing / Transfer / Reconciliation / RedPacket /
+> Subscription / Settlement / BalanceCapableInterface）实测。具体平台以 kode/pays 最新版本为准；
+> 调用前用 `supports*()` 判断最稳妥。
 
 ### 透传底层 Provider / App
 

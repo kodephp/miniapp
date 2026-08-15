@@ -5,28 +5,30 @@ declare(strict_types=1);
 namespace Kode\MiniApp\Union\Contracts;
 
 /**
- * 高级支付能力契约（分账 / 转账 / 对账）
+ * 高级支付能力契约（分账 / 转账 / 对账 / 红包 / 订阅 / 余额 / 结算）
  *
- * 扩展 {@see PayAdapter} 核心下单 / 退款 / 回调能力，暴露 kode/pays 网关的「特色方法」
- * （分账、转账、对账）。这些能力并非所有平台 / 网关都具备（例如百度、企业微信网关未实现，
- * 微信分账需先开通），因此单独抽成子接口，避免污染核心 {@see PayAdapter} 契约——
- * 业务侧按需通过 {@see \Kode\MiniApp\Union\Platforms\PlatformUnion::advancedPay()}
- * 取得本接口实例后调用。
+ * 扩展 {@see PayAdapter} 核心下单 / 退款 / 回调能力，暴露 kode/pays 网关的「特色方法」。
+ * 这些能力并非所有平台 / 网关都具备（例如百度、企业微信网关未实现，微信 V2 不支持余额查询），
+ * 因此单独抽成子接口，避免污染核心 {@see PayAdapter} 契约——业务侧按需通过
+ * {@see \Kode\MiniApp\Union\Platforms\PlatformUnion::advancedPay()} 取得本接口实例后调用。
  *
- * 方法命名与参数顺序**刻意对齐 kode/pays 网关契约**与 {@see \Kode\Pays\Facade\Pay} 统一入口
- * （createProfitSharing / singleTransfer / downloadBill ...），无额外封装、无参数变换：
+ * 方法命名与参数顺序**刻意对齐 kode/pays 网关契约**与 {@see \Kode\Pays\Facade\Pay} 统一入口，
+ * 无额外封装、无参数变换：
  *
  *  - 分账（ProfitSharingCapableInterface）：发起 / 查询 / 回退 / 查询回退 / 解冻剩余资金
  *  - 转账（TransferCapableInterface）：单笔 / 批量 / 查询 / 电子回单
  *  - 对账（ReconciliationCapableInterface）：下载交易对账单 / 下载资金账单 / 解析对账单
+ *  - 红包（RedPacketCapableInterface）：普通红包 / 裂变红包 / 查询红包记录
+ *  - 订阅（SubscriptionCapableInterface）：创建订阅计划 / 发起订阅 / 取消 / 暂停 / 恢复 / 查询
+ *  - 余额（BalanceCapableInterface）：查询账户余额 / 查询日终余额
+ *  - 结算（SettlementCapableInterface）：结算到钱包 / 银行卡 / 代付 / 查询结算单
  *
  * 调用前无需关心底层实现：本接口的唯一实现 {@see \Kode\MiniApp\Union\Bridge\PaysBridgePayAdapter}
  * 会以 `method_exists` 守卫委托真实网关的特色方法，网关不支持某项能力时抛清晰异常。
  *
  * 能力发现：部分平台 / 网关并不支持全部能力（例如百度、企业微信网关未实现，QQ 不支持分账 /
- * 转账 / 对账，抖音仅支持分账）。调用前可用 {@see self::supportsProfitSharing()} /
- * {@see self::supportsTransfer()} / {@see self::supportsReconciliation()} 优雅判断，避免依赖
- * 捕获异常来决定分支。
+ * 转账 / 对账，微信 V2 不支持余额查询，抖音仅支持分账）。调用前可用 {@see self::supports*()}
+ * 系列方法优雅判断，避免依赖捕获异常来决定分支。
  */
 interface AdvancedPayAdapter extends PayAdapter
 {
@@ -129,6 +131,128 @@ interface AdvancedPayAdapter extends PayAdapter
     public function reconciliationParseBill(string $rawData): array;
 
     /**
+     * 发放普通红包（对齐 kode/pays 网关 sendRedPacket）
+     *
+     * @param array<string, mixed> $params 红包参数
+     *        （mch_billno / send_name / re_openid / total_amount / wishing / act_name / remark 等）
+     * @return array<string, mixed>
+     */
+    public function redPacketSend(array $params): array;
+
+    /**
+     * 发放裂变红包（群红包，对齐 kode/pays 网关 groupRedPacket）
+     *
+     * @param array<string, mixed> $params 裂变红包参数（在普通红包基础上需 total_num >= 3）
+     * @return array<string, mixed>
+     */
+    public function redPacketGroup(array $params): array;
+
+    /**
+     * 查询红包发放记录（对齐 kode/pays 网关 queryRedPacket）
+     *
+     * @param string $mchBillNo 商户红包订单号
+     * @return array<string, mixed>
+     */
+    public function redPacketQuery(string $mchBillNo): array;
+
+    /**
+     * 创建订阅计划（对齐 kode/pays 网关 createPlan）
+     *
+     * @param array<string, mixed> $params 计划参数（product_id / name / amount / interval 等）
+     * @return array<string, mixed>
+     */
+    public function subscriptionCreatePlan(array $params): array;
+
+    /**
+     * 发起订阅（签约并首次扣款，对齐 kode/pays 网关 createSubscription）
+     *
+     * @param array<string, mixed> $params 订阅参数（plan_id / out_trade_no / payer / amount 等）
+     * @return array<string, mixed>
+     */
+    public function subscriptionSubscribe(array $params): array;
+
+    /**
+     * 取消订阅（对齐 kode/pays 网关 cancelSubscription）
+     *
+     * @param string $subscriptionId 订阅 ID
+     * @return array<string, mixed>
+     */
+    public function subscriptionCancel(string $subscriptionId): array;
+
+    /**
+     * 暂停订阅（对齐 kode/pays 网关 pauseSubscription）
+     *
+     * @param string $subscriptionId 订阅 ID
+     * @return array<string, mixed>
+     */
+    public function subscriptionPause(string $subscriptionId): array;
+
+    /**
+     * 恢复订阅（对齐 kode/pays 网关 resumeSubscription）
+     *
+     * @param string $subscriptionId 订阅 ID
+     * @return array<string, mixed>
+     */
+    public function subscriptionResume(string $subscriptionId): array;
+
+    /**
+     * 查询订阅详情（对齐 kode/pays 网关 getSubscription）
+     *
+     * @param string $subscriptionId 订阅 ID
+     * @return array<string, mixed>
+     */
+    public function subscriptionGet(string $subscriptionId): array;
+
+    /**
+     * 查询账户余额（对齐 kode/pays 网关 queryBalance）
+     *
+     * @param array<string, mixed> $params 查询参数（部分平台需 merchant_id / account_type 等）
+     * @return array<string, mixed>
+     */
+    public function balanceQuery(array $params = []): array;
+
+    /**
+     * 查询日终余额（对账用，对齐 kode/pays 网关 queryDayEndBalance）
+     *
+     * @param string               $date   对账日期（Ymd）
+     * @param array<string, mixed> $params 附加参数
+     * @return array<string, mixed>
+     */
+    public function balanceQueryDayEnd(string $date, array $params = []): array;
+
+    /**
+     * 结算到钱包（对齐 kode/pays 网关 settleToWallet）
+     *
+     * @param array<string, mixed> $params 结算参数（out_biz_no / amount / account 等）
+     * @return array<string, mixed>
+     */
+    public function settlementToWallet(array $params): array;
+
+    /**
+     * 结算到银行卡（对齐 kode/pays 网关 settleToBankCard）
+     *
+     * @param array<string, mixed> $params 结算参数（out_biz_no / amount / bank_account 等）
+     * @return array<string, mixed>
+     */
+    public function settlementToBankCard(array $params): array;
+
+    /**
+     * 结算到代付（对齐 kode/pays 网关 settleToPayout）
+     *
+     * @param array<string, mixed> $params 结算参数
+     * @return array<string, mixed>
+     */
+    public function settlementToPayout(array $params): array;
+
+    /**
+     * 查询结算单（对齐 kode/pays 网关 querySettlement）
+     *
+     * @param string $outBizNo 商户结算单号
+     * @return array<string, mixed>
+     */
+    public function settlementQuery(string $outBizNo): array;
+
+    /**
      * 当前渠道是否支持「分账」能力
      *
      * 基于 kode/pays 网关类是否实现 ProfitSharingCapableInterface 判断，**无需完整支付配置**
@@ -149,4 +273,33 @@ interface AdvancedPayAdapter extends PayAdapter
      * 基于 kode/pays 网关类是否实现 ReconciliationCapableInterface 判断，无需完整支付配置即可调用。
      */
     public function supportsReconciliation(): bool;
+
+    /**
+     * 当前渠道是否支持「红包」能力
+     *
+     * 基于 kode/pays 网关类是否实现 RedPacketCapableInterface 判断，无需完整支付配置即可调用。
+     */
+    public function supportsRedPacket(): bool;
+
+    /**
+     * 当前渠道是否支持「订阅」能力
+     *
+     * 基于 kode/pays 网关类是否实现 SubscriptionCapableInterface 判断，无需完整支付配置即可调用。
+     */
+    public function supportsSubscription(): bool;
+
+    /**
+     * 当前渠道是否支持「余额」能力
+     *
+     * 基于 kode/pays 网关类是否实现 BalanceCapableInterface 判断，无需完整支付配置即可调用。
+     * 注意：微信 V2 网关不支持，微信 V3 / 支付宝 / Stripe 等支持。
+     */
+    public function supportsBalance(): bool;
+
+    /**
+     * 当前渠道是否支持「结算」能力
+     *
+     * 基于 kode/pays 网关类是否实现 SettlementCapableInterface 判断，无需完整支付配置即可调用。
+     */
+    public function supportsSettlement(): bool;
 }
