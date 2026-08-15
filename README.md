@@ -153,6 +153,10 @@ if ($caps['red_packet']) {
     // 仅微信 V2 支持红包，V3 为 false
 }
 
+// 完整能力画像（单调用合并基础能力 + 高级支付 10 项开关，前端一次性渲染能力菜单）：
+$profile = $kernel->union()->wechat()->capabilityProfile();
+// $profile['features'] 基础能力；$profile['payment'] 高级支付 10 项布尔开关
+
 // Webhook 异步事件回调（与 notify() 同步结果通知对称）：webhook() 返回 WebhookAdapter。
 // 需 kode/pays >= 2.6.0（WebhookCapableInterface）；2.3.0 上 supportsWebhook() 返回 false。
 $wh = $kernel->union()->wechat()->webhook();

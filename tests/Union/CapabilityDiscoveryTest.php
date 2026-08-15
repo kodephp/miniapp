@@ -84,4 +84,56 @@ final class CapabilityDiscoveryTest extends TestCase
         self::assertContains('pay', $arr['features']);
         self::assertArrayHasKey('required_config', $arr);
     }
+
+    public function testCapabilityProfileMergesPaymentCapabilities(): void
+    {
+        $profile = $this->union()->capabilityProfile(Channel::WechatMini);
+
+        // 基础能力树结构保持完整
+        self::assertSame('wechat_mini', $profile['channel']);
+        self::assertContains('pay', $profile['features']);
+        self::assertArrayHasKey('required_config', $profile);
+
+        // 支付子能力被合并进同一棵树（无需完整支付配置）
+        self::assertArrayHasKey('payment', $profile);
+        self::assertIsArray($profile['payment']);
+
+        // 微信 V2 已发布 kode/pays 2.3.0 矩阵：8 项 true，balance + webhook 为 false
+        $wechatTrue = [
+            'profit_sharing', 'transfer', 'reconciliation', 'red_packet',
+            'subscription', 'settlement', 'personal_receive', 'refund',
+        ];
+        foreach ($wechatTrue as $cap) {
+            self::assertTrue($profile['payment'][$cap], "期望 {$cap} 为 true");
+        }
+        self::assertFalse($profile['payment']['balance']);
+        self::assertFalse($profile['payment']['webhook']);
+    }
+
+    public function testCapabilityProfileAlipayHasAllTenPaymentKeys(): void
+    {
+        $profile = $this->union()->capabilityProfile(Channel::AlipayMini);
+
+        self::assertSame('alipay_mini', $profile['channel']);
+        self::assertArrayHasKey('payment', $profile);
+        self::assertCount(10, $profile['payment']);
+        $allTen = [
+            'profit_sharing', 'transfer', 'reconciliation', 'red_packet',
+            'subscription', 'balance', 'settlement', 'personal_receive',
+            'webhook', 'refund',
+        ];
+        foreach ($allTen as $cap) {
+            self::assertArrayHasKey($cap, $profile['payment']);
+            self::assertIsBool($profile['payment'][$cap]);
+        }
+    }
+
+    public function testPlatformUnionCapabilityProfileDelegates(): void
+    {
+        $profile = $this->union()->wechat()->capabilityProfile();
+
+        self::assertSame('wechat_mini', $profile['channel']);
+        self::assertArrayHasKey('payment', $profile);
+        self::assertTrue($profile['payment']['profit_sharing']);
+    }
 }

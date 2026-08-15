@@ -299,6 +299,16 @@ if ($adv->supportsSettlement()) {      // 结算 / 提现
 > ```php
 > $caps = Union::wechat()->paymentCapabilities();
 > // => ['profit_sharing' => true, 'transfer' => true, ... 'balance' => false, 'webhook' => false]
+>
+> // 完整能力画像（一次性合并基础能力 + 高级支付子能力，前端单调用即可渲染全部能力菜单）：
+> $profile = Union::wechat()->capabilityProfile();
+> // => [
+> //      'channel'         => 'wechat_mini',
+> //      'label'           => '微信小程序',
+> //      'features'        => ['login','pay','notify','user','decrypt'],
+> //      'required_config' => ['app_id','mch_id','key_path','mch_serial_no'],
+> //      'payment'         => ['profit_sharing'=>true, ..., 'balance'=>false, 'webhook'=>false],
+> //    ]
 > if ($caps['red_packet']) {
 >     // 仅微信 V2 支持红包，V3 为 false
 > }
@@ -1202,6 +1212,16 @@ $h5 = Union::capabilities(Channel::WechatH5);
 $h5->supports(ChannelFeature::Pay);     // true
 $h5->supports(ChannelFeature::Decrypt); // false
 ```
+
+> **完整能力画像（单调用）**：若希望一次性拿到「基础能力 + 高级支付子能力」合并树（含 10 项支付开关），
+> 用 {@see \Kode\MiniApp\Union\Union::capabilityProfile()} / {@see \Kode\MiniApp\Union\Platforms\PlatformUnion::capabilityProfile()}：
+>
+> ```php
+> $profile = Union::wechat()->capabilityProfile();
+> // $profile['features']  → 基础能力（login/pay/notify/user/decrypt）
+> // $profile['payment']   → 高级支付 10 项布尔开关（无需完整支付配置，基于 kode/pays 网关类级发现）
+> // kode/pays 未安装时 payment 返回空数组，不影响基础能力揭示
+> ```
 
 枚举上也可直接查询，无需实例化 Union：
 

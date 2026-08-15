@@ -755,6 +755,31 @@ final class Union
     }
 
     /**
+     * 渠道「完整能力画像」：合并基础能力（登录 / 支付 / 回调 / 资料 / 解密）
+     * 与高级支付子能力（分账 / 转账 / 对账 / 红包 / 订阅 / 余额 / 结算 / 个人收款 / Webhook / 退款）
+     * 为单一树状结构，供前端一次性渲染能力菜单或运行前自检。
+     *
+     * 等价于 {@see self::capabilities()}()->toArray() 叠加 payment 子键
+     * （{@see self::paymentCapabilities()}），**无需完整支付配置**即可调用
+     * （支付子能力基于 kode/pays 网关类级能力发现）。
+     * kode/pays 未安装时 payment 子键返回空数组，不影响基础能力揭示。
+     *
+     * @return array{
+     *     channel:string, label:string, features:array<string>,
+     *     required_config:array<string>, payment:array<string, bool>
+     * }
+     */
+    public function capabilityProfile(Channel $channel): array
+    {
+        $profile = $this->capabilities($channel)->toArray();
+        $profile['payment'] = PaysBridge::available()
+            ? $this->advancedPay($channel)->paymentCapabilities()
+            : [];
+
+        return $profile;
+    }
+
+    /**
      * 获取回调适配器
      *
      * 2.0 起回调验签 / 解密完全委托 kode/pays（{@see PaysBridgeNotifyAdapter}）。

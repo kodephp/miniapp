@@ -233,6 +233,26 @@ abstract class PlatformUnion
     }
 
     /**
+     * 渠道「完整能力画像」（门面级便捷入口）
+     *
+     * 等价于 {@see \Kode\MiniApp\Union\Union::capabilityProfile()}：合并基础能力
+     * （登录 / 支付 / 回调 / 资料 / 解密）与高级支付子能力（10 项布尔开关）为单一树状结构，
+     * 供前端一次性渲染能力菜单或运行前自检，无需先持有高级适配器实例。
+     *
+     * @return array{
+     *     channel:string, label:string, features:array<string>,
+     *     required_config:array<string>, payment:array<string, bool>
+     * }
+     */
+    public function capabilityProfile(?string $scene = null): array
+    {
+        $channel = $scene !== null
+            ? $this->channelForScene($scene)
+            : $this->defaultPayChannel();
+        return $this->union->capabilityProfile($channel);
+    }
+
+    /**
      * 统一下单（直接调用）
      *
      * 便捷写法：把已登录的 {@see UnionUser} 传入，支付适配器会自动注入
