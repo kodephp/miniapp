@@ -98,7 +98,7 @@ final class CapabilityDiscoveryTest extends TestCase
         self::assertArrayHasKey('payment', $profile);
         self::assertIsArray($profile['payment']);
 
-        // 微信 V2 已发布 kode/pays 2.3.0 矩阵：8 项 true，balance + webhook 为 false
+        // 微信 V2 已发布 kode/pays 2.17.0 矩阵：除 balance 外其余均为 true（含 webhook，2.17.0 起实现 WebhookCapableInterface）
         $wechatTrue = [
             'profit_sharing', 'transfer', 'reconciliation', 'red_packet',
             'subscription', 'settlement', 'personal_receive', 'refund',
@@ -107,7 +107,7 @@ final class CapabilityDiscoveryTest extends TestCase
             self::assertTrue($profile['payment'][$cap], "期望 {$cap} 为 true");
         }
         self::assertFalse($profile['payment']['balance']);
-        self::assertFalse($profile['payment']['webhook']);
+        self::assertTrue($profile['payment']['webhook']);
     }
 
     public function testCapabilityProfileAlipayHasAllTenPaymentKeys(): void

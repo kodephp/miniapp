@@ -15,6 +15,7 @@ use Kode\MiniApp\Union\Contracts\WebhookAdapter;
 use Kode\Pays\Core\GatewayFactory;
 use Kode\Pays\Facade\Pay;
 use Kode\Pays\Gateway\Wechat\WechatPayGateway;
+use Kode\Pays\Support\Signer;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -50,6 +51,46 @@ final class PaysBridgeWebhookTest extends TestCase
     private function wechatConfig(): array
     {
         return ['app_id' => 'wx_app', 'mch_id' => 'mch_1', 'api_key' => self::API_KEY];
+    }
+
+    /**
+     * 构造一笔真实 MD5 签名的微信 V2 Webhook 报文（与 verifyNotify 同源验签）。
+     *
+     * @return array<string, string>
+     */
+    private function signedWebhookPayload(): array
+    {
+        $payload = [
+            'appid'         => 'wx_app',
+            'mch_id'        => 'mch_1',
+            'out_trade_no'  => 'T_WH_1',
+            'transaction_id' => 'TXN_WH_1',
+            'result_code'   => 'SUCCESS',
+            'return_code'   => 'SUCCESS',
+            'total_fee'     => '100',
+            'nonce_str'     => 'WHNONCE123',
+        ];
+        $payload['sign'] = Signer::md5($payload, self::API_KEY);
+
+        return $payload;
+    }
+
+    /**
+     * 将关联数组转为微信 V2 风格 XML 报文（无 CDATA，网关 xmlToArray 以 LIBXML_NOCDATA 解析一致）。
+     *
+     * @param array<string, string> $data
+     */
+    private function toXml(array $data): string
+    {
+        $xml = new \SimpleXMLElement('<xml/>');
+        foreach ($data as $key => $value) {
+            $xml->addChild($key, (string) $value);
+        }
+
+        /** @var string $out */
+        $out = $xml->asXML();
+
+        return $out;
     }
 
     /**
@@ -123,13 +164,48 @@ final class PaysBridgeWebhookTest extends TestCase
         });
     }
 
-    public function testSupportsWebhookFalseForPublishedWechat(): void
+    public function testSupportsWebhookTrueForPublishedWechat(): void
     {
-        // 已发布 kode/pays 2.3.0 的微信网关尚未提供 verifyWebhook 方法，能力发现须返回 false
-        // （pay_open 2.6.0 起才支持 WebhookCapableInterface，届时本方法自动返回 true）
+        // kode/pays 2.17.0 起，已发布的微信 V2 网关实现了 WebhookCapableInterface，
+        // 能力发现必须自动返回 true（前向兼容脚手架在此版本正式激活）
         $adapter = PaysBridge::adapter(Channel::WechatMini, fn () => $this->wechatConfig());
 
-        self::assertFalse($adapter->supportsWebhook());
+        self::assertTrue($adapter->supportsWebhook());
+    }
+
+    public function testPublishedWechatGatewayWebhookVerifyParseE2E(): void
+    {
+        // 真实已发布 kode/pays 2.17.0 的微信 V2 网关已实现 WebhookCapableInterface，
+        // 本测试经真实网关走通「验签 + 解析」全链路（与 notify 同源 MD5 验签，不触网），
+        // 证明前向兼容脚手架在 2.17.0 已正式生效、且 Webhook 路径无静默放行。
+        $adapter = PaysBridge::webhookAdapter(Channel::WechatMini, fn () => $this->wechatConfig());
+
+        // 能力发现已激活
+        $pay = PaysBridge::adapter(Channel::WechatMini, fn () => $this->wechatConfig());
+        self::assertTrue($pay->supportsWebhook());
+
+        // 构造一笔真实 MD5 签名的微信 V2 Webhook 报文（XML，与 verifyNotify 同源验签）
+        $payload = $this->signedWebhookPayload();
+        $xml = $this->toXml($payload);
+
+        // 验签通过（V2 验签在报文体内，headers 不参与 MD5，传空亦可）
+        self::assertTrue($adapter->verify($xml, []));
+
+        // 解析为统一事件结构
+        $event = $adapter->parse($xml);
+        self::assertSame('wechat', $event['gateway']);
+        self::assertSame('TXN_WH_1', $event['event_id']);
+        self::assertSame('pay_success', $event['event_type']);
+        self::assertSame('T_WH_1', $event['data']['out_trade_no'] ?? '');
+        self::assertSame($xml, $event['raw']);
+
+        // 篡改报文（不改签名）验签必失败——无静默放行伪造/篡改事件
+        $tampered = $payload;
+        $tampered['out_trade_no'] = 'T_WH_HACKED';
+        self::assertFalse($adapter->verify($this->toXml($tampered), []));
+
+        // 空报文验签失败
+        self::assertFalse($adapter->verify('', []));
     }
 
     public function testSupportsWebhookFalseForBaidu(): void

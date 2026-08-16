@@ -163,8 +163,8 @@ final class PlatformUnionPaymentFacadeTest extends TestCase
     /**
      * 经「真实 Kernel resolver + 完整商户配置」验证 paymentCapabilities() 返回的微信能力矩阵精确正确。
      *
-     * WechatPayGateway（V2）实现 8 个 Capable 接口：分账 / 转账 / 对账 / 红包 / 订阅 / 结算 / 个人收款 / 退款；
-     * 未实现 BalanceCapable / WebhookCapable，故 balance / webhook 为 false。
+     * WechatPayGateway（V2）实现 Capable 接口：分账 / 转账 / 对账 / 红包 / 订阅 / 结算 / 个人收款 / 退款 / Webhook；
+     * 仅未实现 BalanceCapable，故 balance 为 false、webhook 为 true（kode/pays 2.17.0 起实现 WebhookCapableInterface）。
      */
     public function testWechatPaymentCapabilitiesExactViaKernelResolver(): void
     {
@@ -179,7 +179,7 @@ final class PlatformUnionPaymentFacadeTest extends TestCase
             'balance'          => false,
             'settlement'       => true,
             'personal_receive' => true,
-            'webhook'          => false,
+            'webhook'          => true,
             'refund'           => true,
         ], $caps);
     }
