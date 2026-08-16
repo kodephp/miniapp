@@ -62,6 +62,7 @@ final class PaysBridge
      * @template T
      * @param \Closure():T $fn
      * @return T
+     * @throws \Kode\MiniApp\Exceptions\ApiException 网关抛出的 PayException 被归一为此类型抛出
      */
     public static function invokeGateway(\Closure $fn, Channel $channel, string $capability): mixed
     {
