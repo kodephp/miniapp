@@ -53,4 +53,17 @@ final class PaysBridgeNotifyAdapter implements NotifyAdapter
     {
         return $this->pay->verifyNotify($payload, $headers);
     }
+
+    /**
+     * 验证 Webhook 原始通知（验签 + 解密，委托 kode/pays）
+     *
+     * @param string $rawBody 原始请求体（JSON 字符串）
+     * @param array<string, string> $headers 平台 HTTP 头（用于签名校验）
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function verifyWebhook(string $rawBody, array $headers = []): array
+    {
+        return $this->pay->verifyWebhook($rawBody, $headers);
+    }
 }

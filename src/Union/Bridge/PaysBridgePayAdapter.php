@@ -211,6 +211,88 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
     }
 
     /**
+     * 验证 Webhook 原始通知（微信 V3 验签 + 解密）
+     *
+     * 与 {@see verifyNotify()}（接收已解析数组、用于 V2 XML/JSON 通知）互补：本方法接收
+     * **原始报文字符串**与 HTTP 头，先走 `WechatPayV3Gateway::verifyWebhook` 做 RSA-SHA256
+     * 签名验证（Wechatpay-Signature / Timestamp / Nonce / Serial，依赖平台证书），验签通过
+     * 后再对 `resource`（AES-256-GCM 密文）做解密，返回可信业务数组。验签失败抛
+     * RuntimeException（无静默通过），与 verifyNotify 风格一致。
+     *
+     * 仅微信渠道适用（V3 Webhook 验签是微信特有）；其他渠道验签仍走 {@see verifyNotify()}。
+     * 平台证书通过 config `platform_certificate`（PEM 公钥）注入；未配置则验签必失败。
+     *
+     * @param string $payload 原始请求体（JSON 字符串）
+     * @param array<string, string> $headers 平台 HTTP 头
+     * @return array<string, mixed>
+     */
+    #[\Override]
+    public function verifyWebhook(string $payload, array $headers = []): array
+    {
+        // 仅微信渠道适用 V3 Webhook 验签（其他渠道验签走 verifyNotify）
+        if (!in_array(self::gatewayMethod($this->channel), ['wechat', 'wechatWork'], true)) {
+            throw new \InvalidArgumentException(
+                "verifyWebhook 仅支持微信渠道（收到 [{$this->channel->label()}]），其他渠道请使用 verifyNotify",
+            );
+        }
+
+        /** @var mixed $v3 */
+        $v3 = $this->v3Gateway();
+        if (!is_object($v3) || !method_exists($v3, 'verifyWebhook')) {
+            throw new \RuntimeException(
+                "渠道 [{$this->channel->label()}] 不支持 V3 通知验签（缺少 WechatPayV3Gateway）",
+            );
+        }
+
+        // 平台证书是 V3 验签的前提：缺失时提前给出清晰报错，避免网关内部 openssl 警告噪声。
+        /** @var array<string, mixed> $certConfig */
+        $certConfig = ($this->configResolver)($this->channel);
+        $cert = $certConfig['platform_certificate'] ?? null;
+        if (!is_string($cert) || $cert === '') {
+            throw new \RuntimeException(
+                "微信 V3 支付回调验签失败（渠道 [{$this->channel->label()}]）：缺少平台证书（config platform_certificate）",
+            );
+        }
+
+        /** @var callable(string, array<string, string>):bool $verify */
+        $verify = [$v3, 'verifyWebhook'];
+
+        /** @var bool $ok */
+        $ok = PaysBridge::invokeGateway(
+            fn () => $verify($payload, $headers),
+            $this->channel,
+            'V3 回调验签',
+        );
+        if (!$ok) {
+            throw new \RuntimeException(
+                "微信 V3 支付回调验签失败（渠道 [{$this->channel->label()}]）：请检查平台证书 / Wechatpay-* 头",
+            );
+        }
+
+        /** @var array<string, mixed>|null $data */
+        $data = json_decode($payload, true);
+        if (!is_array($data)) {
+            throw new \RuntimeException('微信 V3 回调报文非合法 JSON');
+        }
+
+        if (isset($data['resource']) && is_array($data['resource']) && method_exists($v3, 'decryptResource')) {
+            /** @var callable(array<string, mixed>):array<string, mixed> $dec */
+            $dec = [$v3, 'decryptResource'];
+
+            /** @var array<string, mixed> $decrypted */
+            $decrypted = PaysBridge::invokeGateway(
+                fn () => $dec($data['resource']),
+                $this->channel,
+                'V3 回调解密',
+            );
+
+            return $decrypted;
+        }
+
+        return $data;
+    }
+
+    /**
      * 取微信 V3 网关实例（用于 V3 通知解密）。
      *
      * 桥接默认把 Wechat* 解析到 V2 网关（WechatPayGateway），但其不含 `decryptResource`，

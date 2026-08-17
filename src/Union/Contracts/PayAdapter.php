@@ -91,4 +91,18 @@ interface PayAdapter
      * @return array<string, mixed> 解析后的业务数据
      */
     public function verifyNotify(array $payload, array $headers = []): array;
+
+    /**
+     * 验证 Webhook 原始通知（微信 V3 验签 + 解密）
+     *
+     * 与 verifyNotify 的区别：verifyNotify 接收已解析数组（用于 V2 XML/JSON 通知），
+     * 而本方法接收**原始报文字符串**与 HTTP 头，先做 RSA-SHA256 验签
+     * （Wechatpay-Signature / Timestamp / Nonce / Serial），再对 resource 做 AES-256-GCM
+     * 解密，返回可信业务数组。验签失败抛异常（无静默通过）。
+     *
+     * @param string $payload 原始请求体（JSON 字符串）
+     * @param array<string, string> $headers 平台 HTTP 头
+     * @return array<string, mixed>
+     */
+    public function verifyWebhook(string $payload, array $headers = []): array;
 }
