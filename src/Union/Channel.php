@@ -163,6 +163,7 @@ enum Channel: string
                 ChannelFeature::Notify,
                 ChannelFeature::User,
                 ChannelFeature::Decrypt,
+                ChannelFeature::Phone,
             ],
             self::WechatH5,
             self::WechatPc     => [
@@ -188,11 +189,18 @@ enum Channel: string
                 ChannelFeature::Pay,
                 ChannelFeature::Notify,
                 ChannelFeature::User,
+                ChannelFeature::Decrypt,
+                ChannelFeature::Phone,
             ],
-            self::Dingtalk,
+            self::Dingtalk => [
+                ChannelFeature::Login,
+                ChannelFeature::User,
+            ],
             self::Lark => [
                 ChannelFeature::Login,
                 ChannelFeature::User,
+                ChannelFeature::Decrypt,
+                ChannelFeature::Phone,
             ],
             self::Crypto => [
                 ChannelFeature::Pay,

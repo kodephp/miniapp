@@ -27,6 +27,9 @@ enum ChannelFeature: string
     /** 加密数据解密（手机号 / 用户信息 encryptedData） */
     case Decrypt = 'decrypt';
 
+    /** 手机号获取（code 换号 / 密文解密） */
+    case Phone = 'phone';
+
     /**
      * 能力中文标签
      */
@@ -38,6 +41,7 @@ enum ChannelFeature: string
             self::Notify  => '回调',
             self::User    => '用户资料',
             self::Decrypt => '解密',
+            self::Phone   => '手机号',
         };
     }
 }

@@ -383,7 +383,7 @@ $cancel = $refund->cancelRefund('商户退款单号');
 > `refund()`，是「申请退款」的最简入口；`RefundAdapter` 则对齐 `RefundCapableInterface`，额外覆盖
 > `queryRefund` / `cancelRefund`，形成「申请 / 查询 / 取消」的完整闭环，更适合退款状态机类业务。
 > 调用前可用 `Union::wechat()->advancedPay()->supportsRefund()` 优雅判断当前渠道是否支持退款能力
-> （无需支付配置；`cancelRefund` 仅部分网关支持，以 `applyRefund` 作为能力基线）。
+> （无需支付配置；`cancelRefund` 仅部分网关支持，以 `refund` 作为能力基线（申请退款））。
 
 ### 个人收款（收款码 / 提现，PersonalReceiveCapableInterface）
 
