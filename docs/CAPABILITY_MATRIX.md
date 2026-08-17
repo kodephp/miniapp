@@ -58,7 +58,7 @@ gatewaySupports($feature) === method_exists(GatewayFactory::getGatewayClass($cha
 | 对账 `reconciliation` | ✅ `PaysBridgeReconciliationSignChainTest` | ✅ `PaysBridgeAlipaySettlementWithdrawReconcileSignChainTest` | ❌ | ❌ |
 | 余额 `balance` | ❌ 不支持 | ✅ `PaysBridgeAlipayBalanceQueryTest` | ❌ | ❌ |
 | 结算 `settlement` | ✅ `PaysBridgeSettlementSignChainTest` / `PaysBridgeBalanceSettlementQueryTest` | ✅ `PaysBridgeAlipaySettlementWithdrawReconcileSignChainTest` | ❌ | ❌ |
-| 个人收款 `personal_receive` | ✅ `PaysBridgePersonalReceiveSignChainTest` | ⏳ 能力支持·e2e 待补 | ❌ | ❌ |
+| 个人收款 `personal_receive` | ✅ `PaysBridgePersonalReceiveSignChainTest` | ✅ `PaysBridgeAlipayPersonalReceiveSignChainTest` | ❌ | ❌ |
 | Webhook 事件 `webhook` | ✅ `PaysBridgeWechatV3WebhookVerifyTest`（验签+解密双链） | ✅ `PaysBridgeWechatV3WebhookVerifyTest` | ✅ `PaysBridgeDouyinNotifyVerifyTest` | ✅ `PaysBridgeQqNotifyVerifyTest` |
 
 ### 微信 V3 专属链路
@@ -104,8 +104,6 @@ if (Union::wechat()->supportsRefund()) {
 
 ## 5. 跨渠道签名对照结论
 
-核心下单生命周期（下单 / 查单 / 关单 / 退款 / 查退款）与高级能力（分账 / 转账 / 红包 / 订阅 / 结算 / 对账）在 **微信 V2（XML+MD5） × 支付宝（RSA2）双渠道均已 e2e 验证签名链**，闭合跨渠道对称性。V3 入站解密 / 出站签名 / Webhook 验签双链均已补齐。
+核心下单生命周期（下单 / 查单 / 关单 / 退款 / 查退款）与高级能力（分账 / 转账 / 红包 / 订阅 / 结算 / 对账 / 个人收款）在 **微信 V2（XML+MD5） × 支付宝（RSA2）双渠道均已 e2e 验证签名链**，闭合跨渠道对称性。V3 入站解密 / 出站签名 / Webhook 验签双链均已补齐。
 
-**待补项（诚实标注，非伪造）**：
-
-- 支付宝 `personal_receive`：能力支持，e2e 签名链待补（其余支付宝能力均已验证）。
+**零漂移保证**：全部 10 项高级支付能力的「声明 ⟺ 实现」一致性由 `PaysBridgeCapabilityMatrixConsistencyTest` 守护（`paymentCapabilities()` 的每个布尔位均经 `GatewayFactory::getGatewayClass(channel)` + 类级 `method_exists` 推导，与真实网关实现严格对齐，无任何伪造未实现 API）。所有标注 ✅ 的能力均存在不触网的真实网关签名链 e2e 验证；标注 ❌ 为网关确实未实现（能力发现返回 `false`），非验证缺失。
