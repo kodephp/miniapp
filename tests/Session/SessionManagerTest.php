@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Kode\MiniApp\Tests\Session;
 
-use Kode\MiniApp\Session\ArrayCache;
+use Kode\MiniApp\Core\ArrayCache;
 use Kode\MiniApp\Session\CacheSessionStorage;
 use Kode\MiniApp\Session\Session;
 use Kode\MiniApp\Session\SessionManager;
