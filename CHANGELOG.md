@@ -2,6 +2,17 @@
 
 > 本文件随版本提交到仓库，作为对外发布记录（与 GitHub Releases / Packagist 同步）。
 
+## v2.0.39（2026-08-18 发布）
+
+### 非支付模块复盘：补齐 TokenManager 单飞锁 e2e
+
+- **审计结论**：登录（9 渠道 code2session e2e）、SessionKeyManager（md5(openid) 防泄漏实测）、解密/手机号（DecryptTest 8 渠道 + PhoneBy* 实测）均已覆盖；唯一真实缺口为 **TokenManager 缓存击穿保护（single-flight 单飞锁）无 e2e**。
+- **新增 `TokenManagerSingleFlightTest`（3 例 / 确定性，无需真线程）**：
+  - 获胜方无竞争时 resolver 仅调用一次并写入缓存复用；
+  - 等待方在锁被持有、共享令牌稍后出现时**复用 holder 令牌而非自行刷新**（resolver 抛异常防御式证明单飞生效）；
+  - 锁卡死 + 令牌始终不出现时**可用性优先兜底刷新**，无死锁。
+- **新增夹具 `SingleFlightFakeCache`**：状态化 PSR-16 假缓存，可确定性复现 holder 持锁刷新、waiter 复用场景。
+
 ## v2.0.38（2026-08-17 发布）
 
 ### 非支付能力发现增强 + 文档 + CHANGELOG 收尾
