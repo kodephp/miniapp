@@ -91,6 +91,20 @@ composer require kode/event     # 事件
 - **手机号(encryptedData)**：微信 / 抖音 / QQ / 百度 / 飞书 / 企业微信 走 `Union::phoneByDecrypt()` / `phoneByUser()`；支付宝走 `Union::phoneByResponse()`。
 - **支付 / 回调**：B 端平台（钉钉 / 飞书）及微信开放平台（第三方平台）无消费者支付场景，标记为「—」属设计预期。
 
+## 高级支付能力矩阵（2.0 · kode/pays 桥接）
+
+> 2.0 起支付完全由 `kode/pays` 承载。`Union::xxx()->advancedPay()` / `paymentCapabilities()` / `capabilityProfile()` 暴露 10 项高级能力（分账 / 转账 / 对账 / 红包 / 订阅 / 余额 / 结算 / 个人收款 / Webhook / 退款）。能力声明严格镜像 kode/pays 真实网关实现（零漂移，由 `PaysBridgeCapabilityMatrixConsistencyTest` 守护）。
+>
+> 完整矩阵、跨渠道真实网关签名链 e2e 验证状态与「大声失败」契约见 **[docs/CAPABILITY_MATRIX.md](docs/CAPABILITY_MATRIX.md)**。
+
+| 能力 | 微信 V2 | 支付宝 | 抖音 | QQ |
+|------|:-------:|:------:|:----:|:---:|
+| 分账 / 转账 / 红包 / 订阅 / 对账 / 结算 / 个人收款 / 退款 | ✅ | ✅ | 仅分账 ✅ | ❌ |
+| 余额 | ❌ | ✅ | ❌ | ❌ |
+| Webhook 事件 | ✅ | ✅ | ✅ | ✅ |
+
+跨渠道签名对照：核心下单生命周期 + 高级能力在 **微信 V2（XML+MD5）× 支付宝（RSA2）双渠道均已 e2e 验证**；微信 V3 入站解密 / 出站签名 / Webhook 验签双链均补齐。
+
 ## 安装
 
 ```bash
