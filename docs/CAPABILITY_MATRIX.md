@@ -33,13 +33,13 @@ gatewaySupports($feature) === method_exists(GatewayFactory::getGatewayClass($cha
 | 结算 `settlement` | `settleToWallet` | ✅ | ✅ | ❌ | ❌ |
 | 个人收款 `personal_receive` | `createQrCode` | ✅ | ✅ | ❌ | ❌ |
 | Webhook 事件 `webhook` | `verifyWebhook` | ✅ | ✅ | ✅ | ✅ |
-| 退款 `refund` | `applyRefund` | ✅ | ✅ | ❌ | ❌ |
+| 退款 `refund` | `refund` | ✅ | ✅ | ✅ | ✅ |
 
 说明：
 
 - **微信 V2 无余额**：`WechatPayGateway`（V2）未实现 `BalanceCapableInterface`，故 `supportsBalance() === false`，余额能力仅支付宝支持。
-- **抖音仅分账 + Webhook**：抖音网关仅实现 `createProfitSharing` 与 `verifyWebhook`，其余高级能力为 `false`。
-- **QQ 仅 Webhook**：QQ 网关仅实现 `verifyWebhook`（回调验签），下单 / 退款 / 分账等由 kode/pays 承载但高级能力矩阵其余为 `false`。
+- **抖音支持分账 + 退款 + Webhook**：抖音网关实现 `createProfitSharing` / `refund` / `verifyWebhook`，下单 / 查单 / 退款 / 查退款 / 分账的真实签名链均为 MD5+salt（已 e2e 验证）；其余高级能力为 `false`。
+- **QQ 支持退款 + Webhook**：QQ 网关实现 `refund` / `verifyWebhook`，下单 / 查单 / 关单 / 退款走 V3 RSA-SHA256 签名链（复用微信 V3 特质，已 e2e 验证）；但分账 / 转账等其余高级能力为 `false`。
 - **微信 V3 独立网关**：`Channel::WechatMini` 经 `GatewayFactory` 解析到 **V2 网关**；V3（`wechat_v3`，含 `decryptResource` / `verifyWebhook` / `batchTransfer`）通过 `GatewayFactory::create('wechat_v3', $config)` 显式取得。Webhook 验签与入站解密均走 V3 路径。
 
 ## 3. 跨渠道真实网关签名链 e2e 验证总览
@@ -48,10 +48,10 @@ gatewaySupports($feature) === method_exists(GatewayFactory::getGatewayClass($cha
 
 | 能力 | 微信 V2（MD5） | 支付宝（RSA2） | 抖音 | QQ |
 |------|:-------------:|:--------------:|:----:|:---:|
-| 下单 `createOrder` | ✅ `PaysBridgeCreateOrderSignChainTest` | ✅ `PaysBridgeAlipayCoreSignChainTest` | — | — |
-| 查单 `queryOrder` / 关单 `closeOrder` | ✅ `PaysBridgeQuerySignChainTest` | ✅ `PaysBridgeAlipayCoreSignChainTest` | — | — |
-| 退款 `refund` / 查退款 `queryRefund` | ✅ `PaysBridgeRefundSignChainTest` / `PaysBridgeQuerySignChainTest` | ✅ `PaysBridgeAlipayCoreSignChainTest` | — | — |
-| 分账 `profitSharing` | ✅ `PaysBridgeAdvancedSignChainTest` | ✅ `PaysBridgeAlipayProfitSharingSignChainTest` | ⏳ | ❌ |
+| 下单 `createOrder` | ✅ `PaysBridgeCreateOrderSignChainTest` | ✅ `PaysBridgeAlipayCoreSignChainTest` | ✅ `PaysBridgeDouyinCoreSignChainTest` | ✅ `PaysBridgeQqCoreSignChainTest` |
+| 查单 `queryOrder` / 关单 `closeOrder` | ✅ `PaysBridgeQuerySignChainTest` | ✅ `PaysBridgeAlipayCoreSignChainTest` | ✅/❌（仅查单，关单不支持）`PaysBridgeDouyinCoreSignChainTest` | ✅/✅ `PaysBridgeQqCoreSignChainTest` |
+| 退款 `refund` / 查退款 `queryRefund` | ✅ `PaysBridgeRefundSignChainTest` / `PaysBridgeQuerySignChainTest` | ✅ `PaysBridgeAlipayCoreSignChainTest` | ✅ `PaysBridgeDouyinCoreSignChainTest` | ✅ `PaysBridgeQqCoreSignChainTest` |
+| 分账 `profitSharing` | ✅ `PaysBridgeAdvancedSignChainTest` | ✅ `PaysBridgeAlipayProfitSharingSignChainTest` | ✅ `PaysBridgeDouyinCoreSignChainTest` | ❌ |
 | 转账 `transfer` | ✅ `PaysBridgeAdvancedSignChainTest` / `PaysBridgeTransferRedPacketSignChainTest` | ✅ `PaysBridgeAlipayTransferSignChainTest` | ❌ | ❌ |
 | 红包 `red_packet` | ✅ `PaysBridgeAdvancedSignChainTest` / `PaysBridgeTransferRedPacketSignChainTest` | ✅ `PaysBridgeAlipayRedPacketSignChainTest` | ❌ | ❌ |
 | 订阅 `subscription` | ✅ `PaysBridgeSubscriptionSignChainTest` | ✅ `PaysBridgeAlipaySubscriptionSignChainTest` + `…LifecycleSignChainTest` | ❌ | ❌ |
@@ -59,7 +59,7 @@ gatewaySupports($feature) === method_exists(GatewayFactory::getGatewayClass($cha
 | 余额 `balance` | ❌ 不支持 | ✅ `PaysBridgeAlipayBalanceQueryTest` | ❌ | ❌ |
 | 结算 `settlement` | ✅ `PaysBridgeSettlementSignChainTest` / `PaysBridgeBalanceSettlementQueryTest` | ✅ `PaysBridgeAlipaySettlementWithdrawReconcileSignChainTest` | ❌ | ❌ |
 | 个人收款 `personal_receive` | ✅ `PaysBridgePersonalReceiveSignChainTest` | ⏳ 能力支持·e2e 待补 | ❌ | ❌ |
-| Webhook 事件 `webhook` | ✅ `PaysBridgeWechatV3WebhookVerifyTest`（验签+解密双链） | ✅ `PaysBridgeWechatV3WebhookVerifyTest` | ⏳ 能力支持·e2e 待补 | ⏳ 能力支持·e2e 待补 |
+| Webhook 事件 `webhook` | ✅ `PaysBridgeWechatV3WebhookVerifyTest`（验签+解密双链） | ✅ `PaysBridgeWechatV3WebhookVerifyTest` | ✅ `PaysBridgeDouyinNotifyVerifyTest` | ✅ `PaysBridgeQqNotifyVerifyTest` |
 
 ### 微信 V3 专属链路
 
@@ -108,5 +108,4 @@ if (Union::wechat()->supportsRefund()) {
 
 **待补项（诚实标注，非伪造）**：
 
-- 支付宝 `personal_receive`：能力支持，e2e 签名链待补。
-- 抖音 / QQ 高级支付能力（抖音 `profit_sharing`、两渠道 `webhook`）仅有能力矩阵与「大声失败」契约覆盖，逐方法 e2e 签名链待补（见后续迭代方向③）。
+- 支付宝 `personal_receive`：能力支持，e2e 签名链待补（其余支付宝能力均已验证）。

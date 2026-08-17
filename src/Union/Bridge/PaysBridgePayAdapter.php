@@ -764,16 +764,17 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
     }
 
     /**
-     * 当前渠道是否支持「退款」能力（申请 / 查询 / 取消退款）
+     * 当前渠道是否支持「退款」能力（申请 / 查询）
      *
-     * 基于 kode/pays 网关类是否实现 RefundCapableInterface（applyRefund）判断，
-     * 无需完整支付配置即可调用。注意 cancelRefund 仅部分网关支持（如 Stripe），
-     * 以 applyRefund 作为能力基线，返回 false 时退款适配器方法会抛清晰异常。
+     * 探测 kode/pays 网关类的原生 refund() 方法（桥接层 refund() 即派发到该方法），
+     * 而非 RefundCapableInterface 的 applyRefund()——抖音 / QQ 网关仅实现 refund()、
+     * 未实现 applyRefund()，若探测后者会对这两个渠道误报 false，与「refund() 真实可调用」
+     * 产生漂移。以 refund() 为基线确保零漂移。
      */
     #[\Override]
     public function supportsRefund(): bool
     {
-        return $this->gatewaySupports('applyRefund');
+        return $this->gatewaySupports('refund');
     }
 
     #[\Override]

@@ -38,7 +38,7 @@ final class PaysBridgeCapabilityMatrixConsistencyTest extends TestCase
         'settlement'       => 'settleToWallet',
         'personal_receive' => 'createQrCode',
         'webhook'          => 'verifyWebhook',
-        'refund'           => 'applyRefund',
+        'refund'           => 'refund',
     ];
 
     /**
@@ -130,7 +130,7 @@ final class PaysBridgeCapabilityMatrixConsistencyTest extends TestCase
                 'supportsSettlement'      => false,
                 'supportsPersonalReceive' => false,
                 'supportsWebhook'         => true,
-                'supportsRefund'          => false,
+                'supportsRefund'          => true,
             ]],
             'QQ' => [Channel::Qq, [
                 'supportsProfitSharing'   => false,
@@ -142,7 +142,7 @@ final class PaysBridgeCapabilityMatrixConsistencyTest extends TestCase
                 'supportsSettlement'      => false,
                 'supportsPersonalReceive' => false,
                 'supportsWebhook'         => true,
-                'supportsRefund'          => false,
+                'supportsRefund'          => true,
             ]],
         ];
     }
