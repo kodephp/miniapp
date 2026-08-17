@@ -247,14 +247,24 @@ final class PaysBridge
     {
         $all = $kernel->wechat()->app()->config()->all();
 
+        // V3 网关需要商户证书序列号（serial_no）与商户私钥（private_key，PEM 原文）。
+        // Kernel 侧以 mch_serial_no / key_path（私钥文件路径）存储，这里转换为 V3 网关所需字段。
+        $keyPath = $all['key_path'] ?? null;
+        $privateKey = null;
+        if (is_string($keyPath) && $keyPath !== '' && is_readable($keyPath)) {
+            $privateKey = (string) file_get_contents($keyPath);
+        }
+
         return array_filter(
             [
-                'app_id'     => $all['app_id'] ?? '',
-                'mch_id'     => $all['mch_id'] ?? '',
-                'api_key'    => $all['key'] ?? '',
-                'api_v3_key' => $all['api_v3_key'] ?? null,
-                'cert_path'  => $all['cert_path'] ?? null,
-                'key_path'   => $all['key_path'] ?? null,
+                'app_id'      => $all['app_id'] ?? '',
+                'mch_id'      => $all['mch_id'] ?? '',
+                'api_key'     => $all['key'] ?? '',
+                'api_v3_key'  => $all['api_v3_key'] ?? null,
+                'serial_no'   => $all['mch_serial_no'] ?? null,
+                'private_key' => $privateKey,
+                'cert_path'   => $all['cert_path'] ?? null,
+                'key_path'    => $all['key_path'] ?? null,
             ],
             static fn ($v) => $v !== null && $v !== '',
         );

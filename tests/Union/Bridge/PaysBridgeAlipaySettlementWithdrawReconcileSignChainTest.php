@@ -164,7 +164,8 @@ final class PaysBridgeAlipaySettlementWithdrawReconcileSignChainTest extends Tes
         $this->assertOutboundRsa2Verified($data, '结算到银行卡');
     }
 
-    public function testSettlementQuerySignsViaRealGateway(): void    {
+    public function testSettlementQuerySignsViaRealGateway(): void
+    {
         $result = $this->adapter()->settlementQuery('SET_W_001');
 
         self::assertSame('10000', $result['code'] ?? null);

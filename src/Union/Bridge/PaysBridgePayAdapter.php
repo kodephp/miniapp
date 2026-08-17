@@ -152,12 +152,19 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
     }
 
     /**
-     * 回调验签（委托 kode/pays verifyNotify）
+     * 回调验签 + 解密（委托 kode/pays）
      *
      * kode/pays 的 `verifyNotify` 仅返回 bool（验签是否通过）。本方法补全为「验签通过则
      * 返回解析后的业务数据数组」，与 kode/pays verifyNotify 语义一致——业务侧统一按数组取
-     * out_trade_no / transaction_id。微信 V3 通知的 resource 为密文，桥接会调用 pays 的
-     * `decryptResource` 解密后返回明文业务数据。
+     * out_trade_no / transaction_id。
+     *
+     * 微信 V3 通知的 resource 为密文，桥接必须走 `WechatPayV3Gateway::decryptResource`
+     * （AES-256-GCM 认证解密，依赖 api_v3_key）还原明文业务数据。注意：桥接默认把 Wechat*
+     * 解析到 V2 网关 `WechatPayGateway`（无 `decryptResource`），故此处**显式**取
+     * `wechat_v3` 网关实例处理 V3 通知——否则 V3 解密分支永远不触发（历史死代码）。
+     *
+     * V3 通知的 RSA 验签（Wechatpay-Signature + 平台证书）依赖原始请求体与证书信任链，
+     * 由 HTTP 边界（持有 raw body + 头）负责；本方法聚焦「解密」并复用 GCM 认证保证密文完整性。
      *
      * @param array<string, mixed> $payload
      * @param array<string, string> $headers
@@ -166,6 +173,29 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
     #[\Override]
     public function verifyNotify(array $payload, array $headers = []): array
     {
+        // 微信 V3 通知：resource 为密文，必须走 V3 网关解密后再返回明文业务数据。
+        if (isset($payload['resource']['ciphertext'])) {
+            /** @var mixed $v3 */
+            $v3 = $this->v3Gateway();
+            if (!is_object($v3) || !method_exists($v3, 'decryptResource')) {
+                throw new \RuntimeException(
+                    "渠道 [{$this->channel->label()}] 不支持 V3 通知解密（缺少 WechatPayV3Gateway 或 api_v3_key 配置）",
+                );
+            }
+
+            /** @var callable(array<string, mixed>):array<string, mixed> $fn */
+            $fn = [$v3, 'decryptResource'];
+
+            /** @var array<string, mixed> $decrypted */
+            $decrypted = PaysBridge::invokeGateway(
+                fn () => $fn($payload['resource']),
+                $this->channel,
+                'V3 回调解密',
+            );
+
+            return $decrypted;
+        }
+
         /** @var mixed $gateway */
         $gateway = $this->paysGateway();
 
@@ -177,22 +207,39 @@ final class PaysBridgePayAdapter implements AdvancedPayAdapter
             );
         }
 
-        // 微信 V3 通知的 resource 为密文，pays 提供 decryptResource 解密业务数据
-        if (
-            isset($payload['resource']['ciphertext'])
-            && is_object($gateway)
-            && method_exists($gateway, 'decryptResource')
-        ) {
-            /** @var callable(array<string, mixed>):array<string, mixed> $fn */
-            $fn = [$gateway, 'decryptResource'];
+        return $payload;
+    }
 
-            /** @var array<string, mixed> $decrypted */
-            $decrypted = PaysBridge::invokeGateway(fn () => $fn($payload['resource']), $this->channel, '回调解密');
-
-            return $decrypted;
+    /**
+     * 取微信 V3 网关实例（用于 V3 通知解密）。
+     *
+     * 桥接默认把 Wechat* 解析到 V2 网关（WechatPayGateway），但其不含 `decryptResource`，
+     * 故 V3 通知必须显式构造 `wechat_v3` 网关实例（共享同一份 config resolver 凭证）。
+     *
+     * @return mixed
+     */
+    private function v3Gateway(): mixed
+    {
+        $facade = self::PAYS_FACADE;
+        if (!class_exists($facade) || !class_exists(GatewayFactory::class)) {
+            throw new \RuntimeException(
+                '支付能力已迁移至 kode/pays，请先执行 `composer require kode/pays` 后再调用 Union::notify()',
+            );
         }
 
-        return $payload;
+        /** @var array<string, mixed> $config */
+        $config = ($this->configResolver)($this->channel);
+
+        // 构造 V3 网关需要 mch_id / serial_no / private_key / api_key（与 V2 网关配置不同）。
+        // 缺字段时 GatewayFactory 抛 PayException，归一为 ApiException（无静默失败）。
+        /** @var mixed $gateway */
+        $gateway = PaysBridge::invokeGateway(
+            fn () => GatewayFactory::create('wechat_v3', $config),
+            $this->channel,
+            'V3 网关构造',
+        );
+
+        return $gateway;
     }
 
     /**
