@@ -2,6 +2,14 @@
 
 > 本文件随版本提交到仓库，作为对外发布记录（与 GitHub Releases / Packagist 同步）。
 
+## v2.0.40（2026-08-18 发布）
+
+### 测试质量修复：消除 PHPUnit 11.5 收集期 deprecated
+
+- **审计发现**：`tests/Union/ChannelFeatureMatrixTest.php` 使用 `@dataProvider` docblock 注解（tests/Union 中唯一使用此旧式注解的测试），触发 PHPUnit 11.5 在**测试收集期**产生 1 条 deprecated（细节不随 `--display-deprecations` 渲染，此前误记为「预存」）。
+- **修复**：改用 PHPUnit 11 惯用 `#[DataProvider]` 属性（并补 `use PHPUnit\Framework\Attributes\DataProvider`），移除冗余 docblock 注解。
+- **质量门**：全量套件回归为 **686 tests · 2382 assertions · 0 deprecations · 0 risky**（PHPStan L8@1024M 0 / phpcs PSR12 0 全绿）。
+
 ## v2.0.39（2026-08-18 发布）
 
 ### 非支付模块复盘：补齐 TokenManager 单飞锁 e2e

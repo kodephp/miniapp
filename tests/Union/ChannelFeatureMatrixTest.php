@@ -11,6 +11,7 @@ use Kode\MiniApp\Tests\Fakes\FakeHttpClient;
 use Kode\MiniApp\Union\CapabilityInfo;
 use Kode\MiniApp\Union\Channel;
 use Kode\MiniApp\Union\Union;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -64,9 +65,9 @@ final class ChannelFeatureMatrixTest extends TestCase
     /**
      * Channel::features() 必须精确等于预期矩阵（顺序无关）。
      *
-     * @dataProvider expectedMatrixProvider
      * @param ChannelFeature[] $expected
      */
+    #[DataProvider('expectedMatrixProvider')]
     public function testChannelFeaturesMatchExpected(Channel $channel, array $expected): void
     {
         $actual = $channel->features();
