@@ -115,6 +115,7 @@ composer require kode/miniapp
 
 ```php
 use Kode\MiniApp\Kernel;
+use Kode\MiniApp\Union\Channel;
 
 $kernel = new Kernel([
     'wechat' => [
@@ -131,6 +132,11 @@ $kernel = new Kernel([
 
 // 微信登录
 $session = $kernel->wechat()->app()->auth()->session($code);
+
+// 公众号网页授权（H5）/ PC 扫码登录：URL 生成 + code 换登录两步全在包内
+$url  = $kernel->union()->authorizeUrl(Channel::WechatMp, 'https://biz.example.com/cb', 'snsapi_userinfo');
+$user = $kernel->union()->authenticate(Channel::WechatMp, ['code' => $code]);   // 回调后
+$scan = $kernel->union()->qrConnectUrl(Channel::WechatPc, 'https://biz.example.com/pc-cb');
 
 // 微信下单（2.0 起支付完全由 kode/pays 承载，openid 自动注入）
 $user  = $kernel->union()->wechat()->mini($code);

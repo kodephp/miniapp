@@ -28,6 +28,7 @@ use Kode\MiniApp\Providers\Wechat\Modules\Menu;
 use Kode\MiniApp\Providers\Wechat\Modules\Message;
 use Kode\MiniApp\Providers\Wechat\Modules\MiniProgramCode;
 use Kode\MiniApp\Providers\Wechat\Modules\Live;
+use Kode\MiniApp\Providers\Wechat\Modules\Oauth;
 use Kode\MiniApp\Providers\Wechat\Modules\Phone;
 use Kode\MiniApp\Providers\Wechat\Modules\Plugin;
 use Kode\MiniApp\Providers\Wechat\Modules\Redpack;
@@ -79,6 +80,7 @@ final readonly class WechatApp implements AppInterface
     private DynamicMessage $dynamicMessage;
     private Device $device;
     private Cloudbase $cloudbase;
+    private Oauth $oauth;
 
     public function __construct(
         private string $name,
@@ -116,6 +118,7 @@ final readonly class WechatApp implements AppInterface
         $this->dynamicMessage  = new DynamicMessage($this);
         $this->device          = new Device($this);
         $this->cloudbase       = new Cloudbase($this);
+        $this->oauth           = new Oauth($this);
     }
 
     #[\Override]
@@ -145,6 +148,14 @@ final readonly class WechatApp implements AppInterface
     public function auth(): Auth
     {
         return $this->auth;
+    }
+
+    /**
+     * 公众号网页授权模块（OAuth2 authorize URL 生成）
+     */
+    public function oauth(): Oauth
+    {
+        return $this->oauth;
     }
 
     public function jssdk(): Jssdk

@@ -2,6 +2,19 @@
 
 > 本文件随版本提交到仓库，作为对外发布记录（与 GitHub Releases / Packagist 同步）。
 
+## v2.0.41（2026-09-10 发布）
+
+### 新增微信网页授权 / 扫码登录 URL 生成（Union 门面闭环）
+
+- **缺口核实**（审计结论修正）：`connect/qrconnect` 端点此前已存在但埋在深层（`WechatOpenApp::openApp()->qrConnectUrl()`），业务侧需下钻 Provider 内部才能用；**公众号网页授权 `oauth2/authorize` 端点全包缺失**，业务侧只能自行拼 URL。
+- **新增 `Providers\Wechat\Modules\Oauth`**：公众号网页授权 URL 生成（`authorizeUrl()`，scope 白名单 `snsapi_base`/`snsapi_userinfo`，非法值大声失败；appId 缺省自动读配置；`#wechat_redirect` 锚点可关）；`WechatApp::oauth()` 访问器暴露。
+- **Union 门面新增两方法**（渠道守卫大声失败，两步登录在包内闭环）：
+  - `authorizeUrl(Channel::WechatMp|WechatH5, redirectUri, scope, state, extra)` → `oauth2/authorize`，appId 自动取配置；
+  - `qrConnectUrl(Channel::WechatPc, redirectUri, state, extra)` → `connect/qrconnect`（scope 固定 snsapi_login），appId 取 `site_app_id` 缺省回退 `app_id`（与 `OpenApp::accessToken` 口径一致）。
+- **e2e 测试**：新增 `tests/Union/OauthUrlTest.php`（9 例 / 17 断言）——两端点 URL 精确断言、H5 同端点、默认 scope、非法 scope / 不支持渠道抛错、site_app_id 回退、模块级 appId 缺省与去锚点。
+- **文档**：`docs/wechat.md` 新增「公众号网页授权（OAuth2）」章节；`docs/wechat-open.md` 补 Union 门面用法；README 快速开始补示例。
+- **质量门**：PHPStan L8@1024M 0 / phpcs PSR12 0 / PHPUnit 695 tests·2400 assertions·0 deprecations。
+
 ## v2.0.40（2026-08-18 发布）
 
 ### 测试质量修复：消除 PHPUnit 11.5 收集期 deprecated

@@ -226,7 +226,21 @@ $loginUrl = $openApp->qrConnectUrl(
     redirectUri: 'https://example.com/callback',
     state: 'random_state',
 );
+```
 
+也可经 Union 门面调用（appId 自动取 `site_app_id`，缺省回退 `app_id`）：
+
+```php
+$url = $kernel->union()->qrConnectUrl(
+    Channel::WechatPc,
+    'https://example.com/callback',
+    'random_state',
+);
+// 回调后拿 code 完成登录：
+$user = $kernel->union()->authenticate(Channel::WechatPc, ['code' => $code]);
+```
+
+```php
 // 2. 通过 code 换取网页 access_token
 $token = $openApp->accessToken(
     appId: 'wx8888888888',

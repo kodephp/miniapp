@@ -84,6 +84,32 @@ $openid     = $session['openid'];
 $sessionKey = $session['session_key'];
 ```
 
+### 公众号网页授权（OAuth2）
+
+公众号 H5 页面（微信内置浏览器内）的网页授权登录，两步全在包内闭环：
+
+```php
+// 第一步：生成授权跳转 URL（Union 门面自动从配置取 appId）
+// scope 二选一：snsapi_base（静默，仅 openid）/ snsapi_userinfo（弹窗，含用户资料）
+$url = $kernel->union()->authorizeUrl(
+    Channel::WechatMp,                           // 或 Channel::WechatH5（同端点）
+    'https://biz.example.com/wechat/callback',   // 须在公众号后台配置网页授权域名
+    'snsapi_userinfo',
+    'csrf-state-xyz',                            // 防 CSRF，微信原样回传
+);
+// 302 跳转 $url（自动携带 #wechat_redirect 锚点）
+
+// 第二步：微信回调 redirect_uri 并附上 code，直接走统一登录
+$user = $kernel->union()->authenticate(Channel::WechatMp, ['code' => $code]);
+```
+
+也可经底层模块调用（`$app->oauth()->authorizeUrl($appId, $redirectUri, ...)`），
+scope 非法（如误用 `snsapi_login`）时大声失败抛 `InvalidArgumentException`。
+
+> 注意：`oauth2/authorize` 端点仅在微信内置浏览器内有效；PC 端扫码登录请用
+> 开放平台 `connect/qrconnect` 端点（见 [wechat-open.md](wechat-open.md)，Union 门面
+> `Union::qrConnectUrl(Channel::WechatPc, ...)`）。
+
 ### 获取 AccessToken
 
 AccessToken 是调用微信接口的全局凭证，SDK 内部会自动缓存，一般不需要手动获取。

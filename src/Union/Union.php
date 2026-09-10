@@ -15,6 +15,8 @@ use Kode\MiniApp\Providers\Douyin\DouyinApp;
 use Kode\MiniApp\Providers\Lark\LarkApp;
 use Kode\MiniApp\Providers\Qq\QqApp;
 use Kode\MiniApp\Providers\Wechat\WechatApp;
+use Kode\MiniApp\Providers\Wechat\Modules\Oauth;
+use Kode\MiniApp\Providers\WechatOpen\WechatOpenApp;
 use Kode\MiniApp\Providers\WechatWork\WechatWorkApp;
 use Kode\MiniApp\Session\SessionManager;
 use Kode\MiniApp\Union\Contracts\LoginAdapter;
@@ -169,6 +171,114 @@ final class Union
     public function login(string $channel, array $payload): UnionUser
     {
         return $this->authenticate(Channel::from($channel), $payload);
+    }
+
+    /**
+     * 微信网页授权 URL 生成（OAuth2 authorize 端点）
+     *
+     * 覆盖「公众号网页授权」第一步：生成引导用户在微信内置浏览器中跳转
+     * 授权页的 URL。用户确认授权后微信回调 redirect_uri 并附上 code，
+     * 业务侧再拿 code 走 `authenticate($channel, ['code' => $code])` 即完成登录，
+     * 两步均在包内闭环，业务侧无需再自行拼 URL。
+     *
+     * 业务侧用法：
+     *   $url = $kernel->union()->authorizeUrl(
+     *       Channel::WechatMp,                          // 或 Channel::WechatH5（同端点）
+     *       'https://biz.example.com/wechat/callback',  // 须在公众号后台配置网页授权域名
+     *       'snsapi_userinfo',                          // snsapi_base 静默 / snsapi_userinfo 弹窗
+     *       'csrf-state-xyz',                           // 防 CSRF，微信原样回传
+     *   );
+     *   return redirect($url);  // 302 跳转后回调带 code
+     *
+     * 注意：oauth2/authorize 端点仅在微信内置浏览器内有效；PC 端扫码登录
+     * （snsapi_login）请使用 {@see self::qrConnectUrl()}（开放平台 qrconnect 端点）。
+     *
+     * @param string $redirectUri 授权回调地址（本方法自动 urlencode）
+     * @param string $scope       snsapi_base（默认，静默）/ snsapi_userinfo（弹窗取资料）
+     * @param string $state       防 CSRF 随机串
+     * @param array<string, string> $extra 额外查询参数
+     *
+     * @throws InvalidArgumentException 渠道非微信公众号 / H5（大声失败）
+     */
+    public function authorizeUrl(
+        Channel $channel,
+        string $redirectUri,
+        string $scope = Oauth::SCOPE_BASE,
+        string $state = 'state',
+        array $extra = [],
+    ): string {
+        if ($channel !== Channel::WechatMp && $channel !== Channel::WechatH5) {
+            throw new InvalidArgumentException(
+                "渠道 [{$channel->value}] 暂不支持网页授权 URL 生成"
+                . '（oauth2/authorize 仅微信公众号 / H5；PC 扫码请用 qrConnectUrl）',
+            );
+        }
+
+        /** @var PlatformInterface $provider */
+        $provider = $this->kernelProvider('wechat');
+        $app      = $provider->app();
+        if (!$app instanceof WechatApp) {
+            throw new \RuntimeException('[wechat] Provider 实例类型异常，无法生成网页授权 URL');
+        }
+
+        return $app->oauth()->authorizeUrl(
+            $app->config()->appId(),
+            $redirectUri,
+            $scope,
+            $state,
+            extra: $extra,
+        );
+    }
+
+    /**
+     * 微信 PC 网站应用扫码登录 URL 生成（qrconnect 端点）
+     *
+     * 覆盖「开放平台网站应用扫码登录」第一步：生成展示二维码页面的 URL
+     * （scope 固定 snsapi_login）。用户扫码确认后微信回调 redirect_uri 并附上 code，
+     * 业务侧再拿 code 走 `authenticate(Channel::WechatPc, ['code' => $code])`
+     * （{@see \Kode\MiniApp\Union\Channels\WechatOpen\PcLoginAdapter}）完成登录。
+     *
+     * 业务侧用法：
+     *   $url = $kernel->union()->qrConnectUrl(
+     *       Channel::WechatPc,
+     *       'https://biz.example.com/wechat/pc/callback',  // 须为开放平台网站应用授权回调域
+     *       'csrf-state-xyz',
+     *   );
+     *   // 前端展示 $url 的二维码，回调后用 code 走 authenticate()
+     *
+     * appId 取值：配置 `site_app_id`（网站应用）优先，缺省回退 `app_id`，
+     * 与 {@see \Kode\MiniApp\Providers\WechatOpen\Modules\OpenApp::accessToken()} 的取值口径一致。
+     *
+     * @param string $redirectUri 授权回调域（本方法自动 urlencode）
+     * @param string $state       防 CSRF 随机串
+     * @param array<string, string> $extra 额外查询参数
+     *
+     * @throws InvalidArgumentException 渠道非微信 PC 网站应用（大声失败）
+     */
+    public function qrConnectUrl(
+        Channel $channel,
+        string $redirectUri,
+        string $state = 'state',
+        array $extra = [],
+    ): string {
+        if ($channel !== Channel::WechatPc) {
+            throw new InvalidArgumentException(
+                "渠道 [{$channel->value}] 暂不支持扫码登录 URL 生成"
+                . '（connect/qrconnect 仅微信 PC 网站应用；公众号网页授权请用 authorizeUrl）',
+            );
+        }
+
+        /** @var PlatformInterface $provider */
+        $provider = $this->kernelProvider('wechat_open');
+        $app      = $provider->app();
+        if (!$app instanceof WechatOpenApp) {
+            throw new \RuntimeException('[wechat_open] Provider 实例类型异常，无法生成扫码登录 URL');
+        }
+
+        $config    = $app->config();
+        $siteAppId = (string) ($config->get('site_app_id', '') ?: $config->appId());
+
+        return $app->openApp()->qrConnectUrl($siteAppId, $redirectUri, $state, extra: $extra);
     }
 
     /**
