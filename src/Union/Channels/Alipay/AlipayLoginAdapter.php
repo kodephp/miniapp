@@ -26,11 +26,19 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class AlipayLoginAdapter extends BaseAdapter implements LoginAdapter
 {
+    public function __construct(
+        \Kode\MiniApp\Contracts\KernelInterface $kernel,
+        private readonly ?Channel $target = null,
+    ) {
+        parent::__construct($kernel);
+    }
+
     #[\Override]
     public function channel(): Channel
     {
-        // 通过 payload 中的 'channel' 字段动态识别
-        return Channel::AlipayMini;
+        // 本适配器同时服务 AlipayMini / AlipayMp / AlipayApp 三个通道（buildLoginAdapter 注入目标通道），
+        // 未注入时保持旧行为返回 AlipayMini，保证向后兼容。
+        return $this->target ?? Channel::AlipayMini;
     }
 
     #[\Override]
@@ -38,10 +46,10 @@ final class AlipayLoginAdapter extends BaseAdapter implements LoginAdapter
     {
         $code = self::requireString($payload, 'code');
 
-        // 优先使用 payload 中的 channel，否则用默认
+        // 优先使用 payload 中的 channel，其次构造时注入的目标通道，最后默认 AlipayMini
         $channel = isset($payload['channel']) && is_string($payload['channel'])
             ? Channel::from($payload['channel'])
-            : Channel::AlipayMini;
+            : $this->channel();
 
         $provider = $this->provider('alipay');
         $app      = $provider->app();

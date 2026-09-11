@@ -23,10 +23,19 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class DouyinLoginAdapter extends BaseAdapter implements LoginAdapter
 {
+    public function __construct(
+        \Kode\MiniApp\Contracts\KernelInterface $kernel,
+        private readonly ?Channel $target = null,
+    ) {
+        parent::__construct($kernel);
+    }
+
     #[\Override]
     public function channel(): Channel
     {
-        return Channel::DouyinMini;
+        // 本适配器同时服务 DouyinMini / DouyinMp 两个通道（buildLoginAdapter 注入目标通道），
+        // 未注入时保持旧行为返回 DouyinMini，保证向后兼容。
+        return $this->target ?? Channel::DouyinMini;
     }
 
     #[\Override]
@@ -35,10 +44,10 @@ final class DouyinLoginAdapter extends BaseAdapter implements LoginAdapter
         $code         = self::requireString($payload, 'code');
         $anonymousCode = is_string($payload['anonymous_code'] ?? null) ? $payload['anonymous_code'] : '';
 
-        // 优先使用 payload 中的 channel
+        // 优先使用 payload 中的 channel，其次构造时注入的目标通道，最后默认 DouyinMini
         $channel = isset($payload['channel']) && is_string($payload['channel'])
             ? Channel::from($payload['channel'])
-            : Channel::DouyinMini;
+            : $this->channel();
 
         $provider = $this->provider('douyin');
         $app      = $provider->app();

@@ -517,6 +517,38 @@ $bizUser = User::where('union_id', $mini->unionId)->first();
 
 > 注意：小程序没有服务端用户资料接口，`nickname` / `avatar` 需由客户端通过 `wx.getUserProfile` 取得后随登录一并上报（经 `raw` 传入）。
 
+### 通道语义（零串味契约）
+
+`authenticate(Channel::X)` 产出的 `UnionUser->channel` **保证等于 X**。微信 Mp/H5、支付宝 Mini/Mp/App、抖音 Mini/Mp 等共用同一适配器的渠道，适配器在构造时注入目标通道（`buildLoginAdapter` 自动完成），`UnionUser->channel` 不会再串味为默认通道：
+
+```php
+use Kode\MiniApp\Union\Channel;
+
+$user = $kernel->union()->authenticate(Channel::WechatH5, ['code' => $code]);
+$user->channel === Channel::WechatH5;   // true（此前会串味为 wechat_mp）
+```
+
+自定义适配器注册（`registerLoginAdapter($adapter)`）以 `adapter->channel()->value` 为槽位键——由于共用适配器按目标通道区分 `channel()`，为 `wechat_h5` 注册独立实现不会再覆盖 `wechat_mp` 槽位。
+
+> 兼容性：直接 `new MpLoginAdapter($kernel)` 等手工构造（不注入通道）时保持旧行为（返回默认通道）。
+
+### 按环境分流（UA 判定助手）
+
+`Kode\MiniApp\Core\WechatEnv` 提供 UA 判定，配合 `Union::authorizeUrl()` / `Union::qrConnectUrl()`（见 `docs/wechat.md` / `docs/wechat-open.md`）实现微信内/外自动选通道：
+
+```php
+use Kode\MiniApp\Core\WechatEnv;
+use Kode\MiniApp\Union\Channel;
+
+$ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+$url = WechatEnv::isWechatBrowser($ua)
+    ? $kernel->union()->authorizeUrl(Channel::WechatH5, $callbackUrl, 'snsapi_userinfo', $state) // 微信内 → 公众号网页授权
+    : $kernel->union()->qrConnectUrl(Channel::WechatPc, $callbackUrl, $state);                   // 微信外 → 扫码
+
+// 企业微信单独判定（UA 含 wxwork）
+if (WechatEnv::isWechatWork($ua)) { /* ... */ }
+```
+
 ### 错误处理（真实对接）
 
 所有平台登录均按各开放平台真实接口契约校验错误，避免「无效 code / 过期 token」被静默当成成功：

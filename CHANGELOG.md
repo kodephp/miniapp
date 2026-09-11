@@ -2,6 +2,15 @@
 
 > 本文件随版本提交到仓库，作为对外发布记录（与 GitHub Releases / Packagist 同步）。
 
+## v2.0.42（2026-09-11 发布）
+
+### 登录适配器通道语义修复 + 环境判定助手
+
+- **修复通道串味 BUG**（业务侧审计 doc §2.3）：`MpLoginAdapter::channel()` 硬编码返回 `WechatMp`，导致 `authenticate(Channel::WechatH5)` 产出的 `UnionUser->channel` 串味为 `wechat_mp`，且无法为 `wechat_h5` 注册独立适配器（槽位键冲突）。按「适配器感知目标通道」方案修复：共用适配器（微信 Mp/H5、支付宝 Mini/Mp/App、抖音 Mini/Mp）构造时注入目标通道，`Union::buildLoginAdapter` 经反射自动传入；手工构造不注入时保持旧行为（向后兼容）。
+- **新增 `Core\WechatEnv`**：微信内置浏览器（含企业微信 `wxwork`）UA 判定助手（`isWechatBrowser` / `isWechatWork`，大小写不敏感），配合 `Union::authorizeUrl()` / `Union::qrConnectUrl()` 实现微信内/外自动分流。
+- 新增 `LoginChannelSemanticsTest`（8 例：H5/Mp 认证通道语义、自定义 H5 适配器注册不冲突 `wechat_mp` 槽位、共用适配器注入通道语义）+ `WechatEnvTest`（2 例 12 断言）。
+- 文档：`docs/union.md` 新增「通道语义（零串味契约）」与「按环境分流」章节。
+
 ## v2.0.41（2026-09-10 发布）
 
 ### 新增微信网页授权 / 扫码登录 URL 生成（Union 门面闭环）

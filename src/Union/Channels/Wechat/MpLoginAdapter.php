@@ -28,10 +28,19 @@ use Kode\MiniApp\Union\UnionUser;
  */
 final class MpLoginAdapter extends BaseAdapter implements LoginAdapter
 {
+    public function __construct(
+        \Kode\MiniApp\Contracts\KernelInterface $kernel,
+        private readonly ?Channel $target = null,
+    ) {
+        parent::__construct($kernel);
+    }
+
     #[\Override]
     public function channel(): Channel
     {
-        return Channel::WechatMp;
+        // 本适配器同时服务 WechatMp 与 WechatH5 两个通道（buildLoginAdapter 注入目标通道），
+        // 未注入时保持旧行为返回 WechatMp，保证向后兼容。
+        return $this->target ?? Channel::WechatMp;
     }
 
     #[\Override]
@@ -79,7 +88,7 @@ final class MpLoginAdapter extends BaseAdapter implements LoginAdapter
         }
 
         return UnionUser::fromRaw(
-            channel: Channel::WechatMp,
+            channel: $this->channel(),
             openId:  $openId,
             unionId: $unionId,
             raw:     $raw,

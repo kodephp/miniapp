@@ -8,6 +8,8 @@ use InvalidArgumentException;
 use Kode\MiniApp\Contracts\KernelInterface;
 use Kode\MiniApp\Contracts\PlatformInterface;
 use Kode\MiniApp\Core\PhoneNormalizer;
+use ReflectionClass;
+use ReflectionMethod;
 use Kode\MiniApp\Core\UserInfoNormalizer;
 use Kode\MiniApp\Providers\Alipay\AlipayApp;
 use Kode\MiniApp\Providers\Baidu\BaiduApp;
@@ -1291,6 +1293,21 @@ final class Union
             throw new InvalidArgumentException(
                 "渠道 [{$channel->label()}] 的登录适配器尚未实现：{$adapter}"
             );
+        }
+
+        // 共用适配器（如 MpLoginAdapter 服务 WechatMp/WechatH5）在构造器声明第二参数时
+        // 注入目标通道，保证 adapter->channel() 与 authenticate() 产出的 UnionUser->channel
+        // 与实际请求通道一致（零串味），且 registerLoginAdapter 槽位互不冲突。
+        $ctor = new ReflectionMethod($adapter, '__construct');
+        if ($ctor->getNumberOfParameters() >= 2) {
+            $instance = (new ReflectionClass($adapter))->newInstanceArgs([$this->kernel, $channel]);
+            if (!$instance instanceof LoginAdapter) {
+                throw new InvalidArgumentException(
+                    "渠道 [{$channel->label()}] 的登录适配器未实现 LoginAdapter 契约：{$adapter}"
+                );
+            }
+
+            return $instance;
         }
 
         return new $adapter($this->kernel);
