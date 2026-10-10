@@ -2,9 +2,9 @@
 
 多平台小程序、公众号、企业号统一接入 SDK。
 
-![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-![PHP Version](https://img.shields.io/badge/php-%3E%3D8.3-8892BF.svg)](https://php.net/)
-![Union](https://img.shields.io/badge/union-统一入口-success.svg)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![PHP Version](https://img.shields.io/badge/php-%3E%3D8.3-8892BF.svg)](https://php.net/)
+[![Union](https://img.shields.io/badge/union-统一入口-success.svg)](https://github.com/kodephp/framework)
 
 ## 特性
 
@@ -1764,4 +1764,4 @@ $kernel->union()->registerLoginAdapter(new MyLoginAdapter($kernel));
 
 ## 许可证
 
-Apache-2.0 License
+[Apache License 2.0](LICENSE)
