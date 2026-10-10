@@ -3,7 +3,7 @@
 多平台小程序、公众号、企业号统一接入 SDK。
 
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-[![PHP Version](https://img.shields.io/badge/php-%3E%3D8.3-8892BF.svg)](https://php.net/)
+[![PHP Version](https://img.shields.io/badge/php-%3E%3D8.4-8892BF.svg)](https://php.net/)
 [![Union](https://img.shields.io/badge/union-统一入口-success.svg)](https://github.com/kodephp/framework)
 
 ## 特性
@@ -12,7 +12,7 @@
 - **多端登录约束（SessionManager）**：内置 `SessionManager` 提供 4 种登录约束策略（多端可登录 / 单设备单账号 / 单账号单端 / 单账号全端），可应对优酷/腾讯视频/银行 App 等"禁止账号共享"场景
 - **多平台统一接入**：一套代码对接微信、支付宝、抖音、百度、QQ、企业微信、钉钉、飞书
 - **微信生态互联**：通过微信开放平台（Component）统一管理公众号、小程序、移动 App、PC 网站应用，账号体系（UnionID）互通
-- **PHP 8.3+ 现代化**：使用 readonly、enum、match、构造函数属性提升、nullsafe、命名参数、`__call`/`__callStatic` 魔术分发等新特性
+- **PHP 8.4+ 现代化**：使用 readonly、enum、match、构造函数属性提升、nullsafe、命名参数、`__call`/`__callStatic` 魔术分发等新特性
 - **企业级能力**：除 C 端小程序外，完整支持企业微信、钉钉、飞书的通讯录、审批、消息推送
 - **服务端消息处理**：统一处理各平台的消息推送和事件回调
 - **企业级支付**：2.0 起支付能力完全由 `kode/pays` 承载（composer 硬依赖），下单 / 验签 / 退款 / 分账 / 转账 / 对账统一经 kode/pays，付款人身份（openid / buyer_id）由本包登录后自动注入
