@@ -22,7 +22,7 @@ readonly class Robot
      * @param array<string, mixed> $message
      * @return array<string, mixed>
      */
-    public function send(string $webhook, string $secret, array $message): array
+    public function send(string $webhook, #[\SensitiveParameter] string $secret, array $message): array
     {
         $timestamp = time() * 1000;
         $sign      = $this->sign($timestamp, $secret);
@@ -39,7 +39,7 @@ readonly class Robot
      * @param array<string, mixed> $at
      * @return array<string, mixed>
      */
-    public function text(string $webhook, string $secret, string $content, array $at = []): array
+    public function text(string $webhook, #[\SensitiveParameter] string $secret, string $content, array $at = []): array
     {
         return $this->send($webhook, $secret, [
             'msgtype' => 'text',
@@ -54,7 +54,7 @@ readonly class Robot
      * @param array<string, mixed> $at
      * @return array<string, mixed>
      */
-    public function markdown(string $webhook, string $secret, string $title, string $text, array $at = []): array
+    public function markdown(string $webhook, #[\SensitiveParameter] string $secret, string $title, string $text, array $at = []): array
     {
         return $this->send($webhook, $secret, [
             'msgtype'  => 'markdown',
@@ -70,7 +70,7 @@ readonly class Robot
      */
     public function link(
         string $webhook,
-        string $secret,
+        #[\SensitiveParameter] string $secret,
         string $title,
         string $text,
         string $messageUrl,
@@ -93,7 +93,7 @@ readonly class Robot
      * @param array<string, mixed> $card
      * @return array<string, mixed>
      */
-    public function actionCard(string $webhook, string $secret, array $card): array
+    public function actionCard(string $webhook, #[\SensitiveParameter] string $secret, array $card): array
     {
         return $this->send($webhook, $secret, [
             'msgtype'    => 'action_card',
@@ -107,7 +107,7 @@ readonly class Robot
      * @param array<int, array<string, string>> $links
      * @return array<string, mixed>
      */
-    public function feedCard(string $webhook, string $secret, array $links): array
+    public function feedCard(string $webhook, #[\SensitiveParameter] string $secret, array $links): array
     {
         return $this->send($webhook, $secret, [
             'msgtype'  => 'feedCard',
@@ -118,7 +118,7 @@ readonly class Robot
     /**
      * 计算签名
      */
-    private function sign(int $timestamp, string $secret): string
+    private function sign(int $timestamp, #[\SensitiveParameter] string $secret): string
     {
         $string = $timestamp . "\n" . $secret;
         $hash   = hash_hmac('sha256', $string, $secret, true);

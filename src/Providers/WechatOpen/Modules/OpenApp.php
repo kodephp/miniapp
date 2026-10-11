@@ -64,7 +64,7 @@ readonly class OpenApp
     public function accessToken(
         string $code,
         ?string $appId = null,
-        ?string $secret = null,
+        #[\SensitiveParameter] ?string $secret = null,
     ): array {
         $config = $this->app->config()->all();
         $appId = $appId ?? (string) (
@@ -171,7 +171,7 @@ readonly class OpenApp
      *
      * @return array<string, mixed>
      */
-    public function mobileAccessToken(string $appId, string $secret, string $code): array
+    public function mobileAccessToken(string $appId, #[\SensitiveParameter] string $secret, string $code): array
     {
         return $this->accessToken($code, $appId, $secret);
     }

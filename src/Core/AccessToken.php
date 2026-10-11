@@ -49,7 +49,7 @@ final class AccessToken
     /**
      * 设置 token，自动计算过期时间（预留 60 秒缓冲）
      */
-    public function set(Platform $platform, string $appId, string $token, int $expiresIn = 7200): void
+    public function set(Platform $platform, string $appId, #[\SensitiveParameter] string $token, int $expiresIn = 7200): void
     {
         $this->cache->set(
             $this->key($platform, $appId),

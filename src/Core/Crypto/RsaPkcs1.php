@@ -34,7 +34,7 @@ final class RsaPkcs1
      *
      * @throws ApiException 私钥无效、密文非法 base64 或解密失败
      */
-    public static function decrypt(string $cipher, string $privateKey): string
+    public static function decrypt(string $cipher, #[\SensitiveParameter] string $privateKey): string
     {
         if (trim($privateKey) === '') {
             throw new ApiException('RSA 解密失败：未配置应用私钥', -1);
@@ -73,7 +73,7 @@ final class RsaPkcs1
      * @throws ApiException 解密失败或结果不是合法 JSON 对象
      * @return array<string, mixed>
      */
-    public static function decryptJson(string $cipher, string $privateKey): array
+    public static function decryptJson(string $cipher, #[\SensitiveParameter] string $privateKey): array
     {
         $payload = json_decode(self::decrypt($cipher, $privateKey), true);
         if (!is_array($payload)) {

@@ -44,7 +44,7 @@ final class Sign
      *
      * @param array<string, mixed> $params
      */
-    public static function rsa(array $params, string $privateKey, string $algo = 'sha256'): string
+    public static function rsa(array $params, #[\SensitiveParameter] string $privateKey, string $algo = 'sha256'): string
     {
         ksort($params);
 
@@ -54,7 +54,7 @@ final class Sign
     /**
      * 对原始字符串做 RSA 签名
      */
-    public static function rsaRaw(string $content, string $privateKey, string $algo = 'sha256'): string
+    public static function rsaRaw(string $content, #[\SensitiveParameter] string $privateKey, string $algo = 'sha256'): string
     {
         $key = openssl_pkey_get_private(self::normalizePrivateKey($privateKey));
         if ($key === false) {

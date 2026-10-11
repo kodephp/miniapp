@@ -19,7 +19,7 @@ readonly class Message
     /**
      * 校验服务器签名（接入时）
      */
-    public function verify(string $signature, string $timestamp, string $nonce, string $token = ''): bool
+    public function verify(string $signature, string $timestamp, string $nonce, #[\SensitiveParameter] string $token = ''): bool
     {
         $token = $token ?: $this->app->config()->get('token', '');
         $tmp   = [$token, $timestamp, $nonce];

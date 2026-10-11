@@ -28,7 +28,7 @@ final class V3Signer
     public function __construct(
         private readonly string $mchId,
         private readonly string $serialNo,
-        private readonly string $privateKey,
+        #[\SensitiveParameter] private readonly string $privateKey,
     ) {
     }
 

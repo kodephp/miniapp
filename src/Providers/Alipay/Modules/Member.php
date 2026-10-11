@@ -32,7 +32,7 @@ readonly class Member
      *
      * @return array<string, mixed>
      */
-    public function authInfo(string $authToken): array
+    public function authInfo(#[\SensitiveParameter] string $authToken): array
     {
         return $this->request('alipay.user.auth.token.query', [], $authToken);
     }
@@ -56,7 +56,7 @@ readonly class Member
      * @param array<string, mixed> $bizContent
      * @return array<string, mixed>
      */
-    private function request(string $method, array $bizContent, string $authToken = ''): array
+    private function request(string $method, array $bizContent, #[\SensitiveParameter] string $authToken = ''): array
     {
         $extra = $authToken !== '' ? ['auth_token' => $authToken] : [];
 
