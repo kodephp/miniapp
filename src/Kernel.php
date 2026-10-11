@@ -175,6 +175,7 @@ final class Kernel implements KernelInterface
     /**
      * 创建应用实例（快捷方式）
      */
+    #[\Override]
     public function app(Platform $platform, string $name = 'default'): AppInterface
     {
         return $this->get($platform)->app($name);
