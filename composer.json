@@ -19,7 +19,7 @@
     ],
     "homepage": "https://github.com/kode-lab/miniapp",
     "license": "Apache-2.0",
-    "version": "3.0.2",
+    "version": "3.0.3",
     "authors": [
         {
             "name": "Kode Lab",
@@ -28,6 +28,7 @@
     ],
     "require": {
         "php": "^8.4",
+        "ext-mbstring": "*",
         "ext-json": "*",
         "ext-openssl": "*",
         "guzzlehttp/guzzle": "^7.8",
@@ -48,6 +49,10 @@
         "kode/exception": "统一的异常处理组件，支持异常码体系、异常转换、异常上报",
         "kode/cache": "高性能缓存组件，支持文件、Redis、Memcached、APCu 等多种驱动",
         "kode/event": "轻量级事件编排库，支持事件派发、监听、订阅、异步事件"
+    },
+    "support": {
+        "issues": "https://github.com/kodephp/miniapp/issues",
+        "source": "https://github.com/kodephp/miniapp"
     },
     "autoload": {
         "psr-4": {
