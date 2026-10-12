@@ -411,14 +411,7 @@ final readonly class ApiResponse implements ArrayAccess, JsonSerializable, \Stri
      */
     private function alipayResponse(): ?array
     {
-        foreach ($this->data as $key => $value) {
-            if (is_array($value) && str_ends_with($key, '_response') && str_starts_with($key, 'alipay_')) {
-                /** @var array<string, mixed> $value */
-                return $value;
-            }
-        }
-
-        return null;
+        return array_find($this->data, fn($value, $key) => is_array($value) && str_ends_with($key, '_response') && str_starts_with($key, 'alipay_'));
     }
 
     /**

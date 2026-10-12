@@ -125,13 +125,7 @@ final class LogSanitizer
     public static function isSensitive(string $key): bool
     {
         $key = strtolower($key);
-        foreach (self::SENSITIVE_KEYS as $sensitive) {
-            if (str_contains($key, $sensitive)) {
-                return true;
-            }
-        }
-
-        return false;
+        return array_any(self::SENSITIVE_KEYS, fn($sensitive) => str_contains($key, $sensitive));
     }
 
     /**
