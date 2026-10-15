@@ -85,6 +85,7 @@ class PaysBridgeAlipayCoreSignChainTest extends TestCase
      *
      * @param array<int|string, mixed> $params 含 sign 字段的出站参数
      */
+    /** @param array<string, mixed> $params */
     private function assertRsa2Verified(array $params): void
     {
         self::assertNotEmpty($params['sign'] ?? null, '出站请求必须带 RSA2 签名');

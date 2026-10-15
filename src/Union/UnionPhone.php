@@ -27,9 +27,9 @@ final readonly class UnionPhone implements JsonSerializable
      * @param array<string, mixed> $raw 原始手机号数组（含 phoneNumber / purePhoneNumber / countryCode 及平台原始字段）
      */
     public function __construct(
-        public string $phoneNumber,
-        public string $purePhoneNumber,
-        public string $countryCode,
+        public private(set) string $phoneNumber,
+        public private(set) string $purePhoneNumber,
+        public private(set) string $countryCode,
         public array $raw = [],
     ) {
     }

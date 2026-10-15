@@ -25,7 +25,7 @@ final readonly class TokenResult
      */
     public function __construct(
         public mixed $value,
-        public int $expiresIn = self::DEFAULT_EXPIRES_IN,
+        public private(set) int $expiresIn = self::DEFAULT_EXPIRES_IN,
     ) {
     }
 }

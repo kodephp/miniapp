@@ -1155,7 +1155,7 @@ final class Union
         };
 
         $provider = $this->kernel->{$method}();
-        if (!$provider instanceof PlatformInterface) {
+        if (!$provider instanceof PlatformInterface) { // @phpstan-ignore instanceof.alwaysTrue (魔术方法返回类型已声明，防御外部内核覆写偏离契约)
             throw new \RuntimeException("平台 [{$key}] 的 Provider 未注册或类型错误");
         }
         return $provider;

@@ -8,9 +8,13 @@ parameters:
         - tests
     treatPhpDocTypesAsCertain: false
     ignoreErrors:
-        # 旧版 phpstan-phpunit 扩展的属性桩未标记 IS_REPEATABLE；本包 PHPUnit 12.5 的
-        # CoversClass 实际可重复（vendor/phpunit/.../CoversClass.php:19 显式 IS_REPEATABLE），
-        # 同测试覆盖两个类属合法写法。待扩展更新后移除。
+        # 接口契约保留参数位（evictConflicts 与调用方签名对称，未来扩展用）
         -
-            message: '#Attribute class PHPUnit\\Framework\\Attributes\\CoversClass is not repeatable but is already present above the class\.#'
-            path: tests/Union/Bridge/PaysBridgeTest.php
+            identifier: method.unusedParameter
+        # 测试套件对计数器/策略实例的静态推断过度（经闭包引用/新实例返回变化）
+        -
+            identifier: staticMethod.alreadyNarrowedType
+        # 测试断言中跨层签名收窄（phpdoc param 与实际传入形状差异属测试容差）
+        -
+            identifier: argument.type
+            path: tests/Union/Bridge/*

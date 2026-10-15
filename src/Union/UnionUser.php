@@ -30,7 +30,7 @@ final readonly class UnionUser implements JsonSerializable
      */
     public function __construct(
         public string $unionId,
-        public string $openId,
+        public private(set) string $openId,
         public Channel $channel,
         public ?string $nickname = null,
         public ?string $avatar = null,

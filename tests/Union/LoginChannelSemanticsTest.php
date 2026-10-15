@@ -95,6 +95,8 @@ final class LoginChannelSemanticsTest extends TestCase
         self::assertSame($expected, $adapter->channel());
     }
 
+    /** @return \Generator<string, mixed>
+     */
     public static function targetChannelProvider(): \Generator
     {
         yield 'alipay_mp' => [

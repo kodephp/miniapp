@@ -22,6 +22,8 @@ final class WechatEnvTest extends TestCase
         }
     }
 
+    /** @return \Generator<string, mixed>
+     */
     public static function detectorProvider(): \Generator
     {
         yield 'isWechatBrowser' => [

@@ -42,12 +42,12 @@ final readonly class RetryPolicy
      * @param bool             $respectRetryAfter 是否遵循 Retry-After 响应头
      */
     public function __construct(
-        public int $times = 3,
-        public int $baseDelay = 200,
-        public int $maxDelay = 5_000,
+        public private(set) int $times = 3,
+        public private(set) int $baseDelay = 200,
+        public private(set) int $maxDelay = 5_000,
         public bool $jitter = true,
-        public array $retryStatus = self::DEFAULT_RETRY_STATUS,
-        public bool $respectRetryAfter = true,
+        public private(set) array $retryStatus = self::DEFAULT_RETRY_STATUS,
+        public private(set) bool $respectRetryAfter = true,
     ) {
     }
 

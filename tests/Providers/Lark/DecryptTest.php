@@ -116,7 +116,7 @@ class DecryptTest extends TestCase
         $app = $this->makeApp();
 
         $payload = ['phoneNumber' => '13800138000'];
-        [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
+        [$encrypted, , $iv] = $this->encrypt($payload);
         $wrongSessionKey = bin2hex(random_bytes(16));
 
         $this->expectException(ApiException::class);

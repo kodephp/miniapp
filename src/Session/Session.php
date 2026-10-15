@@ -27,7 +27,7 @@ final readonly class Session
         /**
          * 平台内 OpenID
          */
-        public string $openId,
+        public private(set) string $openId,
         /**
          * 登录渠道（如 Channel::WechatMini）
          */
@@ -35,7 +35,7 @@ final readonly class Session
         /**
          * 端口场景（mini / mp / h5 / pc / app / open）
          */
-        public string $scene,
+        public private(set) string $scene,
         /**
          * 客户端类型（web / ios / android / mp / mini / pc）
          */
@@ -47,7 +47,7 @@ final readonly class Session
         /**
          * 登录 IP
          */
-        public string $ip,
+        public private(set) string $ip,
         /**
          * User-Agent
          */
@@ -59,7 +59,7 @@ final readonly class Session
         /**
          * 过期时间（Unix 时间戳）
          */
-        public int $expiresAt,
+        public private(set) int $expiresAt,
         /**
          * 业务自定义载荷
          *

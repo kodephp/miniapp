@@ -155,7 +155,7 @@ class DecryptTest extends TestCase
             'watermark' => ['appid' => self::APP_ID, 'timestamp' => 1495788248],
         ];
 
-        [$encrypted, $sessionKey, $iv] = $this->encrypt($payload);
+        [$encrypted, , $iv] = $this->encrypt($payload);
         $wrongSessionKey  = base64_encode(random_bytes(16));
 
         $this->expectException(ApiException::class);
