@@ -175,7 +175,7 @@ class PlatformUnionTest extends TestCase
         // 重置静态 kernel
         $reflection = new \ReflectionClass(Union::class);
         $property = $reflection->getProperty('globalKernel');
-        $property->setAccessible(true);
+        // PHP 8.1+ 反射属性默认可访问，setAccessible 自 8.5 起已弃用（且一直无效果）
         $property->setValue(null, null);
 
         $this->expectException(\RuntimeException::class);

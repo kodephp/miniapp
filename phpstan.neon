@@ -7,3 +7,10 @@ parameters:
         - src
         - tests
     treatPhpDocTypesAsCertain: false
+    ignoreErrors:
+        # 旧版 phpstan-phpunit 扩展的属性桩未标记 IS_REPEATABLE；本包 PHPUnit 12.5 的
+        # CoversClass 实际可重复（vendor/phpunit/.../CoversClass.php:19 显式 IS_REPEATABLE），
+        # 同测试覆盖两个类属合法写法。待扩展更新后移除。
+        -
+            message: '#Attribute class PHPUnit\\Framework\\Attributes\\CoversClass is not repeatable but is already present above the class\.#'
+            path: tests/Union/Bridge/PaysBridgeTest.php
